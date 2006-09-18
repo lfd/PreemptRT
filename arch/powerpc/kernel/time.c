@@ -505,7 +505,7 @@ void timer_interrupt(struct pt_regs * regs)
 		if (per_cpu(last_jiffy, cpu) >= tb_next_jiffy) {
 			tb_last_jiffy = tb_next_jiffy;
 			do_timer(1);
-			timer_recalc_offset(tb_last_jiffy);
+			/*timer_recalc_offset(tb_last_jiffy);*/
 			timer_check_rtc();
 		}
 		write_sequnlock(&xtime_lock);
@@ -900,22 +900,23 @@ void div128_by_32(u64 dividend_high, u64 dividend_low,
 
 }
 
-
-/* powerpc clocksource code */
+/* PowerPC clocksource code */
 
 #include <linux/clocksource.h>
+
 static cycle_t timebase_read(void)
 {
 	return (cycle_t)get_tb();
 }
 
 struct clocksource clocksource_timebase = {
-	.name = "timebase",
-	.rating = 200,
-	.read = timebase_read,
-	.mask = (cycle_t)-1,
-	.mult = 0,
-	.shift = 22,
+	.name		= "timebase",
+	.rating		= 200,
+	.read		= timebase_read,
+	.mask		= (cycle_t)-1,
+	.mult		= 0,
+	.shift		= 22,
+	.is_continuous	= 1,
 };
 
 
@@ -931,4 +932,3 @@ static int __init init_timebase_clocksource(void)
 }
 
 module_init(init_timebase_clocksource);
-

@@ -39,9 +39,9 @@ void clear_user_page(void *to, unsigned long address, struct page *page)
 		entry = pfn_pte(phys_addr >> PAGE_SHIFT, PAGE_KERNEL);
 		mutex_lock(&p3map_mutex[(address & CACHE_ALIAS)>>12]);
 		set_pte(pte, entry);
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		flush_tlb_one(get_asid(), p3_addr);
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 		update_mmu_cache(NULL, p3_addr, entry);
 		__clear_user_page((void *)p3_addr, to);
 		pte_clear(&init_mm, p3_addr, pte);
@@ -75,9 +75,9 @@ void copy_user_page(void *to, void *from, unsigned long address,
 		entry = pfn_pte(phys_addr >> PAGE_SHIFT, PAGE_KERNEL);
 		mutex_lock(&p3map_mutex[(address & CACHE_ALIAS)>>12]);
 		set_pte(pte, entry);
-		local_irq_save(flags);
+		raw_local_irq_save(flags);
 		flush_tlb_one(get_asid(), p3_addr);
-		local_irq_restore(flags);
+		raw_local_irq_restore(flags);
 		update_mmu_cache(NULL, p3_addr, entry);
 		__copy_user_page((void *)p3_addr, from, to);
 		pte_clear(&init_mm, p3_addr, pte);

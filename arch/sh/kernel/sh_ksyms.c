@@ -26,7 +26,6 @@ EXPORT_SYMBOL(sh_mv);
 /* platform dependent support */
 EXPORT_SYMBOL(dump_fpu);
 EXPORT_SYMBOL(kernel_thread);
-EXPORT_SYMBOL(irq_desc);
 EXPORT_SYMBOL(no_irq_type);
 
 EXPORT_SYMBOL(strlen);
@@ -50,9 +49,9 @@ EXPORT_SYMBOL(get_vm_area);
 #endif
 
 /* semaphore exports */
-EXPORT_SYMBOL(__up);
-EXPORT_SYMBOL(__down);
-EXPORT_SYMBOL(__down_interruptible);
+EXPORT_SYMBOL(__compat_up);
+EXPORT_SYMBOL(__compat_down);
+EXPORT_SYMBOL(__compat_down_interruptible);
 
 EXPORT_SYMBOL(__udelay);
 EXPORT_SYMBOL(__ndelay);
@@ -98,7 +97,7 @@ EXPORT_SYMBOL(__flush_purge_region);
 EXPORT_SYMBOL(clear_user_page);
 #endif
 
-EXPORT_SYMBOL(__down_trylock);
+EXPORT_SYMBOL(__compat_down_trylock);
 
 #ifdef CONFIG_SMP
 EXPORT_SYMBOL(synchronize_irq);

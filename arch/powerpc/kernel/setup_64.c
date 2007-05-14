@@ -605,3 +605,22 @@ struct ppc_pci_io ppc_pci_io;
 EXPORT_SYMBOL(ppc_pci_io);
 #endif /* CONFIG_PPC_INDIRECT_IO */
 
+#ifdef CONFIG_STACKTRACE
+#include <linux/stacktrace.h>
+void notrace save_stack_trace(struct stack_trace *trace,
+		      struct task_struct *task)
+{
+}
+#endif /* CONFIG_STACKTRACE */
+
+#ifdef CONFIG_EARLY_PRINTK
+void notrace early_printk(const char *fmt, ...)
+{
+	BUG();
+}
+#endif /* CONFIG_EARLY_PRINTK */
+
+#ifdef CONFIG_MCOUNT
+extern void _mcount(void);
+EXPORT_SYMBOL(_mcount);
+#endif /* CONFIG_MCOUNT */

@@ -926,6 +926,9 @@ static int __init init_timebase_clocksource(void)
 	if (__USE_RTC())
 		return -ENODEV;
 
+#ifdef CONFIG_PPC64
+	clocksource_timebase.shift = tb_ticks_per_jiffy / 1000000;
+#endif
 	clocksource_timebase.mult = clocksource_hz2mult(tb_ticks_per_sec,
 					clocksource_timebase.shift);
 	return clocksource_register(&clocksource_timebase);

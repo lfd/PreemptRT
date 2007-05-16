@@ -65,21 +65,3 @@ V_FUNCTION_BEGIN(__kernel_get_syscall_map)
 	blr
   .cfi_endproc
 V_FUNCTION_END(__kernel_get_syscall_map)
-
-/*
- * void unsigned long long  __kernel_get_tbfreq(void);
- *
- * returns the timebase frequency in HZ
- */
-V_FUNCTION_BEGIN(__kernel_get_tbfreq)
-  .cfi_startproc
-	mflr	r12
-  .cfi_register lr,r12
-	bl	__get_datapage@local
-	lwz	r4,(CFG_TB_TICKS_PER_SEC + 4)(r3)
-	lwz	r3,CFG_TB_TICKS_PER_SEC(r3)
-	mtlr	r12
-	crclr	cr0*4+so
-	blr
-  .cfi_endproc
-V_FUNCTION_END(__kernel_get_tbfreq)

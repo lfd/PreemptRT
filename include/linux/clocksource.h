@@ -189,9 +189,9 @@ static inline s64 cyc2ns(struct clocksource *cs, cycle_t cycles)
  * @cs:		Pointer to clocksource
  * @nsecs:	Nanoseconds
  */
-static inline cycles_t ns2cyc(struct clocksource *cs, u64 nsecs)
+static inline cycle_t ns2cyc(struct clocksource *cs, u64 nsecs)
 {
-	cycles_t ret = nsecs << cs->shift;
+	cycle_t ret = nsecs << cs->shift;
 
 	do_div(ret, cs->mult + 1);
 

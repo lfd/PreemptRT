@@ -502,7 +502,6 @@ static struct irq_chip xics_pic_direct = {
 	.startup = xics_startup,
 	.mask = xics_mask_irq,
 	.unmask = xics_unmask_irq,
-	.ack = xics_eoi_direct,
 	.eoi = xics_eoi_direct,
 	.set_affinity = xics_set_affinity
 };
@@ -513,7 +512,6 @@ static struct irq_chip xics_pic_lpar = {
 	.startup = xics_startup,
 	.mask = xics_mask_irq,
 	.unmask = xics_unmask_irq,
-	.ack = xics_eoi_lpar,
 	.eoi = xics_eoi_lpar,
 	.set_affinity = xics_set_affinity
 };

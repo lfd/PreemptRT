@@ -655,30 +655,45 @@ void __init generic_calibrate_decr(void)
 #endif
 }
 
-unsigned long get_boot_time(void)
+unsigned long read_persistent_clock(void)
 {
-	struct rtc_time tm;
+	unsigned long time = 0;
+	static int first = 1;
+
+	if (first && ppc_md.time_init) {
+		timezone_offset = ppc_md.time_init();
+
+		/* If platform provided a timezone (pmac), we correct the time */
+		if (timezone_offset) {
+			sys_tz.tz_minuteswest = -timezone_offset / 60;
+			sys_tz.tz_dsttime = 0;
+		}
+	}
 
 	if (ppc_md.get_boot_time)
-		return ppc_md.get_boot_time();
-	if (!ppc_md.get_rtc_time)
-		return 0;
-	ppc_md.get_rtc_time(&tm);
-	return mktime(tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,
-		      tm.tm_hour, tm.tm_min, tm.tm_sec);
+		time = ppc_md.get_boot_time();
+	else if (ppc_md.get_rtc_time) {
+		struct rtc_time tm;
+
+		ppc_md.get_rtc_time(&tm);
+		time = mktime(tm.tm_year+1900, tm.tm_mon+1, tm.tm_mday,
+			      tm.tm_hour, tm.tm_min, tm.tm_sec);
+	}
+	time -= timezone_offset;
+
+	if (first) {
+		last_rtc_update = time;
+		first = 0;
+	}
+	return time;
 }
 
 /* This function is only called on the boot processor */
 void __init time_init(void)
 {
-	unsigned long flags;
-	unsigned long tm = 0;
 	struct div_result res;
 	u64 scale, x;
 	unsigned shift;
-
-        if (ppc_md.time_init != NULL)
-                timezone_offset = ppc_md.time_init();
 
 	if (__USE_RTC()) {
 		/* 601 processor: dec counts down by 128 every 128ns */
@@ -753,27 +768,6 @@ void __init time_init(void)
 	tb_to_ns_shift = shift;
 	/* Save the current timebase to pretty up CONFIG_PRINTK_TIME */
 	boot_tb = get_tb();
-
-	tm = get_boot_time();
-
-	write_seqlock_irqsave(&xtime_lock, flags);
-
-	/* If platform provided a timezone (pmac), we correct the time */
-        if (timezone_offset) {
-		sys_tz.tz_minuteswest = -timezone_offset / 60;
-		sys_tz.tz_dsttime = 0;
-		tm -= timezone_offset;
-        }
-
-	xtime.tv_sec = tm;
-	xtime.tv_nsec = 0;
-
-	time_freq = 0;
-
-	last_rtc_update = xtime.tv_sec;
-	set_normalized_timespec(&wall_to_monotonic,
-	                        -xtime.tv_sec, -xtime.tv_nsec);
-	write_sequnlock_irqrestore(&xtime_lock, flags);
 
 	/* Not exact, but the timer interrupt takes care of this */
 	set_dec(tb_ticks_per_jiffy);

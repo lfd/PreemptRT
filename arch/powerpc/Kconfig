@@ -351,7 +351,7 @@ config PPC_MM_SLICES
 
 config VIRT_CPU_ACCOUNTING
 	bool "Deterministic task and CPU time accounting"
-	depends on PPC64
+	depends on PPC64 && !GENERIC_CLOCKEVENTS
 	default y
 	help
 	  Select this option to enable more accurate task and CPU time
@@ -410,6 +410,16 @@ config HIGHMEM
 	depends on PPC32
 
 source kernel/Kconfig.hz
+
+config GENERIC_CLOCKEVENTS
+	bool "Clock event devices support"
+	default n
+	help
+	  Enable support for the clock event devices necessary for the
+	  high-resolution timers and the tickless system support.
+	  NOTE: This is not compatible with the deterministic time accounting
+	  option on PPC64.
+
 source kernel/Kconfig.preempt
 source "fs/Kconfig.binfmt"
 

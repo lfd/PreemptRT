@@ -52,6 +52,7 @@
 #include <linux/jiffies.h>
 #include <linux/posix-timers.h>
 #include <linux/irq.h>
+#include <linux/clockchips.h>
 
 #include <asm/io.h>
 #include <asm/processor.h>
@@ -125,6 +126,83 @@ unsigned long ppc_tb_freq;
 
 static u64 tb_last_jiffy __cacheline_aligned_in_smp;
 static DEFINE_PER_CPU(u64, last_jiffy);
+
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+
+#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+#define DECREMENTER_MAX 0xffffffff
+#else
+#define DECREMENTER_MAX 0x7fffffff /* setting MSB triggers an interrupt */
+#endif
+
+static int decrementer_set_next_event(unsigned long evt,
+				      struct clock_event_device *dev)
+{
+#if defined(CONFIG_40x)
+	mtspr(SPRN_PIT, evt);	/* 40x has a hidden PIT auto-reload register */
+#elif defined(CONFIG_BOOKE)
+	mtspr(SPRN_DECAR, evt); /* Book E has  separate auto-reload register */
+	set_dec(evt);
+#else
+	set_dec(evt - 1);	/* Classic decrementer interrupts at -1 */
+#endif
+	return 0;
+}
+
+static void decrementer_set_mode(enum	clock_event_mode   mode,
+				 struct clock_event_device *dev)
+{
+#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+	u32 tcr = mfspr(SPRN_TCR);
+
+	tcr |= TCR_DIE;
+	switch (mode) {
+	case CLOCK_EVT_MODE_PERIODIC:
+		tcr |=  TCR_ARE;
+		break;
+	case CLOCK_EVT_MODE_ONESHOT:
+		tcr &= ~TCR_ARE;
+		break;
+	case CLOCK_EVT_MODE_UNUSED:
+	case CLOCK_EVT_MODE_SHUTDOWN:
+		tcr &= ~TCR_DIE;
+		break;
+	}
+	mtspr(SPRN_TCR, tcr);
+#endif
+	if (mode == CLOCK_EVT_MODE_PERIODIC)
+		decrementer_set_next_event(tb_ticks_per_jiffy, dev);
+}
+
+static struct clock_event_device decrementer_clockevent = {
+	.name		= "decrementer",
+#if defined(CONFIG_40x) || defined(CONFIG_BOOKE)
+	.features	= CLOCK_EVT_FEAT_ONESHOT | CLOCK_EVT_FEAT_PERIODIC,
+#else
+	.features	= CLOCK_EVT_FEAT_ONESHOT,
+#endif
+	.shift		= 32,
+	.rating		= 200,
+	.irq		= -1,
+	.set_next_event	= decrementer_set_next_event,
+	.set_mode	= decrementer_set_mode,
+};
+
+static DEFINE_PER_CPU(struct clock_event_device, decrementers);
+
+static void register_decrementer(void)
+{
+	int cpu = smp_processor_id();
+	struct clock_event_device *decrementer = &per_cpu(decrementers, cpu);
+
+	memcpy(decrementer, &decrementer_clockevent, sizeof(*decrementer));
+
+	decrementer->cpumask = cpumask_of_cpu(cpu);
+
+	clockevents_register_device(decrementer);
+}
+
+#endif /* CONFIG_GENERIC_CLOCKEVENTS */
 
 #ifdef CONFIG_VIRT_CPU_ACCOUNTING
 /*
@@ -317,6 +395,9 @@ void snapshot_timebase(void)
 {
 	__get_cpu_var(last_jiffy) = get_tb();
 	snapshot_purr();
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+	register_decrementer();
+#endif
 }
 
 void __delay(unsigned long loops)
@@ -489,7 +570,31 @@ void timer_interrupt(struct pt_regs * regs)
 	old_regs = set_irq_regs(regs);
 	irq_enter();
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+#ifdef CONFIG_PPC_MULTIPLATFORM
+	/*
+	 * We must write a positive value to the decrementer to clear
+	 * the interrupt on the IBM 970 CPU series.  In periodic mode,
+	 * this happens when the decrementer gets reloaded later, but
+	 * in one-shot mode, we have to do it here since an event handler
+	 * may skip loading the new value...
+	 */
+	if (per_cpu(decrementers, cpu).mode != CLOCK_EVT_MODE_PERIODIC)
+		set_dec(DECREMENTER_MAX);
+#endif
+	/*
+	 * We can't disable the decrementer, so in the period between
+	 * CPU being marked offline and calling stop-self, it's taking
+	 * timer interrupts...
+	 */
+	if (!cpu_is_offline(cpu)) {
+		struct clock_event_device *dev = &per_cpu(decrementers, cpu);
+
+		dev->event_handler(dev);
+	}
+#else
 	profile_tick(CPU_PROFILING);
+#endif
 	calculate_steal_time();
 
 #ifdef CONFIG_PPC_ISERIES
@@ -505,6 +610,7 @@ void timer_interrupt(struct pt_regs * regs)
 		if (__USE_RTC() && per_cpu(last_jiffy, cpu) >= 1000000000)
 			per_cpu(last_jiffy, cpu) -= 1000000000;
 
+#ifndef CONFIG_GENERIC_CLOCKEVENTS
 		/*
 		 * We cannot disable the decrementer, so in the period
 		 * between this cpu's being marked offline in cpu_online_map
@@ -514,6 +620,7 @@ void timer_interrupt(struct pt_regs * regs)
 		 */
 		if (!cpu_is_offline(cpu))
 			account_process_time(regs);
+#endif
 
 		/*
 		 * No need to check whether cpu is offline here; boot_cpuid
@@ -526,15 +633,19 @@ void timer_interrupt(struct pt_regs * regs)
 		tb_next_jiffy = tb_last_jiffy + tb_ticks_per_jiffy;
 		if (per_cpu(last_jiffy, cpu) >= tb_next_jiffy) {
 			tb_last_jiffy = tb_next_jiffy;
+#ifndef CONFIG_GENERIC_CLOCKEVENTS
 			do_timer(1);
+#endif
 			/*timer_recalc_offset(tb_last_jiffy);*/
 			timer_check_rtc();
 		}
 		write_sequnlock(&xtime_lock);
 	}
-	
+
+#ifndef CONFIG_GENERIC_CLOCKEVENTS
 	next_dec = tb_ticks_per_jiffy - ticks;
 	set_dec(next_dec);
+#endif
 
 #ifdef CONFIG_PPC_ISERIES
 	if (firmware_has_feature(FW_FEATURE_ISERIES) && hvlpevent_is_pending())
@@ -769,8 +880,19 @@ void __init time_init(void)
 	/* Save the current timebase to pretty up CONFIG_PRINTK_TIME */
 	boot_tb = get_tb();
 
+#ifdef CONFIG_GENERIC_CLOCKEVENTS
+	decrementer_clockevent.mult = div_sc(ppc_tb_freq, NSEC_PER_SEC,
+					     decrementer_clockevent.shift);
+	decrementer_clockevent.max_delta_ns =
+		clockevent_delta2ns(DECREMENTER_MAX, &decrementer_clockevent);
+	decrementer_clockevent.min_delta_ns =
+		clockevent_delta2ns(0xf, &decrementer_clockevent);
+
+	register_decrementer();
+#else
 	/* Not exact, but the timer interrupt takes care of this */
 	set_dec(tb_ticks_per_jiffy);
+#endif
 }
 
 #define FEBRUARY	2

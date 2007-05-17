@@ -867,7 +867,6 @@ void mpic_set_vector(unsigned int virq, unsigned int vector)
 static struct irq_chip mpic_irq_chip = {
 	.mask		= mpic_mask_irq,
 	.unmask		= mpic_unmask_irq,
-	.ack		= mpic_end_irq,
 	.eoi		= mpic_end_irq,
 	.set_type	= mpic_set_irq_type,
 };

@@ -324,6 +324,7 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
+#ifdef CONFIG_FUTEX
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "futex_performance_hack",
@@ -332,6 +333,7 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
+#endif
 	{
 		.ctl_name	= KERN_PANIC,
 		.procname	= "prof_pid",

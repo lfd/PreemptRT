@@ -623,8 +623,15 @@ do_work:
 
 user_work:
 #endif
+	andi.	r0,r4,_TIF_NEED_RESCHED
+	beq	1f
+
+	/* preempt_schedule_irq() expects interrupts disabled. */
+	bl	.preempt_schedule_irq
+	b	.ret_from_except_lite
+
 	/* here we are preempting the current task */
-	li	r0,1
+1:	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)
 	stb	r0,PACAHARDIRQEN(r13)
 
@@ -632,12 +639,7 @@ user_work:
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1
 
-	andi.	r0,r4,_TIF_NEED_RESCHED
-	beq	1f
-	bl	.schedule
-	b	.ret_from_except_lite
-
-1:	bl	.save_nvgprs
+	bl	.save_nvgprs
 	li	r3,0
 	addi	r4,r1,STACK_FRAME_OVERHEAD
 	bl	.do_signal

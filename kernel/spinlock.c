@@ -366,7 +366,7 @@ __spin_lock_irqsave_nested(raw_spinlock_t *lock, int subclass)
 #endif
 	return flags;
 }
-EXPORT_SYMBOL(_spin_lock_irqsave_nested);
+EXPORT_SYMBOL(__spin_lock_irqsave_nested);
 
 #endif
 

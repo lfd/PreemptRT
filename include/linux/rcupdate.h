@@ -227,6 +227,7 @@ extern void rcu_barrier(void);
 extern void rcu_init(void);
 extern void rcu_advance_callbacks(int cpu, int user);
 extern void rcu_check_callbacks(int cpu, int user);
+extern long rcu_batches_completed_bh(void);
 
 #endif /* __KERNEL__ */
 #endif /* __LINUX_RCUPDATE_H */

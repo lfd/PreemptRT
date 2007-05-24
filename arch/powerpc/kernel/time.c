@@ -166,11 +166,14 @@ static void decrementer_set_mode(enum	clock_event_mode   mode,
 	case CLOCK_EVT_MODE_SHUTDOWN:
 		tcr &= ~TCR_DIE;
 		break;
+	case CLOCK_EVT_MODE_RESUME:
+		break;
 	}
 	mtspr(SPRN_TCR, tcr);
-#endif
+
 	if (mode == CLOCK_EVT_MODE_PERIODIC)
 		decrementer_set_next_event(tb_ticks_per_jiffy, dev);
+#endif
 }
 
 static struct clock_event_device decrementer_clockevent = {
@@ -549,16 +552,12 @@ void timer_interrupt(struct pt_regs * regs)
 	irq_enter();
 
 #ifdef CONFIG_GENERIC_CLOCKEVENTS
-#ifdef CONFIG_PPC_MULTIPLATFORM
+#if !defined(CONFIG_40x) && !defined(CONFIG_BOOKE)
 	/*
 	 * We must write a positive value to the decrementer to clear
-	 * the interrupt on the IBM 970 CPU series.  In periodic mode,
-	 * this happens when the decrementer gets reloaded later, but
-	 * in one-shot mode, we have to do it here since an event handler
-	 * may skip loading the new value...
+	 * the interrupt on POWER4+ compatible CPUs.
 	 */
-	if (per_cpu(decrementers, cpu).mode != CLOCK_EVT_MODE_PERIODIC)
-		set_dec(DECREMENTER_MAX);
+	set_dec(DECREMENTER_MAX);
 #endif
 	/*
 	 * We can't disable the decrementer, so in the period between

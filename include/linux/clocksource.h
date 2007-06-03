@@ -23,6 +23,7 @@ struct clocksource;
 
 extern unsigned long preempt_max_latency;
 extern unsigned long preempt_thresh;
+extern unsigned long preempt_mark_thresh;
 
 /**
  * struct clocksource - hardware abstraction for a free running counter

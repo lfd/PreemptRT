@@ -1296,11 +1296,13 @@ static void notrace l_stop(struct seq_file *m, void *p)
 	up(&out_mutex);
 }
 
+unsigned long preempt_mark_thresh = 100;
+
 static void print_timestamp(struct seq_file *m, unsigned long abs_usecs,
 						unsigned long rel_usecs)
 {
 	seq_printf(m, " %4ldus", abs_usecs);
-	if (rel_usecs > 100)
+	if (rel_usecs > preempt_mark_thresh)
 		seq_puts(m, "!: ");
 	else if (rel_usecs > 1)
 		seq_puts(m, "+: ");

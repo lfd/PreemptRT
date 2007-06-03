@@ -324,6 +324,14 @@ static ctl_table kern_table[] = {
 #ifdef CONFIG_EVENT_TRACE
 	{
 		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "preempt_mark_thresh",
+		.data		= &preempt_mark_thresh,
+		.maxlen		= sizeof(preempt_mark_thresh),
+		.mode		= 0644,
+		.proc_handler	= &proc_doulongvec_minmax,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "trace_enabled",
 		.data		= &trace_enabled,
 		.maxlen		= sizeof(int),

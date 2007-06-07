@@ -57,7 +57,6 @@
 struct rcu_data {
 	spinlock_t	lock;
 	long		completed;	/* Number of last completed batch. */
-	struct tasklet_struct rcu_tasklet;
 	struct rcu_head *nextlist;
 	struct rcu_head **nexttail;
 	struct rcu_head *waitlist;
@@ -255,7 +254,7 @@ void rcu_check_callbacks(int cpu, int user)
 		spin_unlock_irqrestore(&rcu_data.lock, oldirq);
 	} else {
 		spin_unlock_irqrestore(&rcu_data.lock, oldirq);
-		tasklet_schedule(&rcu_data.rcu_tasklet);
+		raise_softirq(RCU_SOFTIRQ);
 	}
 }
 
@@ -279,7 +278,7 @@ void rcu_advance_callbacks(int cpu, int user)
 	spin_unlock_irqrestore(&rcu_data.lock, oldirq);
 }
 
-void rcu_process_callbacks(unsigned long unused)
+void rcu_process_callbacks(struct softirq_action *unused)
 {
 	unsigned long flags;
 	struct rcu_head *next, *list;
@@ -367,7 +366,7 @@ void __init __rcu_init(void)
 	rcu_data.waittail = &rcu_data.waitlist;
 	rcu_data.donelist = NULL;
 	rcu_data.donetail = &rcu_data.donelist;
-	tasklet_init(&rcu_data.rcu_tasklet, rcu_process_callbacks, 0UL);
+	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks, NULL);
 }
 
 /*

@@ -120,9 +120,13 @@ void ktime_get_ts(struct timespec *ts)
 
 	do {
 		seq = read_seqbegin(&xtime_lock);
+#ifdef CONFIG_GENERIC_TIME
 		*ts = xtime;
 		nsecs = __get_nsec_offset();
 		timespec_add_ns(ts, nsecs);
+#else
+		getnstimeofday(ts);
+#endif
 		tomono = wall_to_monotonic;
 
 	} while (read_seqretry(&xtime_lock, seq));

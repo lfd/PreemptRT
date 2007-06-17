@@ -123,7 +123,9 @@ void second_overflow(void)
 			 */
 			time_interpolator_update(-NSEC_PER_SEC);
 			time_state = TIME_OOP;
+#ifdef CONFIG_GENERIC_TIME
 			warp_check_clock_was_changed();
+#endif
 			printk(KERN_NOTICE "Clock: inserting leap second "
 					"23:59:60 UTC\n");
 		}
@@ -138,7 +140,9 @@ void second_overflow(void)
 			 */
 			time_interpolator_update(NSEC_PER_SEC);
 			time_state = TIME_WAIT;
+#ifdef CONFIG_GENERIC_TIME
 			warp_check_clock_was_changed();
+#endif
 			printk(KERN_NOTICE "Clock: deleting leap second "
 					"23:59:59 UTC\n");
 		}

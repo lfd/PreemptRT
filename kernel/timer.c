@@ -1225,9 +1225,13 @@ int do_sysinfo(struct sysinfo *info)
 		 * too.
 		 */
 
+#ifdef CONFIG_GENERIC_TIME
 		tp = xtime;
 		nsecs = __get_nsec_offset();
 		timespec_add_ns(&tp, nsecs);
+#else
+		getnstimeofday(&tp);
+#endif
 
 		tp.tv_sec += wall_to_monotonic.tv_sec;
 		tp.tv_nsec += wall_to_monotonic.tv_nsec;

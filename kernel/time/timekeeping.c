@@ -352,7 +352,9 @@ static int timekeeping_resume(struct sys_device *dev)
 	clock->cycle_accumulated = 0;
 	clock->error = 0;
 	timekeeping_suspended = 0;
+#ifdef CONFIG_GENERIC_TIME
 	warp_check_clock_was_changed();
+#endif
 	write_sequnlock_irqrestore(&xtime_lock, flags);
 
 	touch_softlockup_watchdog();

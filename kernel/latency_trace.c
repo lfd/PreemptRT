@@ -2367,10 +2367,12 @@ long user_trace_start(void)
 #endif
 	reset_trace_idx(cpu, tr);
 
+	atomic_inc(&tr->disabled);
 	tr->critical_sequence = max_sequence;
 	tr->preempt_timestamp = get_monotonic_cycles();
 	tr->critical_start = CALLER_ADDR0;
 	_trace_cmdline(cpu, tr);
+	atomic_dec(&tr->disabled);
 	mcount();
 
 	WARN_ON(!irqs_disabled());

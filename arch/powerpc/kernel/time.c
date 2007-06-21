@@ -301,7 +301,7 @@ struct cpu_purr_data {
 	int	initialized;			/* thread is running */
 	u64	tb;			/* last TB value read */
 	u64	purr;			/* last PURR value read */
-	spinlock_t lock;
+	raw_spinlock_t lock;
 };
 
 static DEFINE_PER_CPU(struct cpu_purr_data, cpu_purr_data);

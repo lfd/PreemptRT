@@ -27,6 +27,8 @@ void __inet6_hash(struct inet_hashinfo *hashinfo,
 {
 	struct hlist_head *list;
 	rwlock_t *lock;
+	unsigned long *bitmask = NULL;
+	unsigned int index = 0;
 
 	BUG_TRAP(sk_unhashed(sk));
 
@@ -35,15 +37,16 @@ void __inet6_hash(struct inet_hashinfo *hashinfo,
 		lock = &hashinfo->lhash_lock;
 		inet_listen_wlock(hashinfo);
 	} else {
-		unsigned int hash;
-		sk->sk_hash = hash = inet6_sk_ehashfn(sk);
-		hash &= (hashinfo->ehash_size - 1);
-		list = &hashinfo->ehash[hash].chain;
-		lock = &hashinfo->ehash[hash].lock;
+		sk->sk_hash = inet6_sk_ehashfn(sk);
+		index = inet_ehash_index(hashinfo, sk->sk_hash);
+		list = &hashinfo->ehash[index].chain;
+		lock = &hashinfo->ehash[index].lock;
+		bitmask = hashinfo->ebitmask;
 		write_lock(lock);
 	}
 
 	__sk_add_node(sk, list);
+	__inet_hash_setbit(bitmask, index);
 	sock_prot_inc_use(sk->sk_prot);
 	write_unlock(lock);
 }

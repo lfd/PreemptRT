@@ -2154,7 +2154,7 @@ void notrace unmask_preempt_count(unsigned int mask)
 }
 EXPORT_SYMBOL(unmask_preempt_count);
 
-#ifdef CONFIG_CRITICAL_PREEMPT_TIMING
+#if defined(CONFIG_CRITICAL_PREEMPT_TIMING) && defined(CONFIG_TRACE_IRQFLAGS)
 
 /* Some archs do their cpu_idle with preemption on. Don't measure it */
 void notrace trace_preempt_enter_idle(void)

@@ -166,6 +166,7 @@ void cpu_idle(void)
 		if (!idle)
 			idle = default_idle;
 		leds_event(led_idle_start);
+		trace_preempt_exit_idle();
 		tick_nohz_stop_sched_tick(1);
 		while (!need_resched())
 			idle();
@@ -175,6 +176,7 @@ void cpu_idle(void)
 		__preempt_enable_no_resched();
 		__schedule();
 		preempt_disable();
+		trace_preempt_enter_idle();
 		local_irq_enable();
 	}
 }

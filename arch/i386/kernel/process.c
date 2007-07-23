@@ -189,7 +189,6 @@ void cpu_idle(void)
 
 			tick_nohz_stop_sched_tick();
 
-			check_pgt_cache();
 			rmb();
 			idle = pm_idle;
 

@@ -63,8 +63,15 @@ static inline void update_xtime_cache(u64 nsec)
 #define update_xtime_cache(n) do { } while (0)
 #endif
 
-static struct clocksource *clock; /* pointer to current clocksource */
+extern struct clocksource clocksource_jiffies;
 
+/*
+ * pointer to current clocksource
+ *  Just in case we use clocksource_read before we initialize
+ *  the actual clock source. Instead of calling a NULL read pointer
+ *  we return jiffies.
+ */
+static struct clocksource *clock = &clocksource_jiffies;
 
 #ifdef CONFIG_GENERIC_TIME
 /**

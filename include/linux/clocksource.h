@@ -83,7 +83,7 @@ struct clocksource {
 #endif
 
 	/* timekeeping specific data, ignore */
-	cycle_t cycle_accumulated, cycle_interval;
+	cycle_t cycle_accumulated, cycle_interval, cycle_raw;
 	u64	xtime_interval;
 	/*
 	 * Second part is written at each timer interrupt
@@ -204,6 +204,7 @@ static inline void clocksource_accumulate(struct clocksource *cs, cycle_t now)
 	cycle_t offset = (now - cs->cycle_last) & cs->mask;
 	cs->cycle_last = now;
 	cs->cycle_accumulated += offset;
+	cs->cycle_raw += offset;
 }
 
 /**

@@ -118,7 +118,7 @@ cycle_t notrace get_monotonic_cycles(void)
 	/* calculate the delta since the last update_wall_time: */
 	cycle_delta = (cycle_now - clock->cycle_last) & clock->mask;
 
-	return clock->cycle_last + cycle_delta;
+	return clock->cycle_raw + cycle_delta;
 }
 
 unsigned long notrace cycles_to_usecs(cycle_t cycles)

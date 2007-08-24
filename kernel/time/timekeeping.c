@@ -117,15 +117,35 @@ static inline void __get_realtime_clock_ts(struct timespec *ts)
 
 cycle_t notrace get_monotonic_cycles(void)
 {
-	cycle_t cycle_now, cycle_delta;
+	cycle_t cycle_now, cycle_delta, cycle_raw, cycle_last;
 
-	/* read clocksource: */
-	cycle_now = clocksource_read(clock);
+	do {
+		/*
+		 * cycle_raw and cycle_last can change on
+		 * another CPU and we need the delta calculation
+		 * of cycle_now and cycle_last happen atomic, as well
+		 * as the adding to cycle_raw. We don't need to grab
+		 * any locks, we just keep trying until get all the
+		 * calculations together in one state.
+		 *
+		 * In fact, we __cant__ grab any locks. This
+		 * function is called from the latency_tracer which can
+		 * be called anywhere. To grab any locks (including
+		 * seq_locks) we risk putting ourselves into a deadlock.
+		 */
+		cycle_raw = clock->cycle_raw;
+		cycle_last = clock->cycle_last;
 
-	/* calculate the delta since the last update_wall_time: */
-	cycle_delta = (cycle_now - clock->cycle_last) & clock->mask;
+		/* read clocksource: */
+		cycle_now = clocksource_read(clock);
 
-	return clock->cycle_raw + cycle_delta;
+		/* calculate the delta since the last update_wall_time: */
+		cycle_delta = (cycle_now - cycle_last) & clock->mask;
+
+	} while (cycle_raw != clock->cycle_raw ||
+		 cycle_last != clock->cycle_last);
+
+	return cycle_raw + cycle_delta;
 }
 
 unsigned long notrace cycles_to_usecs(cycle_t cycles)

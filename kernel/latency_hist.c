@@ -16,6 +16,7 @@
 #include <linux/latency_hist.h>
 #include <asm/atomic.h>
 #include <asm/div64.h>
+#include <asm/uaccess.h>
 
 typedef struct hist_data_struct {
 	atomic_t hist_mode; /* 0 log, 1 don't log */
@@ -30,8 +31,6 @@ typedef struct hist_data_struct {
 
 static struct proc_dir_entry * latency_hist_root = NULL;
 static char * latency_hist_proc_dir_root = "latency_hist";
-
-static char * percpu_proc_name = "CPU";
 
 #ifdef CONFIG_INTERRUPT_OFF_HIST
 static DEFINE_PER_CPU(hist_data_t, interrupt_off_hist);
@@ -56,7 +55,7 @@ static inline u64 u64_div(u64 x, u64 y)
         return x;
 }
 
-void latency_hist(int latency_type, int cpu, unsigned long latency)
+void notrace latency_hist(int latency_type, int cpu, unsigned long latency)
 {
 	hist_data_t * my_hist;
 
@@ -205,68 +204,6 @@ static struct file_operations latency_hist_seq_fops = {
 	.release = seq_release,
 };
 
-static __init int latency_hist_init(void)
-{
-	struct proc_dir_entry *tmp_parent_proc_dir;
-	int i = 0, len = 0;
-	hist_data_t *my_hist;
-	char procname[64];
-
-	latency_hist_root = proc_mkdir(latency_hist_proc_dir_root, NULL);
-
-
-#ifdef CONFIG_INTERRUPT_OFF_HIST
-	tmp_parent_proc_dir = proc_mkdir(interrupt_off_hist_proc_dir, latency_hist_root);
-	for (i = 0; i < NR_CPUS; i++) {
-		len = sprintf(procname, "%s%d", percpu_proc_name, i);
-		procname[len] = '\0';
-		entry[INTERRUPT_LATENCY][i] =
-			create_proc_entry(procname, 0, tmp_parent_proc_dir);
-		entry[INTERRUPT_LATENCY][i]->data = (void *)&per_cpu(interrupt_off_hist, i);
-		entry[INTERRUPT_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
-		my_hist = (hist_data_t *) entry[INTERRUPT_LATENCY][i]->data;
-		atomic_set(&my_hist->hist_mode,1);
-		my_hist->min_lat = 0xFFFFFFFFUL;
-	}
-#endif
-
-#ifdef CONFIG_PREEMPT_OFF_HIST
-	tmp_parent_proc_dir = proc_mkdir(preempt_off_hist_proc_dir, latency_hist_root);
-	for (i = 0; i < NR_CPUS; i++) {
-		len = sprintf(procname, "%s%d", percpu_proc_name, i);
-		procname[len] = '\0';
-		entry[PREEMPT_LATENCY][i] =
-			create_proc_entry(procname, 0, tmp_parent_proc_dir);
-		entry[PREEMPT_LATENCY][i]->data = (void *)&per_cpu(preempt_off_hist, i);
-		entry[PREEMPT_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
-		my_hist = (hist_data_t *) entry[PREEMPT_LATENCY][i]->data;
-		atomic_set(&my_hist->hist_mode,1);
-		my_hist->min_lat = 0xFFFFFFFFUL;
-	}
-#endif
-
-#ifdef CONFIG_WAKEUP_LATENCY_HIST
-	tmp_parent_proc_dir = proc_mkdir(wakeup_latency_hist_proc_dir, latency_hist_root);
-	for (i = 0; i < NR_CPUS; i++) {
-		len = sprintf(procname, "%s%d", percpu_proc_name, i);
-		procname[len] = '\0';
-		entry[WAKEUP_LATENCY][i] =
-			create_proc_entry(procname, 0, tmp_parent_proc_dir);
-		entry[WAKEUP_LATENCY][i]->data = (void *)&per_cpu(wakeup_latency_hist, i);
-		entry[WAKEUP_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
-		my_hist = (hist_data_t *) entry[WAKEUP_LATENCY][i]->data;
-		atomic_set(&my_hist->hist_mode,1);
-		my_hist->min_lat = 0xFFFFFFFFUL;
-	}
-#endif
-	return 0;
-
-}
-
-__initcall(latency_hist_init);
-
-
-#ifdef CONFIG_WAKEUP_LATENCY_HIST
 static void hist_reset(hist_data_t *hist)
 {
 	atomic_dec(&hist->hist_mode);
@@ -282,14 +219,118 @@ static void hist_reset(hist_data_t *hist)
 	atomic_inc(&hist->hist_mode);
 }
 
-void latency_hist_reset(void)
+ssize_t latency_hist_reset(struct file *file, const char __user *a, size_t size, loff_t *off)
 {
 	int cpu;
 	hist_data_t *hist;
+	struct proc_dir_entry *entry_ptr = PDE(file->f_dentry->d_inode);
+	int latency_type = (int)entry_ptr->data;
 
-	for_each_online_cpu(cpu) {
-		hist = &per_cpu(wakeup_latency_hist, cpu);
-		hist_reset(hist);
-	}
-}
+	switch (latency_type) {
+
+#ifdef CONFIG_WAKEUP_LATENCY_HIST
+		case WAKEUP_LATENCY:
+			for_each_online_cpu(cpu) {
+				hist = &per_cpu(wakeup_latency_hist, cpu);
+				hist_reset(hist);
+			}
+			break;
 #endif
+
+#ifdef CONFIG_PREEMPT_OFF_HIST
+		case PREEMPT_LATENCY:
+			for_each_online_cpu(cpu) {
+				hist = &per_cpu(preempt_off_hist, cpu);
+				hist_reset(hist);
+			}
+			break;
+#endif
+
+#ifdef CONFIG_INTERRUPT_OFF_HIST
+		case INTERRUPT_LATENCY:
+			for_each_online_cpu(cpu) {
+				hist = &per_cpu(interrupt_off_hist, cpu);
+				hist_reset(hist);
+			}
+			break;
+#endif
+	}
+
+	return size;
+}
+
+static struct file_operations latency_hist_reset_seq_fops = {
+	.write = latency_hist_reset,
+};
+
+static struct proc_dir_entry *interrupt_off_reset;
+static struct proc_dir_entry *preempt_off_reset;
+static struct proc_dir_entry *wakeup_latency_reset;
+
+static __init int latency_hist_init(void)
+{
+	struct proc_dir_entry *tmp_parent_proc_dir;
+	int i = 0, len = 0;
+	hist_data_t *my_hist;
+	char procname[64];
+
+	latency_hist_root = proc_mkdir(latency_hist_proc_dir_root, NULL);
+
+#ifdef CONFIG_INTERRUPT_OFF_HIST
+	tmp_parent_proc_dir = proc_mkdir(interrupt_off_hist_proc_dir, latency_hist_root);
+	for (i = 0; i < num_possible_cpus(); i++) {
+		len = sprintf(procname, "CPU%d", i);
+		procname[len] = '\0';
+		entry[INTERRUPT_LATENCY][i] =
+			create_proc_entry(procname, 0, tmp_parent_proc_dir);
+		entry[INTERRUPT_LATENCY][i]->data = (void *)&per_cpu(interrupt_off_hist, i);
+		entry[INTERRUPT_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
+		my_hist = (hist_data_t *) entry[INTERRUPT_LATENCY][i]->data;
+		atomic_set(&my_hist->hist_mode,1);
+		my_hist->min_lat = 0xFFFFFFFFUL;
+	}
+	interrupt_off_reset = create_proc_entry("reset", 0, tmp_parent_proc_dir);
+	interrupt_off_reset->data = INTERRUPT_LATENCY;
+	interrupt_off_reset->proc_fops = &latency_hist_reset_seq_fops;
+#endif
+
+#ifdef CONFIG_PREEMPT_OFF_HIST
+	tmp_parent_proc_dir = proc_mkdir(preempt_off_hist_proc_dir, latency_hist_root);
+	for (i = 0; i < num_possible_cpus(); i++) {
+		len = sprintf(procname, "CPU%d", i);
+		procname[len] = '\0';
+		entry[PREEMPT_LATENCY][i] =
+			create_proc_entry(procname, 0, tmp_parent_proc_dir);
+		entry[PREEMPT_LATENCY][i]->data = (void *)&per_cpu(preempt_off_hist, i);
+		entry[PREEMPT_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
+		my_hist = (hist_data_t *) entry[PREEMPT_LATENCY][i]->data;
+		atomic_set(&my_hist->hist_mode,1);
+		my_hist->min_lat = 0xFFFFFFFFUL;
+	}
+	preempt_off_reset = create_proc_entry("reset", 0, tmp_parent_proc_dir);
+	preempt_off_reset->data = PREEMPT_LATENCY;
+	preempt_off_reset->proc_fops = &latency_hist_reset_seq_fops;
+#endif
+
+#ifdef CONFIG_WAKEUP_LATENCY_HIST
+	tmp_parent_proc_dir = proc_mkdir(wakeup_latency_hist_proc_dir, latency_hist_root);
+	for (i = 0; i < num_possible_cpus(); i++) {
+		len = sprintf(procname, "CPU%d", i);
+		procname[len] = '\0';
+		entry[WAKEUP_LATENCY][i] =
+			create_proc_entry(procname, 0, tmp_parent_proc_dir);
+		entry[WAKEUP_LATENCY][i]->data = (void *)&per_cpu(wakeup_latency_hist, i);
+		entry[WAKEUP_LATENCY][i]->proc_fops = &latency_hist_seq_fops;
+		my_hist = (hist_data_t *) entry[WAKEUP_LATENCY][i]->data;
+		atomic_set(&my_hist->hist_mode,1);
+		my_hist->min_lat = 0xFFFFFFFFUL;
+	}
+	wakeup_latency_reset = create_proc_entry("reset", 0, tmp_parent_proc_dir);
+	wakeup_latency_reset->data = WAKEUP_LATENCY;
+	wakeup_latency_reset->proc_fops = &latency_hist_reset_seq_fops;
+#endif
+	return 0;
+
+}
+
+__initcall(latency_hist_init);

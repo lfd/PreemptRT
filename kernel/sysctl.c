@@ -410,7 +410,7 @@ static ctl_table kern_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
-#if defined(CONFIG_WAKEUP_TIMING) || defined(CONFIG_EVENT_TRACE)
+#if defined(CONFIG_CRITICAL_TIMING)
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "preempt_max_latency",

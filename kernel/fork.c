@@ -1792,8 +1792,10 @@ static int desched_thread(void * __bind_cpu)
 			continue;
 		schedule();
 
-		/* This must be called from time to time on ia64, and is a no-op on other archs.
-		 * Used to be in cpu_idle(), but with the new -rt semantics it can't stay there.
+		/*
+ 		 * This must be called from time to time on ia64, and is a
+ 		 * no-op on other archs. Used to be in cpu_idle(), but with
+ 		 * the new -rt semantics it can't stay there.
 		 */
 		check_pgt_cache();
 

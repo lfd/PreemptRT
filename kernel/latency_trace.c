@@ -1756,7 +1756,7 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 	 * as long as possible:
 	 */
 	T0 = tr->preempt_timestamp;
-	T1 = get_monotonic_cycles();
+	T1 = now();
 	delta = T1-T0;
 
 	local_save_flags(flags);
@@ -1770,7 +1770,7 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 	 * might change it (it can only get larger so the latency
 	 * is fair to be reported):
 	 */
-	T2 = get_monotonic_cycles();
+	T2 = now();
 
 	delta = T2-T0;
 
@@ -1820,7 +1820,7 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 	printk(" =>   ended at timestamp %lu: ", t1);
 	print_symbol("<%s>\n", tr->critical_end);
 	dump_stack();
-	t1 = cycles_to_usecs(get_monotonic_cycles());
+	t1 = cycles_to_usecs(now());
 	printk(" =>   dump-end timestamp %lu\n\n", t1);
 #endif
 
@@ -1830,7 +1830,7 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 
 out:
 	tr->critical_sequence = max_sequence;
-	tr->preempt_timestamp = get_monotonic_cycles();
+	tr->preempt_timestamp = now();
 	tr->early_warning = 0;
 	reset_trace_idx(cpu, tr);
 	_trace_cmdline(cpu, tr);
@@ -1879,7 +1879,7 @@ __start_critical_timing(unsigned long eip, unsigned long parent_eip,
 	atomic_inc(&tr->disabled);
 
 	tr->critical_sequence = max_sequence;
-	tr->preempt_timestamp = get_monotonic_cycles();
+	tr->preempt_timestamp = now();
 	tr->critical_start = eip;
 	reset_trace_idx(cpu, tr);
 	tr->latency_type = latency_type;
@@ -2201,7 +2201,7 @@ check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 		goto out;
 
 	T0 = tr->preempt_timestamp;
-	T1 = get_monotonic_cycles();
+	T1 = now();
 	/*
 	 * Any wraparound or time warp and we are out:
 	 */
@@ -2319,7 +2319,7 @@ void __trace_start_sched_wakeup(struct task_struct *p)
 //	if (!atomic_read(&tr->disabled)) {
 		atomic_inc(&tr->disabled);
 		tr->critical_sequence = max_sequence;
-		tr->preempt_timestamp = get_monotonic_cycles();
+		tr->preempt_timestamp = now();
 		tr->latency_type = WAKEUP_LATENCY;
 		tr->critical_start = CALLER_ADDR0;
 		_trace_cmdline(raw_smp_processor_id(), tr);
@@ -2430,7 +2430,7 @@ long user_trace_start(void)
 	reset_trace_idx(cpu, tr);
 
 	tr->critical_sequence = max_sequence;
-	tr->preempt_timestamp = get_monotonic_cycles();
+	tr->preempt_timestamp = now();
 	tr->critical_start = CALLER_ADDR0;
 	_trace_cmdline(cpu, tr);
 	call_mcount();
@@ -2489,7 +2489,7 @@ long user_trace_stop(void)
 		unsigned long long tmp0;
 
 		T0 = tr->preempt_timestamp;
-		T1 = get_monotonic_cycles();
+		T1 = now();
 		tmp0 = preempt_max_latency;
 		if (T1 < T0)
 			T0 = T1;

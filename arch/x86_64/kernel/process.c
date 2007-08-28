@@ -223,8 +223,18 @@ void cpu_idle (void)
 			 * Otherwise, idle callbacks can misfire.
 			 */
 			local_irq_disable();
+
+			/*
+			 * We have irqs disabled here, so stop latency tracing
+			 * at this point and restart it after we return:
+			 */
+			stop_critical_timing();
+
 			enter_idle();
 			idle();
+
+			touch_critical_timing();
+
 			/* In many cases the interrupt that ended idle
 			   has already called exit_idle. But some idle
 			   loops can be woken up without interrupt. */

@@ -197,8 +197,17 @@ void cpu_idle(void)
 			if (cpu_is_offline(cpu))
 				play_dead();
 
+			/*
+			 * We have irqs disabled here, so stop latency tracing
+			 * at this point and restart it after we return:
+			 */
+			stop_critical_timing();
+
 			__get_cpu_var(irq_stat).idle_timestamp = jiffies;
 			idle();
+
+ 			touch_critical_timing();
+
 		}
 		local_irq_disable();
 		trace_preempt_exit_idle();

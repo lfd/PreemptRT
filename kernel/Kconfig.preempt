@@ -82,6 +82,7 @@ config CLASSIC_RCU
 config PREEMPT_RCU
 	bool "Preemptible RCU"
 	depends on PREEMPT
+	depends on EXPERIMENTAL
 	help
 	  This option reduces the latency of the kernel by making certain
 	  RCU sections preemptible. Normally RCU code is non-preemptible, if

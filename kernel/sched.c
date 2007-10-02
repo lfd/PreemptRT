@@ -1845,6 +1845,13 @@ out_set_cpu:
 		cpu = task_cpu(p);
 	}
 
+out_activate:
+#endif /* CONFIG_SMP */
+	update_rq_clock(rq);
+	activate_task(rq, p, 1);
+
+	trace_start_sched_wakeup(p, rq);
+
 	/*
 	 * If a newly woken up RT task cannot preempt the
 	 * current (RT) task (on a target runqueue) then try
@@ -1875,28 +1882,21 @@ out_set_cpu:
 			smp_send_reschedule_allbutself_cpumask(p->cpus_allowed);
 
 		schedstat_inc(this_rq, rto_wakeup);
-	}
-
-out_activate:
-#endif /* CONFIG_SMP */
-	update_rq_clock(rq);
-	activate_task(rq, p, 1);
-
-	trace_start_sched_wakeup(p, rq);
-
-	/*
-	 * Sync wakeups (i.e. those types of wakeups where the waker
-	 * has indicated that it will leave the CPU in short order)
-	 * don't trigger a preemption, if the woken up task will run on
-	 * this cpu. (in this case the 'I will reschedule' promise of
-	 * the waker guarantees that the freshly woken up task is going
-	 * to be considered on this CPU.)
-	 */
-	if (!sync || cpu != this_cpu)
-		check_preempt_curr(rq, p);
-	else {
-		if (TASK_PREEMPTS_CURR(p, rq))
-			set_tsk_need_resched_delayed(rq->curr);
+	} else {
+		/*
+		 * Sync wakeups (i.e. those types of wakeups where the waker
+		 * has indicated that it will leave the CPU in short order)
+		 * don't trigger a preemption, if the woken up task will run on
+		 * this cpu. (in this case the 'I will reschedule' promise of
+		 * the waker guarantees that the freshly woken up task is going
+		 * to be considered on this CPU.)
+		 */
+		if (!sync || cpu != this_cpu)
+			check_preempt_curr(rq, p);
+		else {
+			if (TASK_PREEMPTS_CURR(p, rq))
+				set_tsk_need_resched_delayed(rq->curr);
+		}
 	}
 	if (rq->curr && p && rq && _need_resched())
 		trace_special_pid(p->pid, PRIO(p), PRIO(rq->curr));

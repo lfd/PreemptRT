@@ -1062,7 +1062,9 @@ void __cpuinit cpu_init(void)
 	if (!orig_ist->ist[0]) {
 		static const unsigned int sizes[N_EXCEPTION_STACKS] = {
 		  [0 ... N_EXCEPTION_STACKS - 1] = EXCEPTION_STKSZ,
+#if DEBUG_STACK > 0
 		  [DEBUG_STACK - 1] = DEBUG_STKSZ
+#endif
 		};
 		char *estacks = per_cpu(exception_stacks, cpu);
 		for (v = 0; v < N_EXCEPTION_STACKS; v++) {

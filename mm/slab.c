@@ -1190,7 +1190,7 @@ cache_free_alien(struct kmem_cache *cachep, void *objp, int *this_cpu)
 	struct array_cache *alien = NULL;
 	int node;
 
-	node = numa_node_id();
+	node = cpu_to_node(*this_cpu);
 
 	/*
 	 * Make sure we are not freeing a object from another node to the array
@@ -4220,6 +4220,8 @@ static void cache_reap(struct work_struct *w)
 		l3 = searchp->nodelists[node];
 
 		work_done += reap_alien(searchp, l3, &this_cpu);
+
+		node = cpu_to_node(this_cpu);
 
 		work_done += drain_array(searchp, l3,
 			    cpu_cache_get(searchp, this_cpu), 0, node);

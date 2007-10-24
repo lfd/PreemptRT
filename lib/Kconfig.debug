@@ -387,7 +387,9 @@ config WAKEUP_TIMING
 	  accuracy.
 
 	  The default measurement method is a maximum search, which is
-	  disabled by default and can be runtime (re-)started via:
+	  disabled by default, if neither WAKEUP_LATENCY_HIST nor
+	  CRITICAL_LATENCY_HIST is selected, and can be runtime (re-)started
+	  via:
 
 	      echo 0 > /proc/sys/kernel/preempt_max_latency
 
@@ -416,7 +418,9 @@ config CRITICAL_PREEMPT_TIMING
 	  sections, with microsecond accuracy.
 
 	  The default measurement method is a maximum search, which is
-	  disabled by default and can be runtime (re-)started via:
+	  disabled by default, if neither WAKEUP_LATENCY_HIST nor
+	  CRITICAL_LATENCY_HIST is selected, and can be runtime (re-)started
+	  via:
 
 	      echo 0 > /proc/sys/kernel/preempt_max_latency
 
@@ -434,7 +438,9 @@ config CRITICAL_IRQSOFF_TIMING
 	  sections, with microsecond accuracy.
 
 	  The default measurement method is a maximum search, which is
-	  disabled by default and can be runtime (re-)started via:
+	  disabled by default, if neither WAKEUP_LATENCY_HIST nor
+	  CRITICAL_LATENCY_HIST is selected, and can be runtime (re-)started
+	  via:
 
 	      echo 0 > /proc/sys/kernel/preempt_max_latency
 
@@ -494,7 +500,7 @@ config INTERRUPT_OFF_HIST
 config CRITICAL_TIMING
 	bool
 	default y
-	depends on CRITICAL_PREEMPT_TIMING || CRITICAL_IRQSOFF_TIMING
+	depends on CRITICAL_PREEMPT_TIMING || CRITICAL_IRQSOFF_TIMING || WAKEUP_TIMING
 
 config DEBUG_TRACE_IRQFLAGS
 	bool

@@ -33,6 +33,14 @@ static inline void rt_clear_overload(struct rq *rq)
 {
 	cpu_clear(rq->cpu, *rt_overload_mask(rq->cpu));
 }
+
+static void update_rt_migration(struct task_struct *p, struct rq *rq)
+{
+	if (rq->rt.rt_nr_migratory && (rq->rt.rt_nr_running > 1))
+		rt_set_overload(rq);
+	else
+		rt_clear_overload(rq);
+}
 #endif /* CONFIG_SMP */
 
 /*
@@ -64,8 +72,10 @@ static inline void inc_rt_tasks(struct task_struct *p, struct rq *rq)
 #ifdef CONFIG_SMP
 	if (p->prio < rq->rt.highest_prio)
 		rq->rt.highest_prio = p->prio;
-	if (rq->rt.rt_nr_running > 1)
-		rt_set_overload(rq);
+	if (p->nr_cpus_allowed > 1)
+		rq->rt.rt_nr_migratory++;
+
+	update_rt_migration(p, rq);
 #endif /* CONFIG_SMP */
 }
 
@@ -87,8 +97,10 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 		} /* otherwise leave rq->highest prio alone */
 	} else
 		rq->rt.highest_prio = MAX_RT_PRIO;
-	if (rq->rt.rt_nr_running < 2)
-		rt_clear_overload(rq);
+	if (p->nr_cpus_allowed > 1)
+		rq->rt.rt_nr_migratory--;
+
+	update_rt_migration(p, rq);
 #endif /* CONFIG_SMP */
 }
 
@@ -178,7 +190,8 @@ static void deactivate_task(struct rq *rq, struct task_struct *p, int sleep);
 static int pick_rt_task(struct rq *rq, struct task_struct *p, int cpu)
 {
 	if (!task_running(rq, p) &&
-	    (cpu < 0 || cpu_isset(cpu, p->cpus_allowed)))
+	    (cpu < 0 || cpu_isset(cpu, p->cpus_allowed)) &&
+	    (p->nr_cpus_allowed > 1))
 		return 1;
 	return 0;
 }
@@ -411,12 +424,12 @@ static int pull_rt_task(struct rq *this_rq)
 	 * This is just the price you pay on trying to keep
 	 * dirtying caches down on large SMP machines.
 	 */
-	if (likely(!rt_overloaded(this_rq->curr)))
+	if (likely(!rt_overloaded(this_rq)))
 		return 0;
 
 	next = pick_next_task_rt(this_rq);
 
-	rto_cpumask = rt_overload(this_rq->curr);
+	rto_cpumask = rt_overload(this_rq);
 
 	for_each_cpu_mask(cpu, *rto_cpumask) {
 		if (this_cpu == cpu)
@@ -609,6 +622,35 @@ static void task_tick_rt(struct rq *rq, struct task_struct *p)
 	}
 }
 
+#ifdef CONFIG_SMP
+static void set_cpus_allowed_rt(struct task_struct *p, cpumask_t new_mask)
+{
+	int weight = cpus_weight(new_mask);
+
+	BUG_ON(!rt_task(p));
+
+	/*
+	 * Update the migration status of the RQ if we have an RT task
+	 * which is running AND changing its weight value.
+	 */
+	if (p->se.on_rq && (weight != p->nr_cpus_allowed)) {
+		struct rq *rq = task_rq(p);
+
+		if ((p->nr_cpus_allowed <= 1) && (weight > 1))
+			rq->rt.rt_nr_migratory++;
+		else if((p->nr_cpus_allowed > 1) && (weight <= 1)) {
+			BUG_ON(!rq->rt.rt_nr_migratory);
+			rq->rt.rt_nr_migratory--;
+		}
+
+		update_rt_migration(p, rq);
+	}
+
+	p->cpus_allowed    = new_mask;
+	p->nr_cpus_allowed = weight;
+}
+#endif
+
 static struct sched_class rt_sched_class __read_mostly = {
 	.enqueue_task		= enqueue_task_rt,
 	.dequeue_task		= dequeue_task_rt,
@@ -622,4 +664,8 @@ static struct sched_class rt_sched_class __read_mostly = {
 	.load_balance		= load_balance_rt,
 
 	.task_tick		= task_tick_rt,
+
+#ifdef CONFIG_SMP
+	.set_cpus_allowed       = set_cpus_allowed_rt,
+#endif
 };

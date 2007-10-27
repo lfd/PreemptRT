@@ -85,20 +85,22 @@ static inline void conditional_sti(struct pt_regs *regs)
 		local_irq_enable();
 }
 
-static inline void preempt_conditional_sti(struct pt_regs *regs)
+static inline void preempt_conditional_sti(struct pt_regs *regs, int stack)
 {
-	inc_preempt_count();
+	if (stack)
+		inc_preempt_count();
 	if (regs->flags & X86_EFLAGS_IF)
 		local_irq_enable();
 }
 
-static inline void preempt_conditional_cli(struct pt_regs *regs)
+static inline void preempt_conditional_cli(struct pt_regs *regs, int stack)
 {
 	if (regs->flags & X86_EFLAGS_IF)
 		local_irq_disable();
 	/* Make sure to not schedule here because we could be running
 	   on an exception stack. */
-	dec_preempt_count();
+	if (stack)
+		dec_preempt_count();
 }
 
 int kstack_depth_to_print = 12;
@@ -726,9 +728,9 @@ asmlinkage void do_stack_segment(struct pt_regs *regs, long error_code)
 	if (notify_die(DIE_TRAP, "stack segment", regs, error_code,
 			12, SIGBUS) == NOTIFY_STOP)
 		return;
-	preempt_conditional_sti(regs);
+	preempt_conditional_sti(regs, STACKFAULT_STACK);
 	do_trap(12, SIGBUS, "stack segment", regs, error_code, NULL);
-	preempt_conditional_cli(regs);
+	preempt_conditional_cli(regs, STACKFAULT_STACK);
 }
 
 asmlinkage void do_double_fault(struct pt_regs * regs, long error_code)
@@ -886,9 +888,9 @@ asmlinkage void __kprobes do_int3(struct pt_regs * regs, long error_code)
 	if (notify_die(DIE_INT3, "int3", regs, error_code, 3, SIGTRAP) == NOTIFY_STOP) {
 		return;
 	}
-	preempt_conditional_sti(regs);
+	preempt_conditional_sti(regs, DEBUG_STACK);
 	do_trap(3, SIGTRAP, "int3", regs, error_code, NULL);
-	preempt_conditional_cli(regs);
+	preempt_conditional_cli(regs, DEBUG_STACK);
 }
 
 /* Help handler running on IST stack to switch back to user stack
@@ -934,7 +936,7 @@ asmlinkage void __kprobes do_debug(struct pt_regs * regs,
 						SIGTRAP) == NOTIFY_STOP)
 		return;
 
-	preempt_conditional_sti(regs);
+	preempt_conditional_sti(regs, DEBUG_STACK);
 
 	/* Mask out spurious debug traps due to lazy DR7 setting */
 	if (condition & (DR_TRAP0|DR_TRAP1|DR_TRAP2|DR_TRAP3)) {
@@ -966,13 +968,13 @@ asmlinkage void __kprobes do_debug(struct pt_regs * regs,
 
 clear_dr7:
 	set_debugreg(0UL, 7);
-	preempt_conditional_cli(regs);
+	preempt_conditional_cli(regs, DEBUG_STACK);
 	return;
 
 clear_TF_reenable:
 	set_tsk_thread_flag(tsk, TIF_SINGLESTEP);
 	regs->flags &= ~X86_EFLAGS_TF;
-	preempt_conditional_cli(regs);
+	preempt_conditional_cli(regs, DEBUG_STACK);
 }
 
 static int kernel_math_error(struct pt_regs *regs, const char *str, int trapnr)

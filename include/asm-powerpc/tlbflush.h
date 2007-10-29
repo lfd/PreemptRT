@@ -118,8 +118,11 @@ static inline void arch_leave_lazy_mmu_mode(void)
 {
 	struct ppc64_tlb_batch *batch = &__get_cpu_var(ppc64_tlb_batch);
 
-	if (batch->index)
+	if (batch->index) {
+		preempt_disable();
 		__flush_tlb_pending(batch);
+		preempt_enable();
+	}
 	batch->active = 0;
 }
 

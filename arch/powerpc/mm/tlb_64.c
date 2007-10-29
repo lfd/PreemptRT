@@ -194,7 +194,9 @@ void hpte_need_flush(struct mm_struct *mm, unsigned long addr,
 	 * batch
 	 */
 	if (i != 0 && (mm != batch->mm || batch->psize != psize)) {
+		preempt_disable();
 		__flush_tlb_pending(batch);
+		preempt_enable();
 		i = 0;
 	}
 	if (i == 0) {
@@ -211,7 +213,9 @@ void hpte_need_flush(struct mm_struct *mm, unsigned long addr,
 	 * always flush it on RT to reduce scheduling latency.
 	 */
 	if (machine_is(celleb)) {
+		preempt_disable();
 		__flush_tlb_pending(batch);
+		preempt_enable();
 		return;
 	}
 #endif /* CONFIG_PREEMPT_RT */
@@ -292,7 +296,7 @@ void __flush_hash_table_range(struct mm_struct *mm, unsigned long start,
 	 * to being hashed). This is not the most performance oriented
 	 * way to do things but is fine for our needs here.
 	 */
-	local_irq_save(flags);
+	raw_local_irq_save(flags);
 	arch_enter_lazy_mmu_mode();
 	for (; start < end; start += PAGE_SIZE) {
 		pte_t *ptep = find_linux_pte(mm->pgd, start);
@@ -306,7 +310,7 @@ void __flush_hash_table_range(struct mm_struct *mm, unsigned long start,
 		hpte_need_flush(mm, start, ptep, pte, 0);
 	}
 	arch_leave_lazy_mmu_mode();
-	local_irq_restore(flags);
+	raw_local_irq_restore(flags);
 }
 
 #endif /* CONFIG_HOTPLUG */

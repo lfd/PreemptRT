@@ -301,6 +301,7 @@ good_area:
 		if (get_pteptr(mm, address, &ptep, &pmdp)) {
 			spinlock_t *ptl = pte_lockptr(mm, pmdp);
 			spin_lock(ptl);
+			preempt_disable();
 			if (pte_present(*ptep)) {
 				struct page *page = pte_page(*ptep);
 
@@ -310,10 +311,12 @@ good_area:
 				}
 				pte_update(ptep, 0, _PAGE_HWEXEC);
 				_tlbie(address);
+				preempt_enable();
 				pte_unmap_unlock(ptep, ptl);
 				up_read(&mm->mmap_sem);
 				return 0;
 			}
+			preempt_enable();
 			pte_unmap_unlock(ptep, ptl);
 		}
 #endif

@@ -664,6 +664,7 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 	int anon_rss = 0;
 
 	pte = pte_offset_map_lock(mm, pmd, addr, &ptl);
+	preempt_disable();
 	arch_enter_lazy_mmu_mode();
 	do {
 		pte_t ptent = *pte;
@@ -732,6 +733,7 @@ static unsigned long zap_pte_range(struct mmu_gather *tlb,
 
 	add_mm_rss(mm, file_rss, anon_rss);
 	arch_leave_lazy_mmu_mode();
+	preempt_enable();
 	pte_unmap_unlock(pte - 1, ptl);
 
 	return addr;

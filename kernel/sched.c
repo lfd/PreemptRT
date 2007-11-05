@@ -67,6 +67,8 @@
 
 #include <asm/tlb.h>
 
+#include "sched_cpupri.h"
+
 /*
  * Scheduler clock - returns current time in nanosec units.
  * This is default implementation.
@@ -790,9 +792,11 @@ static int balance_tasks(struct rq *this_rq, int this_cpu, struct rq *busiest,
 		      int *all_pinned, unsigned long *load_moved,
 		      int *this_best_prio, struct rq_iterator *iterator);
 
+#ifdef CONFIG_SMP
 static unsigned long source_load(int cpu, int type);
 static unsigned long target_load(int cpu, int type);
 static unsigned long cpu_avg_load_per_task(int cpu);
+#endif /* CONFIG_SMP */
 
 #include "sched_stats.h"
 #include "sched_rt.c"
@@ -6451,6 +6455,8 @@ void __init sched_init(void)
 	rt_sched_class.next = &fair_sched_class;
 	fair_sched_class.next = &idle_sched_class;
 	idle_sched_class.next = NULL;
+
+	cpupri_init();
 
 	for_each_possible_cpu(i) {
 		struct rt_prio_array *array;

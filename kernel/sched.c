@@ -67,6 +67,8 @@
 
 #include <asm/tlb.h>
 
+#include "sched_cpupri.h"
+
 /*
  * Scheduler clock - returns current time in nanosec units.
  * This is default implementation.
@@ -6451,6 +6453,8 @@ void __init sched_init(void)
 	rt_sched_class.next = &fair_sched_class;
 	fair_sched_class.next = &idle_sched_class;
 	idle_sched_class.next = NULL;
+
+	cpupri_init();
 
 	for_each_possible_cpu(i) {
 		struct rt_prio_array *array;

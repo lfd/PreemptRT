@@ -72,8 +72,10 @@ static inline void inc_rt_tasks(struct task_struct *p, struct rq *rq)
 	WARN_ON(!rt_task(p));
 	rq->rt.rt_nr_running++;
 #ifdef CONFIG_SMP
-	if (p->prio < rq->rt.highest_prio)
+	if (p->prio < rq->rt.highest_prio) {
 		rq->rt.highest_prio = p->prio;
+		cpupri_set(rq->cpu, p->prio);
+	}
 	if (p->nr_cpus_allowed > 1)
 		rq->rt.rt_nr_migratory++;
 
@@ -96,6 +98,7 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 			array = &rq->rt.active;
 			rq->rt.highest_prio =
 				sched_find_first_bit(array->bitmap);
+			cpupri_set(rq->cpu, rq->rt.highest_prio);
 		} /* otherwise leave rq->highest prio alone */
 	} else
 		rq->rt.highest_prio = MAX_RT_PRIO;
@@ -149,9 +152,9 @@ yield_task_rt(struct rq *rq, struct task_struct *p)
 	requeue_task_rt(rq, p);
 }
 
+#ifdef CONFIG_SMP
 static int find_lowest_rq(struct task_struct *task);
 
-#ifdef CONFIG_SMP
 static int select_task_rq_rt(struct task_struct *p, int sync)
 {
 	struct rq *rq = task_rq(p);
@@ -278,46 +281,6 @@ static struct task_struct *pick_next_highest_task_rt(struct rq *rq,
 	return next;
 }
 
-static int find_lowest_cpus(struct task_struct *task, cpumask_t *lowest_mask)
-{
-	int       cpu;
-	cpumask_t valid_mask;
-	int       lowest_prio = -1;
-	int       ret         = 0;
-
-	cpus_clear(*lowest_mask);
-	cpus_and(valid_mask, cpu_online_map, task->cpus_allowed);
-
-	/*
-	 * Scan each rq for the lowest prio.
-	 */
-	for_each_cpu_mask(cpu, valid_mask) {
-		struct rq *rq = cpu_rq(cpu);
-
-		/* We look for lowest RT prio or non-rt CPU */
-		if (rq->rt.highest_prio >= MAX_RT_PRIO) {
-			if (ret)
-				cpus_clear(*lowest_mask);
-			cpu_set(rq->cpu, *lowest_mask);
-			return 1;
-		}
-
-		/* no locking for now */
-		if ((rq->rt.highest_prio > task->prio)
-		    && (rq->rt.highest_prio >= lowest_prio)) {
-			if (rq->rt.highest_prio > lowest_prio) {
-				/* new low - clear old data */
-				lowest_prio = rq->rt.highest_prio;
-				cpus_clear(*lowest_mask);
-			}
-			cpu_set(rq->cpu, *lowest_mask);
-			ret = 1;
-		}
-	}
-
-	return ret;
-}
-
 static inline int pick_optimal_cpu(int this_cpu, cpumask_t *mask)
 {
 	int first;
@@ -340,8 +303,11 @@ static int find_lowest_rq(struct task_struct *task)
 	int this_cpu = smp_processor_id();
 	int cpu      = task_cpu(task);
 
-	if (!find_lowest_cpus(task, &lowest_mask))
-		return -1;
+	if (task->nr_cpus_allowed == 1)
+		return -1; /* No other targets possible */
+
+	if (!cpupri_find(task, &lowest_mask))
+		return -1; /* No better targets found */
 
 	/*
 	 * At this point we have built a mask of cpus representing the

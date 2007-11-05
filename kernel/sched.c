@@ -24,6 +24,7 @@
  *  2007-07-01  Group scheduling enhancements by Srivatsa Vaddagiri
  *  2007-10-22  RT overload balancing by Steven Rostedt
  *                 (with thanks to Gregory Haskins)
+ *  2007-11-05  RT migration/wakeup tuning by Gregory Haskins
  */
 
 #include <linux/mm.h>

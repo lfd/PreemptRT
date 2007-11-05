@@ -788,6 +788,10 @@ static int balance_tasks(struct rq *this_rq, int this_cpu, struct rq *busiest,
 		      int *all_pinned, unsigned long *load_moved,
 		      int *this_best_prio, struct rq_iterator *iterator);
 
+static unsigned long source_load(int cpu, int type);
+static unsigned long target_load(int cpu, int type);
+static unsigned long cpu_avg_load_per_task(int cpu);
+
 #include "sched_stats.h"
 #include "sched_rt.c"
 #include "sched_fair.c"
@@ -1179,7 +1183,7 @@ void kick_process(struct task_struct *p)
  * We want to under-estimate the load of migration sources, to
  * balance conservatively.
  */
-static inline unsigned long source_load(int cpu, int type)
+static unsigned long source_load(int cpu, int type)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long total = weighted_cpuload(cpu);
@@ -1194,7 +1198,7 @@ static inline unsigned long source_load(int cpu, int type)
  * Return a high guess at the load of a migration-target cpu weighted
  * according to the scheduling class and "nice" value.
  */
-static inline unsigned long target_load(int cpu, int type)
+static unsigned long target_load(int cpu, int type)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long total = weighted_cpuload(cpu);
@@ -1208,7 +1212,7 @@ static inline unsigned long target_load(int cpu, int type)
 /*
  * Return the average load per task on the cpu's run queue
  */
-static inline unsigned long cpu_avg_load_per_task(int cpu)
+static unsigned long cpu_avg_load_per_task(int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long total = weighted_cpuload(cpu);
@@ -1367,53 +1371,6 @@ static int sched_balance_self(int cpu, int flag)
 
 #endif /* CONFIG_SMP */
 
-/*
- * wake_idle() will wake a task on an idle cpu if task->cpu is
- * not idle and an idle cpu is available.  The span of cpus to
- * search starts with cpus closest then further out as needed,
- * so we always favor a closer, idle cpu.
- *
- * Returns the CPU we should wake onto.
- */
-#if defined(ARCH_HAS_SCHED_WAKE_IDLE)
-static int wake_idle(int cpu, struct task_struct *p)
-{
-	cpumask_t tmp;
-	struct sched_domain *sd;
-	int i;
-
-	/*
-	 * If it is idle, then it is the best cpu to run this task.
-	 *
-	 * This cpu is also the best, if it has more than one task already.
-	 * Siblings must be also busy(in most cases) as they didn't already
-	 * pickup the extra load from this cpu and hence we need not check
-	 * sibling runqueue info. This will avoid the checks and cache miss
-	 * penalities associated with that.
-	 */
-	if (idle_cpu(cpu) || cpu_rq(cpu)->nr_running > 1)
-		return cpu;
-
-	for_each_domain(cpu, sd) {
-		if (sd->flags & SD_WAKE_IDLE) {
-			cpus_and(tmp, sd->span, p->cpus_allowed);
-			for_each_cpu_mask(i, tmp) {
-				if (idle_cpu(i))
-					return i;
-			}
-		} else {
-			break;
-		}
-	}
-	return cpu;
-}
-#else
-static inline int wake_idle(int cpu, struct task_struct *p)
-{
-	return cpu;
-}
-#endif
-
 /***
  * try_to_wake_up - wake up a thread
  * @p: the to-be-woken-up thread
@@ -1435,8 +1392,6 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 	long old_state;
 	struct rq *rq;
 #ifdef CONFIG_SMP
-	struct sched_domain *sd, *this_sd = NULL;
-	unsigned long load, this_load;
 	int new_cpu;
 #endif
 
@@ -1455,81 +1410,13 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 	if (unlikely(task_running(rq, p)))
 		goto out_activate;
 
-	new_cpu = cpu;
-
 	schedstat_inc(rq, ttwu_cnt);
-	if (cpu == this_cpu) {
+	if (cpu == this_cpu)
 		schedstat_inc(rq, ttwu_local);
-		goto out_set_cpu;
-	}
+	else
+		schedstat_inc(rq->sd, ttwu_wake_remote);
 
-	for_each_domain(this_cpu, sd) {
-		if (cpu_isset(cpu, sd->span)) {
-			schedstat_inc(sd, ttwu_wake_remote);
-			this_sd = sd;
-			break;
-		}
-	}
-
-	if (unlikely(!cpu_isset(this_cpu, p->cpus_allowed)))
-		goto out_set_cpu;
-
-	/*
-	 * Check for affine wakeup and passive balancing possibilities.
-	 */
-	if (this_sd) {
-		int idx = this_sd->wake_idx;
-		unsigned int imbalance;
-
-		imbalance = 100 + (this_sd->imbalance_pct - 100) / 2;
-
-		load = source_load(cpu, idx);
-		this_load = target_load(this_cpu, idx);
-
-		new_cpu = this_cpu; /* Wake to this CPU if we can */
-
-		if (this_sd->flags & SD_WAKE_AFFINE) {
-			unsigned long tl = this_load;
-			unsigned long tl_per_task;
-
-			tl_per_task = cpu_avg_load_per_task(this_cpu);
-
-			/*
-			 * If sync wakeup then subtract the (maximum possible)
-			 * effect of the currently running task from the load
-			 * of the current CPU:
-			 */
-			if (sync)
-				tl -= current->se.load.weight;
-
-			if ((tl <= load &&
-				tl + target_load(cpu, idx) <= tl_per_task) ||
-			       100*(tl + p->se.load.weight) <= imbalance*load) {
-				/*
-				 * This domain has SD_WAKE_AFFINE and
-				 * p is cache cold in this domain, and
-				 * there is no bad imbalance.
-				 */
-				schedstat_inc(this_sd, ttwu_move_affine);
-				goto out_set_cpu;
-			}
-		}
-
-		/*
-		 * Start passive balancing when half the imbalance_pct
-		 * limit is reached.
-		 */
-		if (this_sd->flags & SD_WAKE_BALANCE) {
-			if (imbalance*this_load <= 100*load) {
-				schedstat_inc(this_sd, ttwu_move_balance);
-				goto out_set_cpu;
-			}
-		}
-	}
-
-	new_cpu = cpu; /* Could not wake to this_cpu. Wake to cpu instead */
-out_set_cpu:
-	new_cpu = wake_idle(new_cpu, p);
+	new_cpu = p->sched_class->select_task_rq(p, sync);
 	if (new_cpu != cpu) {
 		set_task_cpu(p, new_cpu);
 		task_rq_unlock(rq, &flags);

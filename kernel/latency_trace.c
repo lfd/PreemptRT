@@ -2738,6 +2738,24 @@ void print_traces(struct task_struct *task)
 #endif
 
 #ifdef CONFIG_EVENT_TRACE
+#ifndef	ARCH_LOW_ADDRESS_LIMIT
+#define	ARCH_LOW_ADDRESS_LIMIT  0xffffffffUL
+#endif
+void * __init tracer_alloc_bootmem(unsigned long size)
+{
+	void * ret;
+
+	ret =__alloc_bootmem(size, SMP_CACHE_BYTES, ARCH_LOW_ADDRESS_LIMIT);
+	if (ret != NULL && ((unsigned long)ret) < ARCH_LOW_ADDRESS_LIMIT) {
+		free_bootmem(__pa(ret), size);
+		ret = __alloc_bootmem(size,
+				SMP_CACHE_BYTES,
+				__pa(MAX_DMA_ADDRESS));
+	}
+
+	return ret;
+}
+
 /*
  * Allocate all the per-CPU trace buffers and the
  * save-maximum/save-output staging buffers:
@@ -2755,7 +2773,7 @@ void __init init_tracer(void)
 
 	for_each_possible_cpu(cpu) {
 		tr = cpu_traces + cpu;
-		array = alloc_bootmem(size);
+		array = tracer_alloc_bootmem(size);
 		if (!array) {
 			printk(KERN_ERR
 			"CPU#%d: failed to allocate %ld bytes trace buffer!\n",
@@ -2769,7 +2787,7 @@ void __init init_tracer(void)
 		tr->cpu = cpu;
 		tr->trace = array;
 
-		array = alloc_bootmem(size);
+		array = tracer_alloc_bootmem(size);
 		if (!array) {
 			printk(KERN_ERR
 			"CPU#%d: failed to allocate %ld bytes max-trace buffer!\n",
@@ -2788,7 +2806,7 @@ void __init init_tracer(void)
 	 * trace entries for the first cpu-trace structure:
 	 */
 	size = sizeof(struct trace_entry)*MAX_TRACE*num_possible_cpus();
-	array = alloc_bootmem(size);
+	array = tracer_alloc_bootmem(size);
 	if (!array) {
 		printk(KERN_ERR
 			"failed to allocate %ld bytes out-trace buffer!\n",

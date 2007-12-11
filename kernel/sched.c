@@ -1652,6 +1652,7 @@ out_activate:
 
 out_running:
 	p->state = TASK_RUNNING;
+	wakeup_balance_rt(rq, p);
 out:
 	task_rq_unlock(rq, &flags);
 

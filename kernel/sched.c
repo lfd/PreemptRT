@@ -224,8 +224,8 @@ struct rt_rq {
 
 /*
  * We add the notion of a root-domain which will be used to define per-domain
- * variables.  Each exclusive cpuset essentially defines an island domain by
- * fully partitioning the member cpus from any other cpuset.  Whenever a new
+ * variables. Each exclusive cpuset essentially defines an island domain by
+ * fully partitioning the member cpus from any other cpuset. Whenever a new
  * exclusive cpuset is created, we also create and attach a new root-domain
  * object.
  *
@@ -237,12 +237,12 @@ struct root_domain {
 	cpumask_t span;
 	cpumask_t online;
 
-        /*
+	/*
 	 * The "RT overload" flag: it gets set if a CPU has more than
 	 * one runnable RT task.
 	 */
 	cpumask_t rto_mask;
-	atomic_t  rto_count;
+	atomic_t rto_count;
 };
 
 static struct root_domain def_root_domain;
@@ -303,7 +303,7 @@ struct rq {
 	atomic_t nr_iowait;
 
 #ifdef CONFIG_SMP
-	struct root_domain  *rd;
+	struct root_domain *rd;
 	struct sched_domain *sd;
 
 	/* For active balancing */
@@ -4912,7 +4912,7 @@ int set_cpus_allowed(struct task_struct *p, cpumask_t new_mask)
 	if (p->sched_class->set_cpus_allowed)
 		p->sched_class->set_cpus_allowed(p, &new_mask);
 	else {
-		p->cpus_allowed    = new_mask;
+		p->cpus_allowed = new_mask;
 		p->nr_cpus_allowed = cpus_weight(new_mask);
 	}
 
@@ -5633,9 +5633,10 @@ static void rq_attach_root(struct rq *rq, struct root_domain *rd)
 	if (rq->rd) {
 		struct root_domain *old_rd = rq->rd;
 
-		for (class = sched_class_highest; class; class = class->next)
+		for (class = sched_class_highest; class; class = class->next) {
 			if (class->leave_domain)
 				class->leave_domain(rq);
+		}
 
 		cpu_clear(rq->cpu, old_rd->span);
 		cpu_clear(rq->cpu, old_rd->online);
@@ -5647,9 +5648,10 @@ static void rq_attach_root(struct rq *rq, struct root_domain *rd)
 	atomic_inc(&rd->refcount);
 	rq->rd = rd;
 
-	for (class = sched_class_highest; class; class = class->next)
+	for (class = sched_class_highest; class; class = class->next) {
 		if (class->join_domain)
 			class->join_domain(rq);
+	}
 
 	spin_unlock_irqrestore(&rq->lock, flags);
 }
@@ -5684,11 +5686,11 @@ static struct root_domain *alloc_rootdomain(const cpumask_t *map)
 }
 
 /*
- * Attach the domain 'sd' to 'cpu' as its base domain.  Callers must
+ * Attach the domain 'sd' to 'cpu' as its base domain. Callers must
  * hold the hotplug lock.
  */
-static void cpu_attach_domain(struct sched_domain *sd,
-			      struct root_domain *rd, int cpu)
+static void
+cpu_attach_domain(struct sched_domain *sd, struct root_domain *rd, int cpu)
 {
 	struct rq *rq = cpu_rq(cpu);
 	struct sched_domain *tmp;

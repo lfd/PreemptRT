@@ -1607,6 +1607,7 @@ void fastcall wake_up_new_task(struct task_struct *p, unsigned long clone_flags)
 		inc_nr_running(p, rq);
 	}
 	check_preempt_curr(rq, p);
+	wakeup_balance_rt(rq, p);
 	task_rq_unlock(rq, &flags);
 }
 

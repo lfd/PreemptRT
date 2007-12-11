@@ -56,6 +56,33 @@ static void task_tick_idle(struct rq *rq, struct task_struct *curr)
 {
 }
 
+static void switched_to_idle(struct rq *rq, struct task_struct *p,
+			     int running)
+{
+	/* Can this actually happen?? */
+	if (running)
+		resched_task(rq->curr);
+	else
+		check_preempt_curr(rq, p);
+}
+
+static void prio_changed_idle(struct rq *rq, struct task_struct *p,
+			      int oldprio, int running)
+{
+	/* This can happen for hot plug CPUS */
+
+	/*
+	 * Reschedule if we are currently running on this runqueue and
+	 * our priority decreased, or if we are not currently running on
+	 * this runqueue and our priority is higher than the current's
+	 */
+	if (running) {
+		if (p->prio > oldprio)
+			resched_task(rq->curr);
+	} else
+		check_preempt_curr(rq, p);
+}
+
 /*
  * Simple, special scheduling class for the per-CPU idle tasks:
  */
@@ -76,5 +103,9 @@ static struct sched_class idle_sched_class __read_mostly = {
 	.load_balance		= load_balance_idle,
 
 	.task_tick		= task_tick_idle,
+
+	.prio_changed		= prio_changed_idle,
+	.switched_to		= switched_to_idle,
+
 	/* no .task_new for idle tasks */
 };

@@ -27,6 +27,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/rtc.h>
 #include <linux/stacktrace.h>
+#include <linux/sysctl.h>
 #include <linux/mcount.h>
 
 #ifndef DEFINE_RAW_SPINLOCK
@@ -39,7 +40,7 @@
 
 int trace_use_raw_cycles = 0;
 
-#ifdef CONFIG_EVENT_TRACE
+#if defined(CONFIG_LATENCY_TIMING) || defined(CONFIG_EVENT_TRACE)
 /*
  * Convert raw cycles to usecs.
  * Note: this is not the 'clocksource cycles' value, it's the raw
@@ -157,12 +158,15 @@ enum trace_flag_type
  * we clear it after bootup.
  */
 #ifdef CONFIG_LATENCY_HIST
-unsigned long preempt_max_latency = (cycle_t)0UL;
+# define INIT_PREEMPT_MAX_LATENCY  ((cycle_t)0UL)
 #else
-unsigned long preempt_max_latency = (cycle_t)ULONG_MAX;
+# define INIT_PREEMPT_MAX_LATENCY  ((cycle_t)ULONG_MAX)
 #endif
 
+unsigned long preempt_max_latency;
+static cycle_t __preempt_max_latency = INIT_PREEMPT_MAX_LATENCY;
 unsigned long preempt_thresh;
+static cycle_t __preempt_thresh;
 
 /*
  * Should this new latency be reported/recorded?
@@ -172,11 +176,11 @@ static int report_latency(cycle_t delta)
 	if (latency_hist_flag && !trace_user_triggered)
 		return 1;
 
-	if (preempt_thresh) {
-		if (delta < preempt_thresh)
+	if (__preempt_thresh) {
+		if (delta < __preempt_thresh)
 			return 0;
 	} else {
-		if (delta <= preempt_max_latency)
+		if (delta <= __preempt_max_latency)
 			return 0;
 	}
 	return 1;
@@ -1663,7 +1667,7 @@ static void update_max_tr(struct cpu_trace *tr)
 			atomic_inc(&cpu_traces[cpu].disabled);
 	}
 
-	save->saved_latency = preempt_max_latency;
+	save->saved_latency = __preempt_max_latency;
 	save->preempt_timestamp = tr->preempt_timestamp;
 	save->critical_start = tr->critical_start;
 	save->critical_end = tr->critical_end;
@@ -1722,7 +1726,7 @@ static int setup_preempt_thresh(char *s)
 
 	get_option(&s, &thresh);
 	if (thresh > 0) {
-		preempt_thresh = usecs_to_cycles(thresh);
+		__preempt_thresh = usecs_to_cycles(thresh);
 		printk("Preemption threshold = %u us\n", thresh);
 	}
 	return 1;
@@ -1783,7 +1787,7 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 	latency_hist(tr->latency_type, cpu, latency);
 
 	if (latency_hist_flag) {
-		if (preempt_max_latency >= delta)
+		if (__preempt_max_latency >= delta)
 			goto out;
 	}
 
@@ -1791,14 +1795,14 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 		goto out;
 
 #ifndef CONFIG_CRITICAL_LATENCY_HIST
-	if (!preempt_thresh && preempt_max_latency > delta) {
+	if (!__preempt_thresh && __preempt_max_latency > delta) {
 		printk("bug: updating %016Lx > %016Lx?\n",
-			(u64)preempt_max_latency, (u64)delta);
+			(u64)__preempt_max_latency, (u64)delta);
 		printk("  [%016Lx %016Lx %016Lx]\n", (u64)T0, (u64)T1, (u64)T2);
 	}
 #endif
 
-	preempt_max_latency = delta;
+	__preempt_max_latency = delta;
 	t0 = cycles_to_usecs(T0);
 	t1 = cycles_to_usecs(T1);
 
@@ -1807,13 +1811,13 @@ check_critical_timing(int cpu, struct cpu_trace *tr, unsigned long parent_eip)
 	update_max_tr(tr);
 
 #ifndef CONFIG_CRITICAL_LATENCY_HIST
-	if (preempt_thresh)
+	if (__preempt_thresh)
 		printk("(%16s-%-5d|#%d): %lu us critical section "
 			"violates %lu us threshold.\n"
 			" => started at timestamp %lu: ",
 				current->comm, current->pid,
 				raw_smp_processor_id(),
-				latency, cycles_to_usecs(preempt_thresh), t0);
+				latency, cycles_to_usecs(__preempt_thresh), t0);
 	else
 		printk("(%16s-%-5d|#%d): new %lu us maximum-latency "
 			"critical section.\n => started at timestamp %lu: ",
@@ -2224,7 +2228,7 @@ check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 	latency_hist(tr->latency_type, cpu, latency);
 
 	if (latency_hist_flag) {
-		if (preempt_max_latency >= delta)
+		if (__preempt_max_latency >= delta)
 			goto out;
 	}
 
@@ -2232,14 +2236,14 @@ check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 		goto out;
 
 #ifndef CONFIG_WAKEUP_LATENCY_HIST
-	if (!preempt_thresh && preempt_max_latency > delta) {
+	if (!__preempt_thresh && __preempt_max_latency > delta) {
 		printk("bug2: updating %016lx > %016Lx?\n",
-			preempt_max_latency, delta);
+			__preempt_max_latency, delta);
 		printk("  [%016Lx %016Lx]\n", T0, T1);
 	}
 #endif
 
-	preempt_max_latency = delta;
+	__preempt_max_latency = delta;
 	t0 = cycles_to_usecs(T0);
 	t1 = cycles_to_usecs(T1);
 	tr->critical_end = parent_eip;
@@ -2251,12 +2255,12 @@ check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 	local_irq_restore(*flags);
 
 #ifndef CONFIG_WAKEUP_LATENCY_HIST
-	if (preempt_thresh)
+	if (__preempt_thresh)
 		printk("(%16s-%-5d|#%d): %lu us wakeup latency "
 			"violates %lu us threshold.\n",
 				current->comm, current->pid,
 				raw_smp_processor_id(), latency,
-				cycles_to_usecs(preempt_thresh));
+				cycles_to_usecs(__preempt_thresh));
 	else
 		printk("(%16s-%-5d|#%d): new %lu us maximum-latency "
 			"wakeup.\n", current->comm, current->pid,
@@ -2392,8 +2396,8 @@ long user_trace_start(void)
 	 * bootup then we assume that this was the intention
 	 * (we wont get any tracing done otherwise):
 	 */
-	if (preempt_max_latency == (cycle_t)ULONG_MAX)
-		preempt_max_latency = 0;
+	if (__preempt_max_latency == (cycle_t)ULONG_MAX)
+		__preempt_max_latency = 0;
 
 	/*
 	 * user_trace_start() might be called from hardirq
@@ -2482,7 +2486,7 @@ long user_trace_stop(void)
 
 		T0 = tr->preempt_timestamp;
 		T1 = now();
-		tmp0 = preempt_max_latency;
+		tmp0 = __preempt_max_latency;
 		if (T1 < T0)
 			T0 = T1;
 		delta = T1 - T0;
@@ -2492,9 +2496,9 @@ long user_trace_stop(void)
 						down_trylock(&max_mutex))
 			goto out;
 
-		WARN_ON(!preempt_thresh && preempt_max_latency > delta);
+		WARN_ON(!__preempt_thresh && __preempt_max_latency > delta);
 
-		preempt_max_latency = delta;
+		__preempt_max_latency = delta;
 		update_max_tr(tr);
 
 		latency = cycles_to_usecs(delta);
@@ -2508,12 +2512,12 @@ out:
 	local_irq_restore(flags);
 
 	if (latency) {
-		if (preempt_thresh)
+		if (__preempt_thresh)
 			printk("(%16s-%-5d|#%d): %lu us user-latency "
 				"violates %lu us threshold.\n",
 					current->comm, current->pid,
 					raw_smp_processor_id(), latency,
-					cycles_to_usecs(preempt_thresh));
+					cycles_to_usecs(__preempt_thresh));
 		else
 			printk("(%16s-%-5d|#%d): new %lu us user-latency.\n",
 				current->comm, current->pid,
@@ -2794,5 +2798,38 @@ void __init init_tracer(void)
 	printk(KERN_INFO
 		"tracer: a total of %ld bytes allocated.\n",
 		total_size);
+}
+#endif
+
+#ifdef CONFIG_LATENCY_TIMING
+
+int proc_preempt_max_latency(struct ctl_table *table, int write,
+			     struct file *file, void __user *buffer,
+			     size_t *length, loff_t *ppos)
+{
+	if (!write)
+		preempt_max_latency = cycles_to_us(__preempt_max_latency);
+
+	proc_doulongvec_minmax(table, write, file, buffer, length, ppos);
+
+	if (write)
+		__preempt_max_latency = usecs_to_cycles(preempt_max_latency);
+
+	return 0;
+}
+
+int proc_preempt_threshold(struct ctl_table *table, int write,
+			   struct file *file, void __user *buffer,
+			   size_t *length, loff_t *ppos)
+{
+	if (!write)
+		preempt_thresh = cycles_to_us(__preempt_thresh);
+
+	proc_doulongvec_minmax(table, write, file, buffer, length, ppos);
+
+	if (write)
+		__preempt_thresh = usecs_to_cycles(preempt_thresh);
+
+	return 0;
 }
 #endif

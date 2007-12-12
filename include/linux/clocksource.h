@@ -25,6 +25,14 @@ extern unsigned long preempt_max_latency;
 extern unsigned long preempt_thresh;
 extern unsigned long preempt_mark_thresh;
 
+struct ctl_table;
+struct file;
+extern int proc_preempt_max_latency(struct ctl_table *table, int write,
+				    struct file *file, void __user *buffer,
+				    size_t *length, loff_t *ppos);
+extern int proc_preempt_threshold(struct ctl_table *table, int write,
+				  struct file *file, void __user *buffer,
+				  size_t *length, loff_t *ppos);
 /**
  * struct clocksource - hardware abstraction for a free running counter
  *	Provides mostly state-free accessors to the underlying hardware.

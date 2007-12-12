@@ -366,7 +366,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &preempt_max_latency,
 		.maxlen		= sizeof(preempt_max_latency),
 		.mode		= 0644,
-		.proc_handler	= &proc_doulongvec_minmax,
+		.proc_handler	= &proc_preempt_max_latency,
 	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -374,7 +374,7 @@ static struct ctl_table kern_table[] = {
 		.data		= &preempt_thresh,
 		.maxlen		= sizeof(preempt_thresh),
 		.mode		= 0644,
-		.proc_handler	= &proc_doulongvec_minmax,
+		.proc_handler	= &proc_preempt_threshold,
 	},
 #endif
 #ifdef CONFIG_EVENT_TRACE

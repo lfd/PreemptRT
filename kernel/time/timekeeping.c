@@ -131,7 +131,8 @@ unsigned long notrace cycles_to_usecs(cycle_t cycles)
 {
 	u64 ret = cyc2ns(clock, cycles);
 
-	do_div(ret, 1000);
+	ret += NSEC_PER_USEC/2; /* For rounding in do_div() */
+	do_div(ret, NSEC_PER_USEC);
 
 	return ret;
 }

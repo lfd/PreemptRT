@@ -27,6 +27,7 @@
 #include <asm/asm-offsets.h>
 #include <asm/rtc.h>
 #include <linux/stacktrace.h>
+#include <linux/sysctl.h>
 
 #ifndef DEFINE_RAW_SPINLOCK
 # define DEFINE_RAW_SPINLOCK		DEFINE_SPINLOCK
@@ -38,7 +39,7 @@
 
 int trace_use_raw_cycles = 0;
 
-#ifdef CONFIG_EVENT_TRACE
+#if defined(CONFIG_LATENCY_TIMING) || defined(CONFIG_EVENT_TRACE)
 /*
  * Convert raw cycles to usecs.
  * Note: this is not the 'clocksource cycles' value, it's the raw
@@ -157,11 +158,14 @@ enum trace_flag_type
  */
 #ifdef CONFIG_LATENCY_HIST
 unsigned long preempt_max_latency = (cycle_t)0UL;
+unsigned long preempt_max_latency_us = (cycle_t)0UL;
 #else
 unsigned long preempt_max_latency = (cycle_t)ULONG_MAX;
+unsigned long preempt_max_latency_us = (cycle_t)ULONG_MAX;
 #endif
 
 unsigned long preempt_thresh;
+unsigned long preempt_thresh_us;
 
 /*
  * Should this new latency be reported/recorded?
@@ -1709,6 +1713,7 @@ static int setup_preempt_thresh(char *s)
 	get_option(&s, &thresh);
 	if (thresh > 0) {
 		preempt_thresh = usecs_to_cycles(thresh);
+		preempt_thresh_us = thresh;
 		printk("Preemption threshold = %u us\n", thresh);
 	}
 	return 1;
@@ -2782,5 +2787,34 @@ void __init init_tracer(void)
 	printk(KERN_INFO
 		"tracer: a total of %ld bytes allocated.\n",
 		total_size);
+}
+#endif
+
+#ifdef CONFIG_LATENCY_TIMING
+
+int proc_preempt_max_latency(struct ctl_table *table, int write,
+			     struct file *file, void __user *buffer,
+			     size_t *length, loff_t *ppos)
+{
+	preempt_max_latency_us = cycles_to_us(preempt_max_latency);
+
+	proc_doulongvec_minmax(table, write, file, buffer, length, ppos);
+
+	preempt_max_latency = usecs_to_cycles(preempt_max_latency_us);
+
+	return 0;
+}
+
+int proc_preempt_threshold(struct ctl_table *table, int write,
+			   struct file *file, void __user *buffer,
+			   size_t *length, loff_t *ppos)
+{
+	preempt_thresh_us = cycles_to_us(preempt_thresh);
+
+	proc_doulongvec_minmax(table, write, file, buffer, length, ppos);
+
+	preempt_thresh = usecs_to_cycles(preempt_thresh_us);
+
+	return 0;
 }
 #endif

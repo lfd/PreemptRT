@@ -355,18 +355,18 @@ static ctl_table kern_table[] = {
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "preempt_max_latency",
-		.data		= &preempt_max_latency,
-		.maxlen		= sizeof(preempt_max_latency),
+		.data		= &preempt_max_latency_us,
+		.maxlen		= sizeof(preempt_max_latency_us),
 		.mode		= 0644,
-		.proc_handler	= &proc_doulongvec_minmax,
+		.proc_handler	= &proc_preempt_max_latency,
 	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "preempt_thresh",
-		.data		= &preempt_thresh,
-		.maxlen		= sizeof(preempt_thresh),
+		.data		= &preempt_thresh_us,
+		.maxlen		= sizeof(preempt_thresh_us),
 		.mode		= 0644,
-		.proc_handler	= &proc_doulongvec_minmax,
+		.proc_handler	= &proc_preempt_threshold,
 	},
 #endif
 #ifdef CONFIG_EVENT_TRACE

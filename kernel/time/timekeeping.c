@@ -506,7 +506,7 @@ static void clocksource_adjust(s64 offset)
  */
 void update_wall_time(void)
 {
-	cycle_t cycle_now, offset;
+	cycle_t cycle_now;
 
 	/* Make sure we're fully resumed: */
 	if (unlikely(timekeeping_suspended))
@@ -517,7 +517,6 @@ void update_wall_time(void)
 #else
 	cycle_now = clock->cycle_last + clock->cycle_interval;
 #endif
-	offset = (cycle_now - clock->cycle_last) & clock->mask;
 	clocksource_accumulate(clock, cycle_now);
 
 	clock->xtime_nsec += (s64)xtime.tv_nsec << clock->shift;

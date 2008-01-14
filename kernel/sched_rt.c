@@ -33,6 +33,9 @@ static inline void rt_clear_overload(struct rq *rq)
 
 static void update_rt_migration(struct rq *rq)
 {
+	if (unlikely(num_online_cpus() == 1))
+		return;
+
 	if (rq->rt.rt_nr_migratory && (rq->rt.rt_nr_running > 1)) {
 		if (!rq->rt.overloaded) {
 			rt_set_overload(rq);
@@ -444,6 +447,7 @@ void dec_rt_tasks(struct sched_rt_entity *rt_se, struct rt_rq *rt_rq)
 #ifdef CONFIG_SMP
 	if (rt_se->nr_cpus_allowed > 1) {
 		struct rq *rq = rq_of_rt_rq(rt_rq);
+		BUG_ON(!rq->rt.rt_nr_migratory);
 		rq->rt.rt_nr_migratory--;
 	}
 

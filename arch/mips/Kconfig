@@ -1851,8 +1851,6 @@ config MIPS_CMP
 	  This is a placeholder option for the GCMP work. It will need to
 	  be handled differently...
 
-source "kernel/time/Kconfig"
-
 #
 # Timer Interrupt Frequency Configuration
 #

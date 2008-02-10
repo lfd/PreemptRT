@@ -1612,6 +1612,7 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 
 out_activate:
 #endif /* CONFIG_SMP */
+	ftrace_wake_up_task(p, rq->curr);
 	schedstat_inc(p, se.nr_wakeups);
 	if (sync)
 		schedstat_inc(p, se.nr_wakeups_sync);
@@ -1623,6 +1624,7 @@ out_activate:
 		schedstat_inc(p, se.nr_wakeups_remote);
 	update_rq_clock(rq);
 	activate_task(rq, p, 1);
+	ftrace_wake_up_new_task(p, rq->curr);
 	check_preempt_curr(rq, p);
 	success = 1;
 
@@ -1925,6 +1927,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	struct mm_struct *mm, *oldmm;
 
 	prepare_task_switch(rq, prev, next);
+	ftrace_ctx_switch(prev, next);
 	mm = next->mm;
 	oldmm = prev->active_mm;
 	/*

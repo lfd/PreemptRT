@@ -547,7 +547,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 	do_exit(SIGSEGV); 
 }
 
-void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
+notrace void __kprobes die_nmi(char *str, struct pt_regs *regs, int do_panic)
 {
 	unsigned long flags = oops_begin();
 
@@ -722,7 +722,7 @@ asmlinkage void __kprobes do_general_protection(struct pt_regs * regs,
 	}
 }
 
-static __kprobes void
+static notrace __kprobes void
 mem_parity_error(unsigned char reason, struct pt_regs * regs)
 {
 	printk(KERN_EMERG "Uhhuh. NMI received for unknown reason %02x.\n",
@@ -746,7 +746,7 @@ mem_parity_error(unsigned char reason, struct pt_regs * regs)
 	outb(reason, 0x61);
 }
 
-static __kprobes void
+static notrace __kprobes void
 io_check_error(unsigned char reason, struct pt_regs * regs)
 {
 	printk("NMI: IOCK error (debug interrupt?)\n");
@@ -760,7 +760,7 @@ io_check_error(unsigned char reason, struct pt_regs * regs)
 	outb(reason, 0x61);
 }
 
-static __kprobes void
+static notrace __kprobes void
 unknown_nmi_error(unsigned char reason, struct pt_regs * regs)
 {
 	printk(KERN_EMERG "Uhhuh. NMI received for unknown reason %02x.\n",
@@ -775,7 +775,7 @@ unknown_nmi_error(unsigned char reason, struct pt_regs * regs)
 
 /* Runs on IST stack. This code must keep interrupts off all the time.
    Nested NMIs are prevented by the CPU. */
-asmlinkage __kprobes void default_do_nmi(struct pt_regs *regs)
+asmlinkage notrace  __kprobes void default_do_nmi(struct pt_regs *regs)
 {
 	unsigned char reason = 0;
 	int cpu;

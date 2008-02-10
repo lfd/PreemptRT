@@ -33,6 +33,7 @@ obj-$(CONFIG_CRASH_DUMP)	+= crash_dump_32.o
 obj-$(CONFIG_X86_NUMAQ)		+= numaq_32.o
 obj-$(CONFIG_X86_SUMMIT_NUMA)	+= summit_32.o
 obj-$(CONFIG_KPROBES)		+= kprobes_32.o
+obj-$(CONFIG_DYNAMIC_FTRACE)	+= ftrace.o
 obj-$(CONFIG_MODULES)		+= module_32.o
 obj-y				+= sysenter_32.o vsyscall_32.o
 obj-$(CONFIG_ACPI_SRAT) 	+= srat_32.o

@@ -75,6 +75,33 @@ DF_MASK		= 0x00000400
 NT_MASK		= 0x00004000
 VM_MASK		= 0x00020000
 
+#ifdef CONFIG_FTRACE
+ENTRY(mcount)
+	cmpl $ftrace_stub, ftrace_trace_function
+	jnz trace
+
+.globl ftrace_stub
+ftrace_stub:
+	ret
+
+	/* taken from glibc */
+trace:
+	pushl %eax
+	pushl %ecx
+	pushl %edx
+	movl 0xc(%esp), %eax
+	movl 0x4(%ebp), %edx
+
+	call   *ftrace_trace_function
+
+	popl %edx
+	popl %ecx
+	popl %eax
+
+	jmp ftrace_stub
+END(mcount)
+#endif
+
 #ifdef CONFIG_PREEMPT
 #define preempt_stop(clobbers)	DISABLE_INTERRUPTS(clobbers); TRACE_IRQS_OFF
 #else

@@ -1951,6 +1951,32 @@ extern int sched_mc_power_savings, sched_smt_power_savings;
 
 extern void normalize_rt_tasks(void);
 
+#ifdef CONFIG_CONTEXT_SWITCH_TRACER
+extern void
+ftrace_ctx_switch(struct task_struct *prev, struct task_struct *next);
+#else
+static inline void
+ftrace_ctx_switch(struct task_struct *prev, struct task_struct *next)
+{
+}
+#endif
+
+#ifdef CONFIG_SCHED_TRACER
+extern void
+ftrace_wake_up_task(struct task_struct *wakee, struct task_struct *curr);
+extern void
+ftrace_wake_up_new_task(struct task_struct *wakee, struct task_struct *curr);
+#else
+static inline void
+ftrace_wake_up_task(struct task_struct *wakee, struct task_struct *curr)
+{
+}
+static inline void
+ftrace_wake_up_new_task(struct task_struct *wakee, struct task_struct *curr)
+{
+}
+#endif
+
 #ifdef CONFIG_FAIR_GROUP_SCHED
 
 extern struct task_group init_task_group;

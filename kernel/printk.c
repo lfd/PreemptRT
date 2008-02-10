@@ -595,9 +595,11 @@ static int have_callable_console(void)
  * @fmt: format string
  *
  * This is printk().  It can be called from any context.  We want it to work.
- * Be aware of the fact that if oops_in_progress is not set, we might try to
- * wake klogd up which could deadlock on runqueue lock if printk() is called
- * from scheduler code.
+ *
+ * Note: if printk() is called with the runqueue lock held, it will not wake
+ * up the klogd. This is to avoid a deadlock from calling printk() in schedule
+ * with the runqueue lock held and having the wake_up grab the runqueue lock
+ * as well.
  *
  * We try to grab the console_sem.  If we succeed, it's easy - we log the output and
  * call the console drivers.  If we fail to get the semaphore we place the output
@@ -978,7 +980,11 @@ void release_console_sem(void)
 	console_locked = 0;
 	up(&console_sem);
 	spin_unlock_irqrestore(&logbuf_lock, flags);
-	if (wake_klogd)
+	/*
+	 * If we try to wake up klogd while printing with the runqueue lock
+	 * held, this will deadlock.
+	 */
+	if (wake_klogd && !runqueue_is_locked())
 		wake_up_klogd();
 }
 EXPORT_SYMBOL(release_console_sem);

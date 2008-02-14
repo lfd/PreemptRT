@@ -1199,20 +1199,18 @@ static unsigned long count_active_tasks(void)
 #endif
 }
 
+#ifdef CONFIG_PREEMPT_RT
 /*
  * Nr of active tasks - counted in fixed-point numbers
  */
 static unsigned long count_active_rt_tasks(void)
 {
-#ifdef CONFIG_PREEMPT_RT
 	extern unsigned long rt_nr_running(void);
 	extern unsigned long rt_nr_uninterruptible(void);
 
 	return (rt_nr_running() + rt_nr_uninterruptible()) * FIXED_1;
-#else
-	return 0;
-#endif
 }
+#endif
 
 /*
  * Hmm.. Changed this, as the GNU make sources (load.c) seems to
@@ -1241,7 +1239,9 @@ static inline void calc_load(unsigned long ticks)
 	count -= ticks;
 	if (unlikely(count < 0)) {
 		active_tasks = count_active_tasks();
+#ifdef CONFIG_PREEMPT_RT
 		active_rt_tasks = count_active_rt_tasks();
+#endif
 		do {
 			CALC_LOAD(avenrun[0], EXP_1, active_tasks);
 			CALC_LOAD(avenrun[1], EXP_5, active_tasks);

@@ -6856,6 +6856,7 @@ static void rq_attach_root(struct rq *rq, struct root_domain *rd)
 {
 	unsigned long flags;
 	const struct sched_class *class;
+	struct root_domain *reap = NULL;
 
 	spin_lock_irqsave(&rq->lock, flags);
 
@@ -6871,7 +6872,7 @@ static void rq_attach_root(struct rq *rq, struct root_domain *rd)
 		cpu_clear(rq->cpu, old_rd->online);
 
 		if (atomic_dec_and_test(&old_rd->refcount))
-			kfree(old_rd);
+			reap = old_rd;
 	}
 
 	atomic_inc(&rd->refcount);
@@ -6887,6 +6888,10 @@ static void rq_attach_root(struct rq *rq, struct root_domain *rd)
 	}
 
 	spin_unlock_irqrestore(&rq->lock, flags);
+
+	/* Don't try to free the memory while in-atomic() */
+	if (unlikely(reap))
+		kfree(reap);
 }
 
 static void init_rootdomain(struct root_domain *rd)

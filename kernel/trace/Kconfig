@@ -144,7 +144,7 @@ config PREEMPT_OFF_HIST
 	  preemption off timings to create a histogram of latencies.
 
 config WAKEUP_LATENCY_HIST
-	bool "Interrupts off critical timings histogram"
+	bool "Wakeup latencies histogram"
 	depends on SCHED_TRACER
 	help
 	  This option uses the infrastructure of the wakeup tracer

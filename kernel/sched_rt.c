@@ -179,6 +179,8 @@ static void enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup)
 
 	if (p->state == TASK_UNINTERRUPTIBLE)
 		decr_rt_nr_uninterruptible(p, rq);
+
+	rq->rt.pushed = 0;
 }
 
 /*
@@ -510,7 +512,7 @@ static int push_rt_task(struct rq *rq)
 	int ret = 0;
 	int paranoid = RT_MAX_TRIES;
 
-	if (!rq->rt.overloaded)
+	if (!rq->rt.overloaded || rq->rt.pushed)
 		return 0;
 
 	next_task = pick_next_highest_task_rt(rq, -1);
@@ -586,6 +588,8 @@ static void push_rt_tasks(struct rq *rq)
 	/* push_rt_task will return true if it moved an RT */
 	while (push_rt_task(rq))
 		;
+
+	rq->rt.pushed = 1;
 }
 
 static int pull_rt_task(struct rq *this_rq)

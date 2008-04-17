@@ -325,6 +325,7 @@ struct rt_rq {
 	/* highest queued rt task prio */
 	int highest_prio;
 	int overloaded;
+	int pushed;
 };
 
 #ifdef CONFIG_SMP
@@ -7372,6 +7373,7 @@ void __init sched_init(void)
 		INIT_LIST_HEAD(&rq->migration_queue);
 		rq->rt.highest_prio = MAX_RT_PRIO;
 		rq->rt.overloaded = 0;
+		rq->rt.pushed = 0;
 		rq_attach_root(rq, &def_root_domain);
 #endif
 		atomic_set(&rq->nr_iowait, 0);

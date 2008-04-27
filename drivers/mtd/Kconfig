@@ -47,6 +47,13 @@ config MTD_PARTITIONS
 	  devices. Partitioning on NFTL 'devices' is a different - that's the
 	  'normal' form of partitioning used on a block device.
 
+config MTD_UCBOOTSTRAP_PARTS
+        bool "uCbootloader partition table parsing"
+        depends on MTD_PARTITIONS
+        help
+          This enables access to the Flash ROM chips on devices with the uCbootloader.
+          Say 'Y' if you are building a kernel for such a board.
+
 config MTD_REDBOOT_PARTS
 	tristate "RedBoot partition table parsing"
 	depends on MTD_PARTITIONS

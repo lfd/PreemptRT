@@ -1162,7 +1162,6 @@ static inline void update_times(void)
 	ticks = jiffies - last_tick;
 	if (ticks) {
 		last_tick += ticks;
-		update_wall_time();
 		calc_load(ticks);
 	}
 	write_sequnlock_irqrestore(&xtime_lock, flags);
@@ -1192,6 +1191,7 @@ static void run_timer_softirq(struct softirq_action *h)
 void do_timer(unsigned long ticks)
 {
 	jiffies_64 += ticks;
+	update_wall_time();
 }
 
 #ifdef __ARCH_WANT_SYS_ALARM

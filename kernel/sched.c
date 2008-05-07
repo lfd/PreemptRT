@@ -66,6 +66,7 @@
 #include <linux/unistd.h>
 #include <linux/pagemap.h>
 #include <linux/hrtimer.h>
+#include <linux/ftrace.h>
 
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
@@ -115,6 +116,11 @@ unsigned long long __attribute__((weak)) sched_clock(void)
  * Timeslices get refilled after they expire.
  */
 #define DEF_TIMESLICE		(100 * HZ / 1000)
+
+/*
+ * single value that denotes runtime == period, ie unlimited time.
+ */
+#define RUNTIME_INF	((u64)~0ULL)
 
 #ifdef CONFIG_SMP
 /*
@@ -592,6 +598,24 @@ unsigned long rt_needs_cpu(int cpu)
 # define const_debug static const
 #endif
 
+/**
+ * runqueue_is_locked
+ *
+ * Returns true if the current cpu runqueue is locked.
+ * This interface allows printk to be called with the runqueue lock
+ * held and know whether or not it is OK to wake up the klogd.
+ */
+int runqueue_is_locked(void)
+{
+	int cpu = get_cpu();
+	struct rq *rq = cpu_rq(cpu);
+	int ret;
+
+	ret = spin_is_locked(&rq->lock);
+	put_cpu();
+	return ret;
+}
+
 /*
  * Debugging: various feature bits
  */
@@ -632,16 +656,60 @@ static __read_mostly int scheduler_running;
  */
 int sysctl_sched_rt_runtime = 950000;
 
-/*
- * single value that denotes runtime == period, ie unlimited time.
- */
-#define RUNTIME_INF	((u64)~0ULL)
+static inline u64 global_rt_period(void)
+{
+	return (u64)sysctl_sched_rt_period * NSEC_PER_USEC;
+}
+
+static inline u64 global_rt_runtime(void)
+{
+	if (sysctl_sched_rt_period < 0)
+		return RUNTIME_INF;
+
+	return (u64)sysctl_sched_rt_runtime * NSEC_PER_USEC;
+}
+
+static const unsigned long long time_sync_thresh = 100000;
+
+static DEFINE_PER_CPU(unsigned long long, time_offset);
+static DEFINE_PER_CPU(unsigned long long, prev_cpu_time);
 
 /*
- * For kernel-internal use: high-speed (but slightly incorrect) per-cpu
- * clock constructed from sched_clock():
+ * Global lock which we take every now and then to synchronize
+ * the CPUs time. This method is not warp-safe, but it's good
+ * enough to synchronize slowly diverging time sources and thus
+ * it's good enough for tracing:
  */
-unsigned long long cpu_clock(int cpu)
+static DEFINE_SPINLOCK(time_sync_lock);
+static unsigned long long prev_global_time;
+
+static unsigned long long notrace __sync_cpu_clock(cycles_t time, int cpu)
+{
+	unsigned long flags;
+
+	/*
+	 * We want this inlined, to not get tracer function calls
+	 * in this critical section:
+	 */
+	local_irq_save(flags);
+	spin_acquire(&time_sync_lock.dep_map, 0, 0, _THIS_IP_);
+	__raw_spin_lock(&time_sync_lock.raw_lock);
+
+	if (time < prev_global_time) {
+		per_cpu(time_offset, cpu) += prev_global_time - time;
+		time = prev_global_time;
+	} else {
+		prev_global_time = time;
+	}
+
+	__raw_spin_unlock(&time_sync_lock.raw_lock);
+	spin_release(&time_sync_lock.dep_map, 1, _THIS_IP_);
+	local_irq_restore(flags);
+
+	return time;
+}
+
+static unsigned long long notrace __cpu_clock(int cpu)
 {
 	unsigned long long now;
 	unsigned long flags;
@@ -661,6 +729,24 @@ unsigned long long cpu_clock(int cpu)
 	local_irq_restore(flags);
 
 	return now;
+}
+
+/*
+ * For kernel-internal use: high-speed (but slightly incorrect) per-cpu
+ * clock constructed from sched_clock():
+ */
+unsigned long long notrace cpu_clock(int cpu)
+{
+	unsigned long long prev_cpu_time, time, delta_time;
+
+	prev_cpu_time = per_cpu(prev_cpu_time, cpu);
+	time = __cpu_clock(cpu) + per_cpu(time_offset, cpu);
+	delta_time = time-prev_cpu_time;
+
+	if (unlikely(delta_time > time_sync_thresh))
+		time = __sync_cpu_clock(time, cpu);
+
+	return time;
 }
 EXPORT_SYMBOL_GPL(cpu_clock);
 
@@ -1971,6 +2057,7 @@ out_activate:
 	success = 1;
 
 out_running:
+	ftrace_wake_up_task(rq, p, rq->curr);
 	check_preempt_curr(rq, p);
 
 	p->state = TASK_RUNNING;
@@ -2100,6 +2187,7 @@ void wake_up_new_task(struct task_struct *p, unsigned long clone_flags)
 		p->sched_class->task_new(rq, p);
 		inc_nr_running(p, rq);
 	}
+	ftrace_wake_up_task(rq, p, rq->curr);
 	check_preempt_curr(rq, p);
 #ifdef CONFIG_SMP
 	if (p->sched_class->task_wake_up)
@@ -2272,6 +2360,7 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	struct mm_struct *mm, *oldmm;
 
 	prepare_task_switch(rq, prev, next);
+	ftrace_ctx_switch(rq, prev, next);
 	mm = next->mm;
 	oldmm = prev->active_mm;
 	/*
@@ -3844,26 +3933,44 @@ void scheduler_tick(void)
 #endif
 }
 
-#if defined(CONFIG_PREEMPT) && defined(CONFIG_DEBUG_PREEMPT)
+#if defined(CONFIG_PREEMPT) && (defined(CONFIG_DEBUG_PREEMPT) || \
+				defined(CONFIG_PREEMPT_TRACER))
+
+static inline unsigned long get_parent_ip(unsigned long addr)
+{
+	if (in_lock_functions(addr)) {
+		addr = CALLER_ADDR2;
+		if (in_lock_functions(addr))
+			addr = CALLER_ADDR3;
+	}
+	return addr;
+}
 
 void __kprobes add_preempt_count(int val)
 {
+#ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
 	 */
 	if (DEBUG_LOCKS_WARN_ON((preempt_count() < 0)))
 		return;
+#endif
 	preempt_count() += val;
+#ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Spinlock count overflowing soon?
 	 */
 	DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=
 				PREEMPT_MASK - 10);
+#endif
+	if (preempt_count() == val)
+		trace_preempt_off(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
 }
 EXPORT_SYMBOL(add_preempt_count);
 
 void __kprobes sub_preempt_count(int val)
 {
+#ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
 	 */
@@ -3875,7 +3982,10 @@ void __kprobes sub_preempt_count(int val)
 	if (DEBUG_LOCKS_WARN_ON((val < PREEMPT_MASK) &&
 			!(preempt_count() & PREEMPT_MASK)))
 		return;
+#endif
 
+	if (preempt_count() == val)
+		trace_preempt_on(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
 	preempt_count() -= val;
 }
 EXPORT_SYMBOL(sub_preempt_count);

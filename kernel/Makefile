@@ -11,6 +11,14 @@ obj-y     = sched.o fork.o exec_domain.o panic.o printk.o profile.o \
 	    hrtimer.o rwsem.o nsproxy.o srcu.o \
 	    notifier.o ksysfs.o pm_qos_params.o
 
+ifdef CONFIG_FTRACE
+# Do not profile debug utilities
+ORIG_CFLAGS := $(KBUILD_CFLAGS)
+KBUILD_CFLAGS = $(if $(filter-out lockdep% %debug,$(basename $(notdir $@))), \
+	$(ORIG_CFLAGS), \
+	$(subst -pg,,$(ORIG_CFLAGS)))
+endif
+
 obj-$(CONFIG_SYSCTL) += sysctl_check.o
 obj-$(CONFIG_STACKTRACE) += stacktrace.o
 obj-y += time/
@@ -69,6 +77,8 @@ obj-$(CONFIG_TASK_DELAY_ACCT) += delayacct.o
 obj-$(CONFIG_TASKSTATS) += taskstats.o tsacct.o
 obj-$(CONFIG_MARKERS) += marker.o
 obj-$(CONFIG_LATENCYTOP) += latencytop.o
+obj-$(CONFIG_FTRACE) += trace/
+obj-$(CONFIG_TRACING) += trace/
 obj-$(CONFIG_SMP) += sched_cpupri.o
 
 ifneq ($(CONFIG_SCHED_NO_NO_OMIT_FRAME_POINTER),y)

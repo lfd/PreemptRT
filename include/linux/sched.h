@@ -246,6 +246,8 @@ extern asmlinkage void schedule_tail(struct task_struct *prev);
 extern void init_idle(struct task_struct *idle, int cpu);
 extern void init_idle_bootup_task(struct task_struct *idle);
 
+extern int runqueue_is_locked(void);
+
 extern cpumask_t nohz_cpu_mask;
 #if defined(CONFIG_SMP) && defined(CONFIG_NO_HZ)
 extern int select_nohz_load_balancer(int cpu);
@@ -2058,6 +2060,50 @@ static inline void arch_pick_mmap_layout(struct mm_struct *mm)
 }
 #endif
 
+#ifdef CONFIG_TRACING
+extern void
+__trace_special(void *__tr, void *__data,
+		unsigned long arg1, unsigned long arg2, unsigned long arg3);
+#else
+static inline void
+__trace_special(void *__tr, void *__data,
+		unsigned long arg1, unsigned long arg2, unsigned long arg3)
+{
+}
+#endif
+
+#ifdef CONFIG_CONTEXT_SWITCH_TRACER
+extern void
+ftrace_ctx_switch(void *rq, struct task_struct *prev, struct task_struct *next);
+extern void
+ftrace_wake_up_task(void *rq, struct task_struct *wakee,
+		    struct task_struct *curr);
+extern void ftrace_all_fair_tasks(void *__rq, void *__tr, void *__data);
+extern void
+ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3);
+#else
+static inline void
+ftrace_ctx_switch(void *rq, struct task_struct *prev, struct task_struct *next)
+{
+}
+static inline void
+sched_trace_special(unsigned long p1, unsigned long p2, unsigned long p3)
+{
+}
+static inline void
+ftrace_wake_up_task(void *rq, struct task_struct *wakee,
+		    struct task_struct *curr)
+{
+}
+static inline void ftrace_all_fair_tasks(void *__rq, void *__tr, void *__data)
+{
+}
+static inline void
+ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3)
+{
+}
+#endif
+
 extern long sched_setaffinity(pid_t pid, cpumask_t new_mask);
 extern long sched_getaffinity(pid_t pid, cpumask_t *mask);
 
@@ -2132,6 +2178,8 @@ static inline void migration_init(void)
 #ifndef TASK_SIZE_OF
 #define TASK_SIZE_OF(tsk)	TASK_SIZE
 #endif
+
+#define TASK_STATE_TO_CHAR_STR "RSDTtZX"
 
 #endif /* __KERNEL__ */
 

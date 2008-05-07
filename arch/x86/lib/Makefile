@@ -5,6 +5,7 @@
 obj-$(CONFIG_SMP) := msr-on-cpu.o
 
 lib-y := delay_$(BITS).o
+lib-y += thunk_$(BITS).o
 lib-y += usercopy_$(BITS).o getuser_$(BITS).o putuser_$(BITS).o
 lib-y += memcpy_$(BITS).o
 
@@ -20,7 +21,7 @@ else
         CFLAGS_csum-partial_64.o := -funroll-loops
 
         lib-y += csum-partial_64.o csum-copy_64.o csum-wrappers_64.o
-        lib-y += thunk_64.o clear_page_64.o copy_page_64.o
+        lib-y += clear_page_64.o copy_page_64.o
         lib-y += bitops_64.o
         lib-y += memmove_64.o memset_64.o
         lib-y += copy_user_64.o rwlock_64.o copy_user_nocache_64.o

@@ -49,7 +49,7 @@
  *    we cannot lose wakeup events.
  */
 
- void __attribute_used__ __compat_up(struct compat_semaphore *sem)
+ void __used __compat_up(struct compat_semaphore *sem)
 {
 	wake_up(&sem->wait);
 }
@@ -58,7 +58,7 @@ EXPORT_SYMBOL(__compat_up);
 
 static DEFINE_SPINLOCK(semaphore_lock);
 
- void __attribute_used__ __sched __compat_down(struct compat_semaphore * sem)
+ void __used __sched __compat_down(struct compat_semaphore * sem)
 {
 	struct task_struct *tsk = current;
 	DECLARE_WAITQUEUE(wait, tsk);
@@ -93,7 +93,7 @@ static DEFINE_SPINLOCK(semaphore_lock);
 
 EXPORT_SYMBOL(__compat_down);
 
- int __attribute_used__ __sched __compat_down_interruptible(struct compat_semaphore * sem)
+ int __used __sched __compat_down_interruptible(struct compat_semaphore * sem)
 {
 	int retval = 0;
 	struct task_struct *tsk = current;
@@ -154,7 +154,7 @@ EXPORT_SYMBOL(__compat_down_interruptible);
  * single "cmpxchg" without failure cases,
  * but then it wouldn't work on a 386.
  */
- int __attribute_used__ __sched __compat_down_trylock(struct compat_semaphore * sem)
+ int __used __sched __compat_down_trylock(struct compat_semaphore * sem)
 {
 	int sleepers;
 	unsigned long flags;

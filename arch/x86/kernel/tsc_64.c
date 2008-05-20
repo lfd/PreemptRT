@@ -78,6 +78,7 @@ unsigned long long native_sched_clock(void)
 	rdtscll(a);
 	ret = cycles_2_ns(a);
 	preempt_enable_notrace();
+	return ret;
 }
 
 /* We need to define a real function for sched_clock, to override the

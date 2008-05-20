@@ -1576,7 +1576,7 @@ static inline void
 rt_write_fastlock(struct rw_mutex *rwm,
 		  void (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	unsigned long val = (unsigned long)current | RT_RWLOCK_WRITER;
+	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
 
 	if (likely(rt_rwlock_cmpxchg(rwm, NULL, val)))
 		rt_mutex_deadlock_account_lock(&rwm->mutex, current);
@@ -1616,7 +1616,7 @@ static inline int
 rt_write_fasttrylock(struct rw_mutex *rwm,
 		     int (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	unsigned long val = (unsigned long)current | RT_RWLOCK_WRITER;
+	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
 
 	if (likely(rt_rwlock_cmpxchg(rwm, NULL, val))) {
 		rt_mutex_deadlock_account_lock(&rwm->mutex, current);
@@ -1898,7 +1898,7 @@ static inline void
 rt_write_fastunlock(struct rw_mutex *rwm,
 		   void (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	unsigned long val = (unsigned long)current | RT_RWLOCK_WRITER;
+	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
 
 	WARN_ON(rt_rwlock_owner(rwm) != current);
 	if (likely(rt_rwlock_cmpxchg(rwm, (struct task_struct *)val, NULL)))

@@ -1119,9 +1119,7 @@ struct task_struct {
 	int lock_depth;		/* BKL lock depth */
 
 #ifdef CONFIG_SMP
-#ifdef __ARCH_WANT_UNLOCKED_CTXSW
 	int oncpu;
-#endif
 #endif
 
 	int prio, static_prio, normal_prio;
@@ -2445,7 +2443,12 @@ static inline void mm_init_owner(struct mm_struct *mm, struct task_struct *p)
 }
 #endif /* CONFIG_MM_OWNER */
 
-extern int task_is_current(struct task_struct *task);
+#ifdef CONFIG_SMP
+static inline int task_is_current(struct task_struct *task)
+{
+	return task->oncpu;
+}
+#endif
 
 #define TASK_STATE_TO_CHAR_STR "RMSDTtZX"
 

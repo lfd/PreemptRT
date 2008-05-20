@@ -11,11 +11,15 @@
 #ifndef _LINUX_TRACE_IRQFLAGS_H
 #define _LINUX_TRACE_IRQFLAGS_H
 
+#if !defined(BUILD_CHECK_IRQ_FLAGS) && defined(typecheck)
 #define BUILD_CHECK_IRQ_FLAGS(flags)					\
 	do {								\
 		BUILD_BUG_ON(sizeof(flags) != sizeof(unsigned long));	\
 		typecheck(unsigned long, flags);			\
 	} while (0)
+#else
+#define BUILD_CHECK_IRQ_FLAGS(flags)
+#endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
   extern void trace_softirqs_on(unsigned long ip);

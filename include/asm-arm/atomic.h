@@ -146,7 +146,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr,
 		return wrong_size_cmpxchg(ptr);
 }
 
-#define cmpxchg(ptr,o,n)						\
+#define cmpxchg__disabled(ptr,o,n)						\
 ({									\
 	__typeof__(*(ptr)) _o_ = (o);					\
 	__typeof__(*(ptr)) _n_ = (n);					\

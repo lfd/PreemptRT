@@ -1,11 +1,12 @@
 #ifndef _LINUX_FTRACE_H
 #define _LINUX_FTRACE_H
 
+#include <linux/tracepoint.h>
+#include <linux/ktime.h>
+
 #ifdef CONFIG_FTRACE
 
-#include <linux/tracepoint.h>
 #include <linux/linkage.h>
-#include <linux/ktime.h>
 #include <linux/fs.h>
 
 extern int ftrace_enabled;

@@ -858,7 +858,7 @@ notrace __kprobes void do_nmi(struct pt_regs *regs, long error_code)
 
 	nmi_enter();
 
-	ftrace_event_irq(-1, user_mode(regs), regs->eip);
+	ftrace_event_irq(-1, user_mode(regs), regs->ip);
 
 	cpu = smp_processor_id();
 

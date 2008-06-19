@@ -37,6 +37,12 @@ extern void ftrace_stub(unsigned long a0, unsigned long a1);
 void ftrace_enable(void);
 void ftrace_disable(void);
 
+/* totally disable ftrace - can not re-enable after this */
+void ftrace_kill(void);
+void __ftrace_kill(void);
+void ftrace_kill_atomic(void);
+
+
 #else /* !CONFIG_FTRACE */
 # define register_ftrace_function(ops) do { } while (0)
 # define unregister_ftrace_function(ops) do { } while (0)
@@ -44,6 +50,9 @@ void ftrace_disable(void);
 static inline void ftrace_kill_atomic(void) { }
 # define ftrace_enable()			do { } while (0)
 # define ftrace_disable()			do { } while (0)
+# define ftrace_kill()				do { } while (0)
+# define __ftrace_kill()			do { } while (0)
+# define ftrace_kill_atomic()			do { } while (0)
 #endif /* CONFIG_FTRACE */
 
 #ifdef CONFIG_DYNAMIC_FTRACE
@@ -97,10 +106,6 @@ extern void ftrace_enable_daemon(void);
 # define ftrace_enable_daemon()			do { } while (0)
 static inline void ftrace_release(void *start, unsigned long size) { }
 #endif /* CONFIG_DYNAMIC_FTRACE */
-
-/* totally disable ftrace - can not re-enable after this */
-void ftrace_kill(void);
-void ftrace_kill_atomic(void);
 
 static inline void tracer_disable(void)
 {
@@ -170,6 +175,7 @@ static inline void __ftrace_enabled_restore(int enabled)
 #ifdef CONFIG_TRACING
 extern void
 ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3);
+void ftrace_stop(void);
 
 /**
  * ftrace_printk - printf formatting in the ftrace buffer
@@ -195,6 +201,7 @@ extern void ftrace_dump(void);
 #else
 static inline void
 ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3) { }
+static inline void ftrace_stop(void) { }
 static inline int
 ftrace_printk(const char *fmt, ...) __attribute__ ((format (printf, 1, 0)));
 

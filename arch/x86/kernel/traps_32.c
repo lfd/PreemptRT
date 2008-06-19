@@ -398,6 +398,8 @@ int __kprobes __die(const char * str, struct pt_regs * regs, long err)
 	unsigned long sp;
 	unsigned short ss;
 
+	ftrace_stop();
+
 	printk(KERN_EMERG "%s: %04lx [#%d] ", str, err & 0xffff, ++die_counter);
 #ifdef CONFIG_PREEMPT
 	printk("PREEMPT ");

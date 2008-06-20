@@ -1292,7 +1292,7 @@ try_to_take_rw_write(struct rw_mutex *rwm, int mtx)
 	}
 
 	/*
-	 * RT_RW_PENDING means that the lock is free, but there are
+	 * RT_RWLOCK_PENDING means that the lock is free, but there are
 	 * pending owners on the mutex
 	 */
 	WARN_ON(own && !rt_mutex_owner_pending(mutex));
@@ -1628,7 +1628,8 @@ static inline void
 rt_write_fastlock(struct rw_mutex *rwm,
 		  void (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
+	struct task_struct *val = (void *)((unsigned long)current |
+					   RT_RWLOCK_WRITER);
 
 	if (likely(rt_rwlock_cmpxchg(rwm, NULL, val)))
 		rt_mutex_deadlock_account_lock(&rwm->mutex, current);
@@ -1668,7 +1669,8 @@ static inline int
 rt_write_fasttrylock(struct rw_mutex *rwm,
 		     int (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
+	struct task_struct *val = (void *)((unsigned long)current |
+					   RT_RWLOCK_WRITER);
 
 	if (likely(rt_rwlock_cmpxchg(rwm, NULL, val))) {
 		rt_mutex_deadlock_account_lock(&rwm->mutex, current);
@@ -1761,7 +1763,7 @@ rt_read_slowunlock(struct rw_mutex *rwm, int mtx)
 		/* We could still have a pending reader waiting */
 		if (rt_mutex_owner_pending(mutex)) {
 			/* set the rwm back to pending */
-			rwm->owner = RT_RW_PENDING_READ;
+			rwm->owner = RT_RWLOCK_PENDING_READ;
 		} else {
 			rwm->owner = NULL;
 			mutex->owner = NULL;
@@ -1782,7 +1784,7 @@ rt_read_slowunlock(struct rw_mutex *rwm, int mtx)
 		/* only wake up if there are no readers */
 		if (reader_count)
 			goto out;
-		rwm->owner = RT_RW_PENDING_WRITE;
+		rwm->owner = RT_RWLOCK_PENDING_WRITE;
 	} else {
 		/*
 		 * It is also possible that the reader limit decreased.
@@ -1793,7 +1795,7 @@ rt_read_slowunlock(struct rw_mutex *rwm, int mtx)
 		    unlikely(atomic_read(&rwm->owners) >= rt_rwlock_limit))
 			goto out;
 		if (!reader_count)
-			rwm->owner = RT_RW_PENDING_READ;
+			rwm->owner = RT_RWLOCK_PENDING_READ;
 	}
 
 	pendowner = waiter->task;
@@ -1917,11 +1919,11 @@ rt_write_slowunlock(struct rw_mutex *rwm, int mtx)
 
 	/* another writer is next? */
 	if (waiter->write_lock) {
-		rwm->owner = RT_RW_PENDING_WRITE;
+		rwm->owner = RT_RWLOCK_PENDING_WRITE;
 		goto out;
 	}
 
-	rwm->owner = RT_RW_PENDING_READ;
+	rwm->owner = RT_RWLOCK_PENDING_READ;
 
 	if (!rt_mutex_has_waiters(mutex))
 		goto out;
@@ -1995,7 +1997,8 @@ static inline void
 rt_write_fastunlock(struct rw_mutex *rwm,
 		   void (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	struct task_struct *val = (void *)((unsigned long)current | RT_RWLOCK_WRITER);
+	struct task_struct *val = (void *)((unsigned long)current |
+					   RT_RWLOCK_WRITER);
 
 	WARN_ON(rt_rwlock_owner(rwm) != current);
 	if (likely(rt_rwlock_cmpxchg(rwm, (struct task_struct *)val, NULL)))

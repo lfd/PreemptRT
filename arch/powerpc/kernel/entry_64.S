@@ -595,8 +595,16 @@ do_work:
 	bne	restore
 	/* here we are preempting the current task */
 1:
+	/*
+	 * preempt_schedule_irq() expects interrupts disabled and returns
+	 * with interrupts disabled. No need to check preemption again,
+	 * preempt_schedule_irq just did that for us.
+	 */
+	bl	.preempt_schedule_irq
 #ifdef CONFIG_TRACE_IRQFLAGS
 	bl	.trace_hardirqs_on
+#endif /* CONFIG_TRACE_IRQFLAGS */
+
 	/* Note: we just clobbered r10 which used to contain the previous
 	 * MSR before the hard-disabling done by the caller of do_work.
 	 * We don't have that value anymore, but it doesn't matter as
@@ -604,21 +612,12 @@ do_work:
 	 * current MSR into r10
 	 */
 	mfmsr	r10
-#endif /* CONFIG_TRACE_IRQFLAGS */
+
 	li	r0,1
 	stb	r0,PACASOFTIRQEN(r13)
 	stb	r0,PACAHARDIRQEN(r13)
 	ori	r10,r10,MSR_EE
 	mtmsrd	r10,1		/* reenable interrupts */
-	bl	.preempt_schedule
-	mfmsr	r10
-	clrrdi	r9,r1,THREAD_SHIFT
-	rldicl	r10,r10,48,1	/* disable interrupts again */
-	rotldi	r10,r10,16
-	mtmsrd	r10,1
-	ld	r4,TI_FLAGS(r9)
-	andi.	r0,r4,_TIF_NEED_RESCHED
-	bne	1b
 	b	restore
 
 user_work:

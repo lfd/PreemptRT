@@ -1611,6 +1611,13 @@ extern unsigned long ia32_sys_call_table[], ia32_syscall_end[];
 # define IA32_NR_syscalls (ia32_syscall_end - ia32_sys_call_table)
 #endif
 
+static void trace_print_ktime(struct trace_seq *s, ktime_t t)
+{
+	struct timespec ts = ktime_to_timespec(t);
+
+	trace_seq_printf(s, " (%ld.%09ld)", ts.tv_sec, ts.tv_nsec);
+}
+
 static void print_lat_help_header(struct seq_file *m)
 {
 	seq_puts(m, "#                  _------=> CPU#            \n");
@@ -1886,23 +1893,23 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 		break;
 	case TRACE_TIMER_SET:
 		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%p)\n",
-			   entry->field.timer.expire, entry->field.timer.timer);
+		trace_print_ktime(s, entry->field.timer.expire);
+		trace_seq_printf(s, " (%p)\n", entry->field.timer.timer);
 		break;
 	case TRACE_TIMER_TRIG:
 		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%p)\n",
-			   entry->field.timer.expire, entry->field.timer.timer);
+		trace_print_ktime(s, entry->field.timer.expire);
+		trace_seq_printf(s, " (%p)\n", entry->field.timer.timer);
 		break;
 	case TRACE_TIMESTAMP:
 		seq_print_ip_sym(s, entry->field.timestamp.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld)\n",
-			   entry->field.timestamp.now.tv64);
+		trace_print_ktime(s, entry->field.timestamp.now);
+		trace_seq_puts(s, "\n");
 		break;
 	case TRACE_PROGRAM_EVENT:
 		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%Ld)\n",
-			   entry->field.program.expire, entry->field.program.delta);
+		trace_print_ktime(s, entry->field.program.expire);
+		trace_seq_printf(s, " (%Ld)\n", entry->field.program.delta);
 		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
@@ -1986,6 +1993,7 @@ static int print_trace_fmt(struct trace_iterator *iter)
 	ret = trace_seq_printf(s, "[%03d] ", iter->cpu);
 	if (!ret)
 		return 0;
+
 	ret = trace_seq_printf(s, "%5lu.%06lu: ", secs, usec_rem);
 	if (!ret)
 		return 0;
@@ -2083,23 +2091,23 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		break;
 	case TRACE_TIMER_SET:
 		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%p)\n",
-			   entry->field.timer.expire, entry->field.timer.timer);
+		trace_print_ktime(s, entry->field.timer.expire);
+		trace_seq_printf(s, " (%p)\n", entry->field.timer.timer);
 		break;
 	case TRACE_TIMER_TRIG:
 		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%p)\n",
-			   entry->field.timer.expire, entry->field.timer.timer);
+		trace_print_ktime(s, entry->field.timer.expire);
+		trace_seq_printf(s, " (%p)\n", entry->field.timer.timer);
 		break;
 	case TRACE_TIMESTAMP:
 		seq_print_ip_sym(s, entry->field.timestamp.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld)\n",
-			   entry->field.timestamp.now.tv64);
+		trace_print_ktime(s, entry->field.timestamp.now);
+		trace_seq_puts(s, "\n");
 		break;
 	case TRACE_PROGRAM_EVENT:
 		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
-		trace_seq_printf(s, " (%Ld) (%Ld)\n",
-			   entry->field.program.expire, entry->field.program.delta);
+		trace_print_ktime(s, entry->field.program.expire);
+		trace_seq_printf(s, " (%Ld)\n", entry->field.program.delta);
 		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);

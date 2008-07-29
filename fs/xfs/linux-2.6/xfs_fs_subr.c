@@ -33,7 +33,7 @@ xfs_tosspages(
 {
 	struct address_space *mapping = ip->i_vnode->i_mapping;
 
-	if (mapping->nrpages)
+	if (mapping_nrpages(mapping))
 		truncate_inode_pages(mapping, first);
 }
 
@@ -47,7 +47,7 @@ xfs_flushinval_pages(
 	struct address_space *mapping = ip->i_vnode->i_mapping;
 	int		ret = 0;
 
-	if (mapping->nrpages) {
+	if (mapping_nrpages(mapping)) {
 		xfs_iflags_clear(ip, XFS_ITRUNCATED);
 		ret = filemap_write_and_wait(mapping);
 		if (!ret)

@@ -165,7 +165,4 @@ extern long rcu_batches_completed_bh(void);
 #define rcu_exit_nohz()		do { } while (0)
 #define rcu_preempt_boost_init() do { } while (0)
 
-struct softirq_action;
-extern void rcu_process_callbacks(struct softirq_action *unused);
-
 #endif /* __LINUX_RCUCLASSIC_H */

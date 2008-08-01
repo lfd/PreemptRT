@@ -143,10 +143,10 @@ extern struct rcupreempt_trace *rcupreempt_trace_cpu(int cpu);
 struct softirq_action;
 
 #ifdef CONFIG_NO_HZ
-DECLARE_PER_CPU(struct rcu_dyntick_sched, rcu_dyntick_sched);
 
 static inline void rcu_enter_nohz(void)
 {
+	smp_mb(); /* CPUs seeing ++ must see prior RCU read-side crit sects */
 	__get_cpu_var(rcu_dyntick_sched).dynticks++;
 	if (unlikely(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1)) {
 		printk("BUG: bad accounting of dynamic ticks\n");
@@ -155,13 +155,12 @@ static inline void rcu_enter_nohz(void)
 		/* try to fix it */
 		__get_cpu_var(rcu_dyntick_sched).dynticks++;
 	}
-	smp_mb(); /* CPUs seeing ++ must see prior RCU read-side crit sects */
 }
 
 static inline void rcu_exit_nohz(void)
 {
-	smp_mb(); /* CPUs seeing ++ must see later RCU read-side crit sects */
 	__get_cpu_var(rcu_dyntick_sched).dynticks++;
+	smp_mb(); /* CPUs seeing ++ must see later RCU read-side crit sects */
 	if (unlikely(!(__get_cpu_var(rcu_dyntick_sched).dynticks & 0x1))) {
 		printk("BUG: bad accounting of dynamic ticks\n");
 		printk("   will try to fix, but it is best to reboot\n");

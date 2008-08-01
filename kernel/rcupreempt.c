@@ -1092,7 +1092,7 @@ void __cpuinit rcu_online_cpu(int cpu)
 	spin_unlock_irqrestore(&rdp->lock, flags);
 }
 
-void rcu_process_callbacks(struct softirq_action *unused)
+static void rcu_process_callbacks(struct softirq_action *unused)
 {
 	unsigned long flags;
 	struct rcu_head *next, *list;

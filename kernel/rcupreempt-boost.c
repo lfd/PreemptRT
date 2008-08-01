@@ -205,14 +205,26 @@ RCU_BOOST_TRACE_FUNC_DECL(boost_readers)
 RCU_BOOST_TRACE_FUNC_DECL(try_unboost_readers)
 RCU_BOOST_TRACE_FUNC_DECL(unboost_readers)
 RCU_BOOST_TRACE_FUNC_DECL(over_taken)
+static void rcu_trace_boost_boost_called_preempt(void)
+{
+	preempt_disable();
+	rcu_trace_boost_boost_called(RCU_BOOST_ME);
+	preempt_enable();
+}
+static void rcu_trace_boost_unboost_called_preempt(void)
+{
+	preempt_disable();
+	rcu_trace_boost_unboost_called(RCU_BOOST_ME);
+	preempt_enable();
+}
 #else /* CONFIG_RCU_TRACE */
 /* These were created by the above macro "RCU_BOOST_TRACE_FUNC_DECL" */
 # define rcu_trace_boost_task_boost_called(rbd) do { } while (0)
 # define rcu_trace_boost_task_boosted(rbd) do { } while (0)
-# define rcu_trace_boost_boost_called(rbd) do { } while (0)
+# define rcu_trace_boost_boost_called_preempt() do { } while (0)
 # define rcu_trace_boost_try_boost(rbd) do { } while (0)
 # define rcu_trace_boost_boosted(rbd) do { } while (0)
-# define rcu_trace_boost_unboost_called(rbd) do { } while (0)
+# define rcu_trace_boost_unboost_called_preempt() do { } while (0)
 # define rcu_trace_boost_unboosted(rbd) do { } while (0)
 # define rcu_trace_boost_try_boost_readers(rbd) do { } while (0)
 # define rcu_trace_boost_boost_readers(rbd) do { } while (0)
@@ -261,7 +273,7 @@ void __rcu_preempt_boost(void)
 
 	WARN_ON(!current->rcu_read_lock_nesting);
 
-	rcu_trace_boost_boost_called(RCU_BOOST_ME);
+	rcu_trace_boost_boost_called_preempt();
 
 	/* check to see if we are already boosted */
 	if (unlikely(rcu_is_boosted(curr)))
@@ -313,7 +325,7 @@ void __rcu_preempt_unboost(void)
 	int prio;
 	unsigned long flags;
 
-	rcu_trace_boost_unboost_called(RCU_BOOST_ME);
+	rcu_trace_boost_unboost_called_preempt();
 
 	/* if not boosted, then ignore */
 	if (likely(!rcu_is_boosted(curr)))

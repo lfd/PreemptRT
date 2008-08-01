@@ -458,7 +458,7 @@ static void __rcu_process_callbacks(struct rcu_ctrlblk *rcp,
 		rcu_do_batch(rdp);
 }
 
-void rcu_process_callbacks(struct softirq_action *unused)
+static void rcu_process_callbacks(struct softirq_action *unused)
 {
 	__rcu_process_callbacks(&rcu_ctrlblk, &__get_cpu_var(rcu_data));
 	__rcu_process_callbacks(&rcu_bh_ctrlblk, &__get_cpu_var(rcu_bh_data));
@@ -511,17 +511,6 @@ int rcu_needs_cpu(int cpu)
 	struct rcu_data *rdp_bh = &per_cpu(rcu_bh_data, cpu);
 
 	return (!!rdp->curlist || !!rdp_bh->curlist || rcu_pending(cpu));
-}
-
-void rcu_advance_callbacks(int cpu, int user)
-{
-	if (user ||
-	    (idle_cpu(cpu) && !in_softirq() &&
-				hardirq_count() <= (1 << HARDIRQ_SHIFT))) {
-		rcu_qsctr_inc(cpu);
-		rcu_bh_qsctr_inc(cpu);
-	} else if (!in_softirq())
-		rcu_bh_qsctr_inc(cpu);
 }
 
 void rcu_check_callbacks(int cpu, int user)

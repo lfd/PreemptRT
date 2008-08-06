@@ -121,6 +121,7 @@ struct irq_host {
 		} linear;
 		struct radix_tree_root tree;
 	} revmap_data;
+	spinlock_t		tree_lock;
 	struct irq_host_ops	*ops;
 	void			*host_data;
 	irq_hw_number_t		inval_irq;

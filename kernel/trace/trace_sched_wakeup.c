@@ -70,7 +70,9 @@ wakeup_tracer_call(unsigned long ip, unsigned long parent_ip)
 	if (task_cpu(wakeup_task) != cpu)
 		goto unlock;
 
+	preempt_enable_no_resched_notrace();
 	trace_function(tr, data, ip, parent_ip, flags);
+	preempt_disable_notrace();
 
  unlock:
 	__raw_spin_unlock(&wakeup_lock);

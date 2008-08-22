@@ -1089,7 +1089,14 @@ int hrtimer_cancel(struct hrtimer *timer)
 
 		if (ret >= 0)
 			return ret;
-		hrtimer_wait_for_timer(timer);
+		switch (timer->cb_mode) {
+		case HRTIMER_CB_IRQSAFE_NO_SOFTIRQ:
+		case HRTIMER_CB_IRQSAFE_NO_RESTART:
+			cpu_relax();
+			break;
+		default:
+			hrtimer_wait_for_timer(timer);
+		}
 	}
 }
 EXPORT_SYMBOL_GPL(hrtimer_cancel);

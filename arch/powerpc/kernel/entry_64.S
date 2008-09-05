@@ -611,13 +611,15 @@ do_work:
 	 * we will hard-enable unconditionally, we can just reload the
 	 * current MSR into r10
 	 */
+	bl		.preempt_schedule_irq
 	mfmsr	r10
-
-	li	r0,1
-	stb	r0,PACASOFTIRQEN(r13)
-	stb	r0,PACAHARDIRQEN(r13)
-	ori	r10,r10,MSR_EE
-	mtmsrd	r10,1		/* reenable interrupts */
+	clrrdi  r9,r1,THREAD_SHIFT
+	rldicl  r10,r10,48,1    /* disable interrupts again */
+	rotldi  r10,r10,16
+	mtmsrd  r10,1
+	ld      r4,TI_FLAGS(r9)
+	andi.   r0,r4,(_TIF_NEED_RESCHED)
+	bne     1b
 	b	restore
 
 user_work:

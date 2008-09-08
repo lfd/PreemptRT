@@ -23,7 +23,7 @@ DEFINE_PER_CPU(struct tlb_state, cpu_tlbstate)
 static cpumask_t flush_cpumask;
 static struct mm_struct *flush_mm;
 static unsigned long flush_va;
-static DEFINE_SPINLOCK(tlbstate_lock);
+static DEFINE_RAW_SPINLOCK(tlbstate_lock);
 
 /*
  * We cannot call mmdrop() because we are in interrupt context,

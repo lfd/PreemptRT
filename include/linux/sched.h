@@ -203,9 +203,8 @@ extern struct semaphore kernel_sem;
 #define EXIT_ZOMBIE		32
 #define EXIT_DEAD		64
 /* in tsk->state again */
-#define TASK_NONINTERACTIVE	128
-#define TASK_DEAD		256
-#define TASK_WAKEKILL		512
+#define TASK_DEAD		128
+#define TASK_WAKEKILL		256
 
 /* Convenience macros for the sake of set_task_state */
 #define TASK_KILLABLE		(TASK_WAKEKILL | TASK_UNINTERRUPTIBLE)

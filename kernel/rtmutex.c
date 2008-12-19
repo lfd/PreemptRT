@@ -1947,9 +1947,6 @@ static inline void
 rt_write_fastunlock(struct rw_mutex *rwm,
 		   void (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
-	struct task_struct *val = (void *)((unsigned long)current |
-					   RT_RWLOCK_WRITER);
-
 	WARN_ON(rt_rwlock_owner(rwm) != current);
 	slowfn(rwm, mtx);
 }

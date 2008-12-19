@@ -766,13 +766,6 @@ rt_spin_lock_fastunlock(struct rt_mutex *lock,
 		slowfn(lock);
 }
 
-static inline void
-update_current(unsigned long new_state, unsigned long *saved_state)
-{
-	unsigned long state = xchg(&current->state, new_state);
-	if (unlikely(state == TASK_RUNNING))
-		*saved_state = TASK_RUNNING;
-}
 
 #ifdef CONFIG_SMP
 static int adaptive_wait(struct rt_mutex_waiter *waiter,
@@ -804,6 +797,34 @@ static int adaptive_wait(struct rt_mutex_waiter *waiter,
 #endif
 
 /*
+ * The state setting needs to preserve the original state and needs to
+ * take care of non rtmutex wakeups.
+ */
+static inline unsigned long
+rt_set_current_blocked_state(unsigned long saved_state)
+{
+	unsigned long state;
+
+	state = xchg(&current->state, TASK_UNINTERRUPTIBLE);
+	/*
+	 * Take care of non rtmutex wakeups. rtmutex wakeups
+	 * set the state to TASK_RUNNING_MUTEX.
+	 */
+	if (state == TASK_RUNNING)
+		saved_state = TASK_RUNNING;
+
+	return saved_state;
+}
+
+static inline void rt_restore_current_state(unsigned long saved_state)
+{
+	unsigned long state = xchg(&current->state, saved_state);
+
+	if (state == TASK_RUNNING)
+		current->state = TASK_RUNNING;
+}
+
+/*
  * Slow path lock function spin_lock style: this variant is very
  * careful not to miss any non-lock wakeups.
  *
@@ -817,7 +838,7 @@ static void  noinline __sched
 rt_spin_lock_slowlock(struct rt_mutex *lock)
 {
 	struct rt_mutex_waiter waiter;
-	unsigned long saved_state, state, flags;
+	unsigned long saved_state, flags;
 	struct task_struct *orig_owner;
 	int missed = 0;
 
@@ -837,7 +858,9 @@ rt_spin_lock_slowlock(struct rt_mutex *lock)
 	 * of the lock sleep/wakeup mechanism. When we get a real
 	 * wakeup the task->state is TASK_RUNNING and we change
 	 * saved_state accordingly. If we did not get a real wakeup
-	 * then we return with the saved state.
+	 * then we return with the saved state. We need to be careful
+	 * about original state TASK_INTERRUPTIBLE as well, as we
+	 * could miss a wakeup_interruptible()
 	 */
 	saved_state = current->state;
 
@@ -881,7 +904,8 @@ rt_spin_lock_slowlock(struct rt_mutex *lock)
 
 		if (adaptive_wait(&waiter, orig_owner)) {
 			put_task_struct(orig_owner);
-			update_current(TASK_UNINTERRUPTIBLE, &saved_state);
+
+			saved_state = rt_set_current_blocked_state(saved_state);
 			/*
 			 * The xchg() in update_current() is an implicit
 			 * barrier which we rely upon to ensure current->state
@@ -897,9 +921,7 @@ rt_spin_lock_slowlock(struct rt_mutex *lock)
 		current->lock_depth = saved_lock_depth;
 	}
 
-	state = xchg(&current->state, saved_state);
-	if (unlikely(state == TASK_RUNNING))
-		current->state = TASK_RUNNING;
+	rt_restore_current_state(saved_state);
 
 	/*
 	 * Extremely rare case, if we got woken up by a non-mutex wakeup,
@@ -1334,7 +1356,7 @@ rt_read_slowlock(struct rw_mutex *rwm, int mtx)
 	struct rt_mutex_waiter waiter;
 	struct rt_mutex *mutex = &rwm->mutex;
 	int saved_lock_depth = -1;
-	unsigned long saved_state = -1, state, flags;
+	unsigned long saved_state, flags;
 
 	spin_lock_irqsave(&mutex->wait_lock, flags);
 	init_rw_lists(rwm);
@@ -1358,12 +1380,12 @@ rt_read_slowlock(struct rw_mutex *rwm, int mtx)
 		 */
 		if (unlikely(current->lock_depth >= 0))
 			saved_lock_depth = rt_release_bkl(mutex, flags);
-		set_current_state(TASK_UNINTERRUPTIBLE);
 	} else {
 		/* Spin lock must preserve BKL */
-		saved_state = xchg(&current->state, TASK_UNINTERRUPTIBLE);
 		saved_lock_depth = current->lock_depth;
 	}
+
+	saved_state = rt_set_current_blocked_state(current->state);
 
 	for (;;) {
 		unsigned long saved_flags;
@@ -1399,23 +1421,12 @@ rt_read_slowlock(struct rw_mutex *rwm, int mtx)
 		spin_lock_irqsave(&mutex->wait_lock, flags);
 
 		current->flags |= saved_flags;
-		if (mtx)
-			set_current_state(TASK_UNINTERRUPTIBLE);
-		else {
+		if (!mtx)
 			current->lock_depth = saved_lock_depth;
-			state = xchg(&current->state, TASK_UNINTERRUPTIBLE);
-			if (unlikely(state == TASK_RUNNING))
-				saved_state = TASK_RUNNING;
-		}
+		saved_state = rt_set_current_blocked_state(saved_state);
 	}
 
-	if (mtx)
-		set_current_state(TASK_RUNNING);
-	else {
-		state = xchg(&current->state, saved_state);
-		if (unlikely(state == TASK_RUNNING))
-			current->state = TASK_RUNNING;
-	}
+	rt_restore_current_state(!mtx ? saved_state : TASK_RUNNING);
 
 	if (unlikely(waiter.task))
 		remove_waiter(mutex, &waiter, flags);
@@ -1491,7 +1502,7 @@ rt_write_slowlock(struct rw_mutex *rwm, int mtx)
 	struct rt_mutex *mutex = &rwm->mutex;
 	struct rt_mutex_waiter waiter;
 	int saved_lock_depth = -1;
-	unsigned long flags, saved_state = -1, state;
+	unsigned long flags, saved_state;
 
 	debug_rt_mutex_init_waiter(&waiter);
 	waiter.task = NULL;
@@ -1515,12 +1526,12 @@ rt_write_slowlock(struct rw_mutex *rwm, int mtx)
 		 */
 		if (unlikely(current->lock_depth >= 0))
 			saved_lock_depth = rt_release_bkl(mutex, flags);
-		set_current_state(TASK_UNINTERRUPTIBLE);
 	} else {
 		/* Spin locks must preserve the BKL */
 		saved_lock_depth = current->lock_depth;
-		saved_state = xchg(&current->state, TASK_UNINTERRUPTIBLE);
 	}
+
+	saved_state = rt_set_current_blocked_state(current->state);
 
 	for (;;) {
 		unsigned long saved_flags;
@@ -1556,23 +1567,13 @@ rt_write_slowlock(struct rw_mutex *rwm, int mtx)
 		spin_lock_irqsave(&mutex->wait_lock, flags);
 
 		current->flags |= saved_flags;
-		if (mtx)
-			set_current_state(TASK_UNINTERRUPTIBLE);
-		else {
+		if (!mtx)
 			current->lock_depth = saved_lock_depth;
-			state = xchg(&current->state, TASK_UNINTERRUPTIBLE);
-			if (unlikely(state == TASK_RUNNING))
-				saved_state = TASK_RUNNING;
-		}
+
+		saved_state = rt_set_current_blocked_state(saved_state);
 	}
 
-	if (mtx)
-		set_current_state(TASK_RUNNING);
-	else {
-		state = xchg(&current->state, saved_state);
-		if (unlikely(state == TASK_RUNNING))
-			current->state = TASK_RUNNING;
-	}
+	rt_restore_current_state(!mtx ? saved_state : TASK_RUNNING);
 
 	if (unlikely(waiter.task))
 		remove_waiter(mutex, &waiter, flags);

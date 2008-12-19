@@ -1782,6 +1782,13 @@ lat_print_timestamp(struct trace_seq *s, unsigned long long abs_usecs,
 
 static const char state_to_char[] = TASK_STATE_TO_CHAR_STR;
 
+static int task_state_char(unsigned long state)
+{
+	int bit = state ? __ffs(state) + 1 : 0;
+
+	return bit < sizeof(state_to_char) - 1 ? state_to_char[bit] : '?';
+}
+
 static void
 trace_seq_print_cont(struct trace_seq *s, struct trace_iterator *iter)
 {
@@ -1817,7 +1824,6 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 	char *comm;
 	int S, T;
 	int i;
-	unsigned state;
 
 	if (!next_entry)
 		next_entry = entry;
@@ -1855,12 +1861,8 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 		break;
 	case TRACE_CTX:
 	case TRACE_WAKE:
-		T = field->ctx.next_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.next_state] : 'X';
-
-		state = field->ctx.prev_state ?
-			__ffs(field->ctx.prev_state) + 1 : 0;
-		S = state < sizeof(state_to_char) - 1 ? state_to_char[state] : 'X';
+		T = task_state_char(field->ctx.next_state);
+		S = task_state_char(field->ctx.prev_state);
 		comm = trace_find_cmdline(field->ctx.next_pid);
 		trace_seq_printf(s, " %5d:%3d:%c %s [%03d] %5d:%3d:%c %s\n",
 				 field->ctx.prev_pid,
@@ -2052,10 +2054,8 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		break;
 	case TRACE_CTX:
 	case TRACE_WAKE:
-		S = field->ctx.prev_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.prev_state] : 'X';
-		T = field->ctx.next_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.next_state] : 'X';
+		T = task_state_char(field->ctx.next_state);
+		S = task_state_char(field->ctx.prev_state);
 		ret = trace_seq_printf(s, " %5d:%3d:%c %s [%03d] %5d:%3d:%c\n",
 				       field->ctx.prev_pid,
 				       field->ctx.prev_prio,
@@ -2225,12 +2225,9 @@ static int print_raw_fmt(struct trace_iterator *iter)
 		break;
 	case TRACE_CTX:
 	case TRACE_WAKE:
-		S = field->ctx.prev_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.prev_state] : 'X';
-		T = field->ctx.next_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.next_state] : 'X';
-		if (entry->type == TRACE_WAKE)
-			S = '+';
+		T = task_state_char(field->ctx.next_state);
+		S = entry->type == TRACE_WAKE ? '+' :
+			task_state_char(field->ctx.prev_state);
 		ret = trace_seq_printf(s, "%d %d %c %d %d %d %c\n",
 				       field->ctx.prev_pid,
 				       field->ctx.prev_prio,
@@ -2299,12 +2296,9 @@ static int print_hex_fmt(struct trace_iterator *iter)
 		break;
 	case TRACE_CTX:
 	case TRACE_WAKE:
-		S = field->ctx.prev_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.prev_state] : 'X';
-		T = field->ctx.next_state < sizeof(state_to_char) ?
-			state_to_char[field->ctx.next_state] : 'X';
-		if (entry->type == TRACE_WAKE)
-			S = '+';
+		T = task_state_char(field->ctx.next_state);
+		S = entry->type == TRACE_WAKE ? '+' :
+			task_state_char(field->ctx.prev_state);
 		SEQ_PUT_HEX_FIELD_RET(s, field->ctx.prev_pid);
 		SEQ_PUT_HEX_FIELD_RET(s, field->ctx.prev_prio);
 		SEQ_PUT_HEX_FIELD_RET(s, S);

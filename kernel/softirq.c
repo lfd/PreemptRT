@@ -657,7 +657,7 @@ static void tasklet_hi_action(struct softirq_action *a)
 	local_irq_disable();
 	list = __get_cpu_var(tasklet_hi_vec).head;
 	__get_cpu_var(tasklet_hi_vec).head = NULL;
-	__get_cpu_var(tasklet_hi_vec).tail = &__get_cpu_var(tasklet_vec).head;
+	__get_cpu_var(tasklet_hi_vec).tail = &__get_cpu_var(tasklet_hi_vec).head;
 	local_irq_enable();
 
 	__tasklet_action(a, list);

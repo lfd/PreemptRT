@@ -44,10 +44,12 @@ wakeup_tracer_call(unsigned long ip, unsigned long parent_ip)
 	long disabled;
 	int resched;
 	int cpu;
+	unsigned long pc;
 
 	if (likely(!wakeup_task) || !ftrace_enabled)
 		return;
 
+	pc = preempt_count();
 	resched = ftrace_preempt_disable();
 
 	cpu = raw_smp_processor_id();
@@ -71,7 +73,7 @@ wakeup_tracer_call(unsigned long ip, unsigned long parent_ip)
 
 	/* interrupts are disabled, no worry about scheduling */
 	preempt_enable_no_resched_notrace();
-	trace_function(tr, data, ip, parent_ip, flags);
+	trace_function(tr, data, ip, parent_ip, flags, pc);
 	preempt_disable_notrace();
 
  unlock:
@@ -149,7 +151,8 @@ probe_wakeup_sched_switch(struct rq *rq, struct task_struct *prev,
 	if (unlikely(!tracer_enabled || next != wakeup_task))
 		goto out_unlock;
 
-	trace_function(wakeup_trace, data, CALLER_ADDR1, CALLER_ADDR2, flags);
+	trace_function(wakeup_trace, data, CALLER_ADDR1, CALLER_ADDR2, flags,
+		       preempt_count());
 
 	/*
 	 * usecs conversion is slow so we try to delay the conversion
@@ -250,7 +253,7 @@ probe_wakeup(struct rq *rq, struct task_struct *p)
 
 	wakeup_trace->data[wakeup_cpu]->preempt_timestamp = ftrace_now(cpu);
 	trace_function(wakeup_trace, wakeup_trace->data[wakeup_cpu],
-		       CALLER_ADDR1, CALLER_ADDR2, flags);
+		       CALLER_ADDR1, CALLER_ADDR2, flags, preempt_count());
 
 out_locked:
 	__raw_spin_unlock(&wakeup_lock);

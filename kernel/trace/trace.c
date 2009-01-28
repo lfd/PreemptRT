@@ -833,12 +833,10 @@ tracing_get_trace_entry(struct trace_array *tr, struct trace_array_cpu *data)
 }
 
 static inline void
-tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags)
+tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags,
+			     unsigned long pc)
 {
 	struct task_struct *tsk = current;
-	unsigned long pc;
-
-	pc = preempt_count();
 
 	entry->field.preempt_count	= pc & 0xff;
 	entry->field.pid		= (tsk) ? tsk->pid : 0;
@@ -852,7 +850,8 @@ tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags)
 
 void
 trace_function(struct trace_array *tr, struct trace_array_cpu *data,
-	       unsigned long ip, unsigned long parent_ip, unsigned long flags)
+	       unsigned long ip, unsigned long parent_ip, unsigned long flags,
+	       unsigned long pc)
 {
 	struct trace_entry *entry;
 	unsigned long irq_flags;
@@ -860,7 +859,7 @@ trace_function(struct trace_array *tr, struct trace_array_cpu *data,
 	raw_local_irq_save(irq_flags);
 	__raw_spin_lock(&data->lock);
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, pc);
 	entry->type			= TRACE_FN;
 	entry->field.fn.ip		= ip;
 	entry->field.fn.parent_ip	= parent_ip;
@@ -873,7 +872,8 @@ ftrace(struct trace_array *tr, struct trace_array_cpu *data,
        unsigned long ip, unsigned long parent_ip, unsigned long flags)
 {
 	if (likely(!atomic_read(&data->disabled)))
-		trace_function(tr, data, ip, parent_ip, flags);
+		trace_function(tr, data, ip, parent_ip, flags,
+			       preempt_count());
 }
 
 #ifdef CONFIG_MMIOTRACE
@@ -887,7 +887,7 @@ void __trace_mmiotrace_rw(struct trace_array *tr, struct trace_array_cpu *data,
 	__raw_spin_lock(&data->lock);
 
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, 0);
+	tracing_generic_entry_update(entry, 0, preempt_count());
 	entry->type			= TRACE_MMIO_RW;
 	entry->field.mmiorw		= *rw;
 
@@ -907,7 +907,7 @@ void __trace_mmiotrace_map(struct trace_array *tr, struct trace_array_cpu *data,
 	__raw_spin_lock(&data->lock);
 
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, 0);
+	tracing_generic_entry_update(entry, 0, preempt_count());
 	entry->type			= TRACE_MMIO_MAP;
 	entry->field.mmiomap		= *map;
 
@@ -930,7 +930,7 @@ void __trace_stack(struct trace_array *tr,
 		return;
 
 	entry			= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type		= TRACE_STACK;
 
 	memset(&entry->field.stack, 0, sizeof(entry->field.stack));
@@ -955,7 +955,7 @@ __trace_special(void *__tr, void *__data,
 	raw_local_irq_save(irq_flags);
 	__raw_spin_lock(&data->lock);
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, 0);
+	tracing_generic_entry_update(entry, 0, preempt_count());
 	entry->type			= TRACE_SPECIAL;
 	entry->field.special.arg1	= arg1;
 	entry->field.special.arg2	= arg2;
@@ -980,7 +980,7 @@ tracing_sched_switch_trace(struct trace_array *tr,
 	raw_local_irq_save(irq_flags);
 	__raw_spin_lock(&data->lock);
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_CTX;
 	entry->field.ctx.prev_pid	= prev->pid;
 	entry->field.ctx.prev_prio	= prev->prio;
@@ -1007,7 +1007,7 @@ tracing_sched_wakeup_trace(struct trace_array *tr,
 	raw_local_irq_save(irq_flags);
 	__raw_spin_lock(&data->lock);
 	entry			= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type		= TRACE_WAKE;
 	entry->field.ctx.prev_pid	= curr->pid;
 	entry->field.ctx.prev_prio	= curr->prio;
@@ -1057,7 +1057,7 @@ void tracing_event_irq(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_IRQ;
 	entry->field.irq.ip		= ip;
 	entry->field.irq.irq		= irq;
@@ -1076,7 +1076,7 @@ void tracing_event_fault(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_FAULT;
 	entry->field.fault.ip		= ip;
 	entry->field.fault.ret_ip	= retip;
@@ -1093,7 +1093,7 @@ void tracing_event_timer_set(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_TIMER_SET;
 	entry->field.timer.ip		= ip;
 	entry->field.timer.expire	= *expires;
@@ -1109,7 +1109,7 @@ void tracing_event_program_event(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type		= TRACE_PROGRAM_EVENT;
 	entry->field.program.ip	= ip;
 	entry->field.program.expire	= *expires;
@@ -1126,7 +1126,7 @@ void tracing_event_resched_task(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type		= TRACE_RESCHED_TASK;
 	entry->field.task.ip	= ip;
 	entry->field.task.prio	= p->prio;
@@ -1143,7 +1143,7 @@ void tracing_event_timer_triggered(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_TIMER_TRIG;
 	entry->field.timer.ip		= ip;
 	entry->field.timer.expire	= *expired;
@@ -1159,7 +1159,7 @@ void tracing_event_timestamp(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_TIMESTAMP;
 	entry->field.timestamp.ip		= ip;
 	entry->field.timestamp.now		= *now;
@@ -1175,7 +1175,7 @@ void tracing_event_task_activate(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_TASK_ACT;
 	entry->field.task.ip		= ip;
 	entry->field.task.pid		= p->pid;
@@ -1193,7 +1193,7 @@ void tracing_event_task_deactivate(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_TASK_DEACT;
 	entry->field.task.ip		= ip;
 	entry->field.task.pid		= p->pid;
@@ -1213,7 +1213,7 @@ void tracing_event_syscall(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_SYSCALL;
 	entry->field.syscall.ip		= ip;
 	entry->field.syscall.nr		= nr;
@@ -1231,7 +1231,7 @@ void tracing_event_sysret(struct trace_array *tr,
 	struct trace_entry *entry;
 
 	entry = tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_SYSRET;
 	entry->field.sysret.ip		= ip;
 	entry->field.sysret.ret		= ret;
@@ -1246,6 +1246,7 @@ function_trace_call(unsigned long ip, unsigned long parent_ip)
 	unsigned long flags;
 	long disabled;
 	int cpu, resched;
+	unsigned long pc;
 
 	if (unlikely(!ftrace_function_enabled))
 		return;
@@ -1253,6 +1254,7 @@ function_trace_call(unsigned long ip, unsigned long parent_ip)
 	if (skip_trace(ip))
 		return;
 
+	pc = preempt_count();
 	resched = ftrace_preempt_disable();
 	cpu = raw_smp_processor_id();
 	data = tr->data[cpu];
@@ -1260,7 +1262,7 @@ function_trace_call(unsigned long ip, unsigned long parent_ip)
 
 	if (likely(disabled == 1)) {
 		local_save_flags(flags);
-		trace_function(tr, data, ip, parent_ip, flags);
+		trace_function(tr, data, ip, parent_ip, flags, pc);
 	}
 
 	atomic_dec(&data->disabled);
@@ -3531,7 +3533,7 @@ int __ftrace_printk(unsigned long ip, const char *fmt, ...)
 
 	__raw_spin_lock(&data->lock);
 	entry				= tracing_get_trace_entry(tr, data);
-	tracing_generic_entry_update(entry, flags);
+	tracing_generic_entry_update(entry, flags, preempt_count());
 	entry->type			= TRACE_PRINT;
 	entry->field.print.ip		= ip;
 

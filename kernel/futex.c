@@ -872,7 +872,7 @@ retry_private:
 				plist_del(&this->list, &hb1->chain);
 				plist_add(&this->list, &hb2->chain);
 				this->lock_ptr = &hb2->lock;
-#ifdef CONFIG_DEBUG_PI_LIST
+#if defined(CONFIG_DEBUG_PI_LIST) && !defined(CONFIG_PREEMPT_RT)
 				this->list.plist.lock = &hb2->lock;
 #endif
 			}
@@ -930,7 +930,7 @@ static inline void queue_me(struct futex_q *q, struct futex_hash_bucket *hb)
 	prio = min(current->normal_prio, MAX_RT_PRIO);
 
 	plist_node_init(&q->list, prio);
-#ifdef CONFIG_DEBUG_PI_LIST
+#if defined(CONFIG_DEBUG_PI_LIST) && !defined(CONFIG_PREEMPT_RT)
 	q->list.plist.lock = &hb->lock;
 #endif
 	plist_add(&q->list, &hb->chain);
@@ -1208,6 +1208,10 @@ retry_private:
 	 * q.lock_ptr != 0 is not safe, because of ordering against wakeup.
 	 */
 	if (likely(!plist_node_empty(&q.list))) {
+		unsigned long nosched_flag = current->flags & PF_NOSCHED;
+
+		current->flags &= ~PF_NOSCHED;
+
 		if (!abs_time)
 			schedule();
 		else {
@@ -1238,6 +1242,8 @@ retry_private:
 
 			destroy_hrtimer_on_stack(&t.timer);
 		}
+
+		current->flags |= nosched_flag;
 	}
 	__set_current_state(TASK_RUNNING);
 

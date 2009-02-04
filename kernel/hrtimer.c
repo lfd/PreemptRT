@@ -847,7 +847,7 @@ void hrtimer_wait_for_timer(const struct hrtimer *timer)
 {
 	struct hrtimer_clock_base *base = timer->base;
 
-	if (base && base->cpu_base)
+	if (base && base->cpu_base && !hrtimer_hres_active(base->cpu_base))
 		wait_event(base->cpu_base->wait,
 				!(timer->state & HRTIMER_STATE_CALLBACK));
 }
@@ -884,8 +884,6 @@ static void __remove_hrtimer(struct hrtimer *timer,
 		rb_erase(&timer->node, &base->active);
 	}
 	timer->state = newstate;
-
-	wake_up_timer_waiters(base->cpu_base);
 }
 
 /*
@@ -1407,6 +1405,8 @@ void hrtimer_run_queues(void)
 		}
 		spin_unlock(&cpu_base->lock);
 	}
+
+	wake_up_timer_waiters(cpu_base);
 }
 
 /*

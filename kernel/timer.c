@@ -1233,7 +1233,9 @@ unsigned long avenrun_rt[3];
 static inline void calc_load(unsigned long ticks)
 {
 	unsigned long active_tasks; /* fixed-point */
+#ifdef CONFIG_PREEMPT_RT
 	unsigned long active_rt_tasks; /* fixed-point */
+#endif
 	static int count = LOAD_FREQ;
 
 	count -= ticks;

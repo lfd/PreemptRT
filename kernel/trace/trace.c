@@ -248,6 +248,10 @@ unsigned long trace_flags = TRACE_ITER_PRINT_PARENT | TRACE_ITER_PRINTK |
  */
 void trace_wake_up(void)
 {
+#ifdef CONFIG_PREEMPT_RT
+	if (in_atomic() || irqs_disabled())
+		return;
+#endif
 	/*
 	 * The runqueue_is_locked() can fail, but this is the best we
 	 * have for now:
@@ -309,8 +313,7 @@ static const char *trace_options[] = {
  * This is defined as a raw_spinlock_t in order to help
  * with performance when lockdep debugging is enabled.
  */
-static raw_spinlock_t ftrace_max_lock =
-	(raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
+static __raw_spinlock_t ftrace_max_lock = __RAW_SPIN_LOCK_UNLOCKED;
 
 /*
  * Copy the new maximum trace into the separate maximum-trace
@@ -641,7 +644,7 @@ static void trace_init_cmdlines(void)
 }
 
 static int trace_stop_count;
-static DEFINE_SPINLOCK(tracing_start_lock);
+static DEFINE_RAW_SPINLOCK(tracing_start_lock);
 
 /**
  * ftrace_off_permanent - disable all ftrace code permanently
@@ -3009,7 +3012,7 @@ static __init int tracer_init_debugfs(void)
 
 int trace_vprintk(unsigned long ip, int depth, const char *fmt, va_list args)
 {
-	static DEFINE_SPINLOCK(trace_buf_lock);
+	static DEFINE_RAW_SPINLOCK(trace_buf_lock);
 	static char trace_buf[TRACE_BUF_SIZE];
 
 	struct ring_buffer_event *event;
@@ -3147,7 +3150,7 @@ trace_printk_seq(struct trace_seq *s)
 
 void ftrace_dump(void)
 {
-	static DEFINE_SPINLOCK(ftrace_dump_lock);
+	static DEFINE_RAW_SPINLOCK(ftrace_dump_lock);
 	/* use static because iter can be a bit big for the stack */
 	static struct trace_iterator iter;
 	static int dump_ran;

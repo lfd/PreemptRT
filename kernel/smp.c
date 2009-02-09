@@ -13,7 +13,7 @@
 
 static DEFINE_PER_CPU(struct call_single_queue, call_single_queue);
 static LIST_HEAD(call_function_queue);
-__cacheline_aligned_in_smp DEFINE_SPINLOCK(call_function_lock);
+__cacheline_aligned_in_smp DEFINE_RAW_SPINLOCK(call_function_lock);
 
 enum {
 	CSD_FLAG_WAIT		= 0x01,

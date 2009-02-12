@@ -252,7 +252,7 @@ int smp_call_function_single(int cpu, void (*func) (void *info), void *info,
 			 * will make sure the callee is done with the
 			 * data before a new caller will use it.
 			 */
-			data = kmalloc(sizeof(*data), GFP_ATOMIC);
+			data = NULL;
 			if (data)
 				data->flags = CSD_FLAG_ALLOC;
 			else {
@@ -347,7 +347,7 @@ void smp_call_function_many(const struct cpumask *mask,
 		return;
 	}
 
-	data = kmalloc(sizeof(*data) + cpumask_size(), GFP_ATOMIC);
+	data = NULL;
 	if (unlikely(!data)) {
 		/* Slow path. */
 		for_each_online_cpu(cpu) {

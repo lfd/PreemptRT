@@ -9,6 +9,7 @@
  */
 #include <linux/debugobjects.h>
 #include <linux/interrupt.h>
+#include <linux/rcupdate.h>
 #include <linux/seq_file.h>
 #include <linux/debugfs.h>
 #include <linux/hash.h>
@@ -26,6 +27,21 @@
 struct debug_bucket {
 	struct hlist_head	list;
 	raw_spinlock_t		lock;
+};
+
+/**
+ * struct debug_obj - representaion of an tracked object
+ * @node:	hlist node to link the object into the tracker list
+ * @state:	tracked object state
+ * @object:	pointer to the real object
+ * @descr:	pointer to an object type specific debug description structure
+ */
+struct debug_obj {
+	struct hlist_node	node;
+	enum debug_obj_state	state;
+	void			*object;
+	struct debug_obj_descr	*descr;
+	struct rcu_head		rcu;
 };
 
 static struct debug_bucket	obj_hash[ODEBUG_HASH_SIZE];
@@ -136,6 +152,7 @@ alloc_object(void *addr, struct debug_bucket *b, struct debug_obj_descr *descr)
 		obj->object = addr;
 		obj->descr  = descr;
 		obj->state  = ODEBUG_STATE_NONE;
+		INIT_RCU_HEAD(&obj->rcu);
 		hlist_del(&obj->node);
 
 		hlist_add_head(&obj->node, &b->list);
@@ -156,7 +173,7 @@ alloc_object(void *addr, struct debug_bucket *b, struct debug_obj_descr *descr)
 /*
  * Put the object back into the pool or give it back to kmem_cache:
  */
-static void free_object(struct debug_obj *obj)
+static void __free_object(struct debug_obj *obj)
 {
 	unsigned long idx = (unsigned long)(obj - obj_static_pool);
 	unsigned long flags;
@@ -175,6 +192,12 @@ static void free_object(struct debug_obj *obj)
 	}
 }
 
+static void rcu_free_object(struct rcu_head *rhp)
+{
+	struct debug_obj *obj = container_of(rhp, struct debug_obj, rcu);
+
+	__free_object(obj);
+}
 /*
  * We run out of memory. That means we probably have tons of objects
  * allocated.
@@ -198,7 +221,7 @@ static void debug_objects_oom(void)
 		/* Now free them */
 		hlist_for_each_entry_safe(obj, node, tmp, &freelist, node) {
 			hlist_del(&obj->node);
-			free_object(obj);
+			__free_object(obj);
 		}
 	}
 }
@@ -515,7 +538,7 @@ void debug_object_free(void *addr, struct debug_obj_descr *descr)
 	default:
 		hlist_del(&obj->node);
 		spin_unlock_irqrestore(&db->lock, flags);
-		free_object(obj);
+		call_rcu(&obj->rcu, rcu_free_object);
 		return;
 	}
 out_unlock:
@@ -572,7 +595,7 @@ repeat:
 		/* Now free them */
 		hlist_for_each_entry_safe(obj, node, tmp, &freelist, node) {
 			hlist_del(&obj->node);
-			free_object(obj);
+			call_rcu(&obj->rcu, rcu_free_object);
 		}
 
 		if (cnt > debug_objects_maxchain)

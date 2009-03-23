@@ -71,6 +71,7 @@ static inline void pud_clear(pud_t *pudp)
 {
 	unsigned long pgd;
 
+	preempt_disable();
 	set_pud(pudp, __pud(0));
 
 	/*

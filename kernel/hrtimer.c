@@ -858,7 +858,7 @@ static int enqueue_hrtimer(struct hrtimer *timer,
 	return leftmost;
 }
 
-#ifdef CONFIG_PREEMPT_RT
+#ifdef CONFIG_PREEMPT_SOFTIRQS
 # define wake_up_timer_waiters(b)	wake_up(&(b)->wait)
 
 /**

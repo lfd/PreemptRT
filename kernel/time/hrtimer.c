@@ -122,20 +122,32 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 	}
 };
 
-#define MAX_CLOCKS_HRT		(MAX_CLOCKS * 2)
+#define MAX_CLOCKS_HRT		(MAX_CLOCKS * 3)
 
 static const int hrtimer_clock_to_base_table[MAX_CLOCKS_HRT] = {
 	/* Make sure we catch unsupported clockids */
 	[0 ... MAX_CLOCKS_HRT - 1]	= HRTIMER_MAX_CLOCK_BASES,
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+	[CLOCK_REALTIME]		= HRTIMER_BASE_REALTIME_SOFT,
+	[CLOCK_MONOTONIC]		= HRTIMER_BASE_MONOTONIC_SOFT,
+	[CLOCK_BOOTTIME]		= HRTIMER_BASE_BOOTTIME_SOFT,
+	[CLOCK_TAI]			= HRTIMER_BASE_TAI_SOFT,
+#else
 	[CLOCK_REALTIME]		= HRTIMER_BASE_REALTIME,
 	[CLOCK_MONOTONIC]		= HRTIMER_BASE_MONOTONIC,
 	[CLOCK_BOOTTIME]		= HRTIMER_BASE_BOOTTIME,
 	[CLOCK_TAI]			= HRTIMER_BASE_TAI,
+#endif
 	[CLOCK_REALTIME_SOFT]		= HRTIMER_BASE_REALTIME_SOFT,
 	[CLOCK_MONOTONIC_SOFT]		= HRTIMER_BASE_MONOTONIC_SOFT,
 	[CLOCK_BOOTTIME_SOFT]		= HRTIMER_BASE_BOOTTIME_SOFT,
 	[CLOCK_TAI_SOFT]		= HRTIMER_BASE_TAI_SOFT,
+
+	[CLOCK_REALTIME_HARD]		= HRTIMER_BASE_REALTIME,
+	[CLOCK_MONOTONIC_HARD]		= HRTIMER_BASE_MONOTONIC,
+	[CLOCK_BOOTTIME_HARD]		= HRTIMER_BASE_BOOTTIME,
+	[CLOCK_TAI_HARD]		= HRTIMER_BASE_TAI,
 };
 
 /*
@@ -1200,7 +1212,11 @@ static inline int hrtimer_clockid_to_base(clockid_t clock_id)
 			return base;
 	}
 	WARN(1, "Invalid clockid %d. Using MONOTONIC\n", clock_id);
+#ifdef CONFIG_PREEMPT_RT_FULL
+	return HRTIMER_BASE_MONOTONIC_SOFT;
+#else
 	return HRTIMER_BASE_MONOTONIC;
+#endif
 }
 
 static void __hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
@@ -1593,6 +1609,10 @@ static void __hrtimer_init_sleeper(struct hrtimer_sleeper *sl,
 				   enum hrtimer_mode mode,
 				   struct task_struct *task)
 {
+#ifdef CONFIG_PREEMPT_RT_FULL
+	if (!(clock_id & HRTIMER_BASE_SOFT_MASK))
+		clock_id |= HRTIMER_BASE_HARD_MASK;
+#endif
 	__hrtimer_init(&sl->timer, clock_id, mode);
 	sl->timer.function = hrtimer_wakeup;
 	sl->task = task;

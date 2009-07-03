@@ -123,20 +123,32 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 	}
 };
 
-#define MAX_CLOCKS_HRT		(MAX_CLOCKS * 2)
+#define MAX_CLOCKS_HRT		(MAX_CLOCKS * 3)
 
 static const int hrtimer_clock_to_base_table[MAX_CLOCKS_HRT] = {
 	/* Make sure we catch unsupported clockids */
 	[0 ... MAX_CLOCKS_HRT - 1]	= HRTIMER_MAX_CLOCK_BASES,
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+	[CLOCK_REALTIME]		= HRTIMER_BASE_REALTIME_SOFT,
+	[CLOCK_MONOTONIC]		= HRTIMER_BASE_MONOTONIC_SOFT,
+	[CLOCK_BOOTTIME]		= HRTIMER_BASE_BOOTTIME_SOFT,
+	[CLOCK_TAI]			= HRTIMER_BASE_TAI_SOFT,
+#else
 	[CLOCK_REALTIME]		= HRTIMER_BASE_REALTIME,
 	[CLOCK_MONOTONIC]		= HRTIMER_BASE_MONOTONIC,
 	[CLOCK_BOOTTIME]		= HRTIMER_BASE_BOOTTIME,
 	[CLOCK_TAI]			= HRTIMER_BASE_TAI,
+#endif
 	[CLOCK_REALTIME_SOFT]		= HRTIMER_BASE_REALTIME_SOFT,
 	[CLOCK_MONOTONIC_SOFT]		= HRTIMER_BASE_MONOTONIC_SOFT,
 	[CLOCK_BOOTTIME_SOFT]		= HRTIMER_BASE_BOOTTIME_SOFT,
 	[CLOCK_TAI_SOFT]		= HRTIMER_BASE_TAI_SOFT,
+
+	[CLOCK_REALTIME_HARD]		= HRTIMER_BASE_REALTIME,
+	[CLOCK_MONOTONIC_HARD]		= HRTIMER_BASE_MONOTONIC,
+	[CLOCK_BOOTTIME_HARD]		= HRTIMER_BASE_BOOTTIME,
+	[CLOCK_TAI_HARD]		= HRTIMER_BASE_TAI,
 };
 
 /*
@@ -1201,7 +1213,11 @@ static inline int hrtimer_clockid_to_base(clockid_t clock_id)
 			return base;
 	}
 	WARN(1, "Invalid clockid %d. Using MONOTONIC\n", clock_id);
+#ifdef CONFIG_PREEMPT_RT_FULL
+	return HRTIMER_BASE_MONOTONIC_SOFT;
+#else
 	return HRTIMER_BASE_MONOTONIC;
+#endif
 }
 
 static void __hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
@@ -1219,6 +1235,8 @@ static void __hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
 			clock_id = CLOCK_MONOTONIC;
 		else if (clock_id == CLOCK_REALTIME_SOFT)
 			clock_id = CLOCK_MONOTONIC_SOFT;
+		else if (clock_id == CLOCK_REALTIME_HARD)
+			clock_id = CLOCK_MONOTONIC_HARD;
 	}
 
 	base = hrtimer_clockid_to_base(clock_id);
@@ -1589,11 +1607,32 @@ static enum hrtimer_restart hrtimer_wakeup(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+static bool task_is_realtime(struct task_struct *tsk)
+{
+	int policy = tsk->policy;
+
+	if (policy == SCHED_FIFO || policy == SCHED_RR)
+		return true;
+	if (policy == SCHED_DEADLINE)
+		return true;
+	return false;
+}
+#endif
+
 static void __hrtimer_init_sleeper(struct hrtimer_sleeper *sl,
 				   clockid_t clock_id,
 				   enum hrtimer_mode mode,
 				   struct task_struct *task)
 {
+#ifdef CONFIG_PREEMPT_RT_FULL
+	if (!(clock_id & (HRTIMER_BASE_HARD_MASK | HRTIMER_BASE_SOFT_MASK))) {
+		if (task_is_realtime(current) || system_state != SYSTEM_RUNNING)
+			clock_id |= HRTIMER_BASE_HARD_MASK;
+		else
+			clock_id |= HRTIMER_BASE_SOFT_MASK;
+	}
+#endif
 	__hrtimer_init(&sl->timer, clock_id, mode);
 	sl->timer.function = hrtimer_wakeup;
 	sl->task = task;

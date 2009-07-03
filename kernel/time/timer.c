@@ -1236,7 +1236,7 @@ int try_to_del_timer_sync(struct timer_list *timer)
 }
 EXPORT_SYMBOL(try_to_del_timer_sync);
 
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) || defined(CONFIG_PREEMPT_RT_FULL)
 static int __del_timer_sync(struct timer_list *timer)
 {
 	struct timer_base *base;
@@ -1381,7 +1381,8 @@ static void expire_timers(struct timer_base *base, struct hlist_head *head)
 
 		fn = timer->function;
 
-		if (timer->flags & TIMER_IRQSAFE) {
+		if (!IS_ENABLED(CONFIG_PREEMPT_RT_FULL) &&
+		    timer->flags & TIMER_IRQSAFE) {
 			raw_spin_unlock(&base->lock);
 			call_timer_fn(timer, fn, baseclk);
 			base->running_timer = NULL;

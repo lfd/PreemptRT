@@ -3214,7 +3214,6 @@ unlock:
 #ifdef CONFIG_PREEMPT_RT_FULL
 void pagefault_disable(void)
 {
-	preempt_count_inc();
 	current->pagefault_disabled++;
 	/*
 	 * make sure to have issued the store before a pagefault
@@ -3232,7 +3231,6 @@ void pagefault_enable(void)
 	 */
 	barrier();
 	current->pagefault_disabled--;
-	preempt_enable();
 }
 EXPORT_SYMBOL(pagefault_enable);
 #endif

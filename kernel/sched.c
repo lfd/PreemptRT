@@ -4607,7 +4607,7 @@ need_resched:
 
 	post_schedule(rq);
 
-	preempt_enable_no_resched();
+	__preempt_enable_no_resched();
 	if (need_resched())
 		goto need_resched;
 }
@@ -4655,7 +4655,7 @@ EXPORT_SYMBOL(schedule);
  */
 void __sched schedule_preempt_disabled(void)
 {
-	preempt_enable_no_resched();
+	__preempt_enable_no_resched();
 	schedule();
 	preempt_disable();
 }
@@ -5897,7 +5897,7 @@ SYSCALL_DEFINE0(sched_yield)
 	__release(rq->lock);
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 	do_raw_spin_unlock(&rq->lock);
-	preempt_enable_no_resched();
+	__preempt_enable_no_resched();
 
 	schedule();
 

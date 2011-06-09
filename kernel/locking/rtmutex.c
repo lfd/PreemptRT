@@ -1538,6 +1538,23 @@ int __sched __rt_mutex_futex_trylock(struct rt_mutex *lock)
 }
 
 /**
+ * rt_mutex_lock_killable - lock a rt_mutex killable
+ *
+ * @lock:		the rt_mutex to be locked
+ *
+ * Returns:
+ *  0		on success
+ * -EINTR	when interrupted by a signal
+ */
+int __sched rt_mutex_lock_killable(struct rt_mutex *lock)
+{
+	might_sleep();
+
+	return rt_mutex_fastlock(lock, TASK_KILLABLE, rt_mutex_slowlock);
+}
+EXPORT_SYMBOL_GPL(rt_mutex_lock_killable);
+
+/**
  * rt_mutex_trylock - try to lock a rt_mutex
  *
  * @lock:	the rt_mutex to be locked

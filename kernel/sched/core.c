@@ -5196,6 +5196,17 @@ void migrate_disable(void)
 	unsigned long flags;
 	struct rq *rq;
 
+	if (in_atomic()) {
+#ifdef CONFIG_SCHED_DEBUG
+		p->migrate_disable_atomic++;
+#endif
+		return;
+	}
+
+#ifdef CONFIG_SCHED_DEBUG
+	WARN_ON_ONCE(p->migrate_disable_atomic);
+#endif
+
 	preempt_disable();
 	if (p->migrate_disable) {
 		p->migrate_disable++;
@@ -5244,6 +5255,16 @@ void migrate_enable(void)
 	unsigned long flags;
 	struct rq *rq;
 
+	if (in_atomic()) {
+#ifdef CONFIG_SCHED_DEBUG
+		p->migrate_disable_atomic--;
+#endif
+		return;
+	}
+
+#ifdef CONFIG_SCHED_DEBUG
+	WARN_ON_ONCE(p->migrate_disable_atomic);
+#endif
 	WARN_ON_ONCE(p->migrate_disable <= 0);
 
 	preempt_disable();

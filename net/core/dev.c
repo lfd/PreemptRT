@@ -1819,6 +1819,7 @@ static inline void __netif_reschedule(struct Qdisc *q)
 	sd->output_queue_tailp = &q->next_sched;
 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
 	local_irq_restore(flags);
+	preempt_check_resched_rt();
 }
 
 void __netif_schedule(struct Qdisc *q)
@@ -1840,6 +1841,7 @@ void dev_kfree_skb_irq(struct sk_buff *skb)
 		sd->completion_queue = skb;
 		raise_softirq_irqoff(NET_TX_SOFTIRQ);
 		local_irq_restore(flags);
+		preempt_check_resched_rt();
 	}
 }
 EXPORT_SYMBOL(dev_kfree_skb_irq);
@@ -2963,6 +2965,7 @@ enqueue:
 	rps_unlock(sd);
 
 	local_irq_restore(flags);
+	preempt_check_resched_rt();
 
 	atomic_long_inc(&skb->dev->rx_dropped);
 	kfree_skb(skb);
@@ -3784,6 +3787,7 @@ static void net_rps_action_and_irq_enable(struct softnet_data *sd)
 	} else
 #endif
 		local_irq_enable();
+	preempt_check_resched_rt();
 }
 
 static int process_backlog(struct napi_struct *napi, int quota)
@@ -3856,6 +3860,7 @@ void __napi_schedule(struct napi_struct *n)
 	local_irq_save(flags);
 	____napi_schedule(&__get_cpu_var(softnet_data), n);
 	local_irq_restore(flags);
+	preempt_check_resched_rt();
 }
 EXPORT_SYMBOL(__napi_schedule);
 
@@ -6367,6 +6372,7 @@ static int dev_cpu_callback(struct notifier_block *nfb,
 
 	raise_softirq_irqoff(NET_TX_SOFTIRQ);
 	local_irq_enable();
+	preempt_check_resched_rt();
 
 	/* Process offline CPU's input_pkt_queue */
 	while ((skb = __skb_dequeue(&oldsd->process_queue))) {

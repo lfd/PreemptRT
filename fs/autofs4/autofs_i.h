@@ -198,9 +198,9 @@ static inline void __managed_dentry_set_automount(struct dentry *dentry)
 
 static inline void managed_dentry_set_automount(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_set_automount(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 static inline void __managed_dentry_clear_automount(struct dentry *dentry)
@@ -210,9 +210,9 @@ static inline void __managed_dentry_clear_automount(struct dentry *dentry)
 
 static inline void managed_dentry_clear_automount(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_clear_automount(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 static inline void __managed_dentry_set_transit(struct dentry *dentry)
@@ -222,9 +222,9 @@ static inline void __managed_dentry_set_transit(struct dentry *dentry)
 
 static inline void managed_dentry_set_transit(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_set_transit(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 static inline void __managed_dentry_clear_transit(struct dentry *dentry)
@@ -234,9 +234,9 @@ static inline void __managed_dentry_clear_transit(struct dentry *dentry)
 
 static inline void managed_dentry_clear_transit(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_clear_transit(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 static inline void __managed_dentry_set_managed(struct dentry *dentry)
@@ -246,9 +246,9 @@ static inline void __managed_dentry_set_managed(struct dentry *dentry)
 
 static inline void managed_dentry_set_managed(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_set_managed(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 static inline void __managed_dentry_clear_managed(struct dentry *dentry)
@@ -258,9 +258,9 @@ static inline void __managed_dentry_clear_managed(struct dentry *dentry)
 
 static inline void managed_dentry_clear_managed(struct dentry *dentry)
 {
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	__managed_dentry_clear_managed(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 }
 
 /* Initializing function */

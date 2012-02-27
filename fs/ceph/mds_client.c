@@ -1488,25 +1488,25 @@ retry:
 	for (temp = dentry; !IS_ROOT(temp) && pos != 0; ) {
 		struct inode *inode;
 
-		spin_lock(&temp->d_lock);
+		seq_spin_lock(&temp->d_lock);
 		inode = temp->d_inode;
 		if (inode && ceph_snap(inode) == CEPH_SNAPDIR) {
 			dout("build_path path+%d: %p SNAPDIR\n",
 			     pos, temp);
 		} else if (stop_on_nosnap && inode &&
 			   ceph_snap(inode) == CEPH_NOSNAP) {
-			spin_unlock(&temp->d_lock);
+			seq_spin_unlock(&temp->d_lock);
 			break;
 		} else {
 			pos -= temp->d_name.len;
 			if (pos < 0) {
-				spin_unlock(&temp->d_lock);
+				seq_spin_unlock(&temp->d_lock);
 				break;
 			}
 			strncpy(path + pos, temp->d_name.name,
 				temp->d_name.len);
 		}
-		spin_unlock(&temp->d_lock);
+		seq_spin_unlock(&temp->d_lock);
 		if (pos)
 			path[--pos] = '/';
 		temp = temp->d_parent;
@@ -2768,7 +2768,7 @@ static void handle_lease(struct ceph_mds_client *mdsc,
 	if (!dentry)
 		goto release;
 
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	di = ceph_dentry(dentry);
 	switch (h->action) {
 	case CEPH_MDS_LEASE_REVOKE:
@@ -2796,7 +2796,7 @@ static void handle_lease(struct ceph_mds_client *mdsc,
 		}
 		break;
 	}
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 	dput(dentry);
 
 	if (!release)
@@ -2869,7 +2869,7 @@ void ceph_mdsc_lease_release(struct ceph_mds_client *mdsc, struct inode *inode,
 	BUG_ON(dentry == NULL);
 
 	/* is dentry lease valid? */
-	spin_lock(&dentry->d_lock);
+	seq_spin_lock(&dentry->d_lock);
 	di = ceph_dentry(dentry);
 	if (!di || !di->lease_session ||
 	    di->lease_session->s_mds < 0 ||
@@ -2878,7 +2878,7 @@ void ceph_mdsc_lease_release(struct ceph_mds_client *mdsc, struct inode *inode,
 		dout("lease_release inode %p dentry %p -- "
 		     "no lease\n",
 		     inode, dentry);
-		spin_unlock(&dentry->d_lock);
+		seq_spin_unlock(&dentry->d_lock);
 		return;
 	}
 
@@ -2886,7 +2886,7 @@ void ceph_mdsc_lease_release(struct ceph_mds_client *mdsc, struct inode *inode,
 	session = ceph_get_mds_session(di->lease_session);
 	seq = di->lease_seq;
 	__ceph_mdsc_drop_dentry_lease(dentry);
-	spin_unlock(&dentry->d_lock);
+	seq_spin_unlock(&dentry->d_lock);
 
 	dout("lease_release inode %p dentry %p to mds%d\n",
 	     inode, dentry, session->s_mds);

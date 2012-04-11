@@ -1938,6 +1938,12 @@ static void rcu_prepare_for_idle(int cpu)
 {
 }
 
+#ifdef CONFIG_RCU_CPU_STALL_INFO
+static void print_cpu_stall_fast_no_hz(char *cp, int cpu)
+{
+}
+#endif /* #ifdef CONFIG_RCU_CPU_STALL_INFO */
+
 #else /* #if !defined(CONFIG_RCU_FAST_NO_HZ) */
 
 /*
@@ -2184,12 +2190,8 @@ static void rcu_prepare_for_idle(int cpu)
 		trace_rcu_prep_idle("Callbacks drained");
 }
 
-#endif /* #else #if !defined(CONFIG_RCU_FAST_NO_HZ) */
 
 #ifdef CONFIG_RCU_CPU_STALL_INFO
-
-#ifdef CONFIG_RCU_FAST_NO_HZ
-
 static void print_cpu_stall_fast_no_hz(char *cp, int cpu)
 {
 	struct hrtimer *hrtp = &per_cpu(rcu_idle_gp_timer, cpu);
@@ -2201,14 +2203,11 @@ static void print_cpu_stall_fast_no_hz(char *cp, int cpu)
 			? ktime_to_us(hrtimer_get_remaining(hrtp))
 			: -1);
 }
+#endif /* #ifdef CONFIG_RCU_CPU_STALL_INFO */
 
-#else /* #ifdef CONFIG_RCU_FAST_NO_HZ */
+#endif /* #else #if !defined(CONFIG_RCU_FAST_NO_HZ) */
 
-static void print_cpu_stall_fast_no_hz(char *cp, int cpu)
-{
-}
-
-#endif /* #else #ifdef CONFIG_RCU_FAST_NO_HZ */
+#ifdef CONFIG_RCU_CPU_STALL_INFO
 
 /* Initiate the stall-info list. */
 static void print_cpu_stall_info_begin(void)

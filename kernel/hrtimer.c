@@ -1625,7 +1625,6 @@ static void run_hrtimer_softirq(struct softirq_action *h)
 		cpu_base->clock_was_set = 0;
 		clock_was_set();
 	}
-
 	hrtimer_rt_run_pending();
 }
 

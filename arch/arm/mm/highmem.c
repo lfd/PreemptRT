@@ -36,6 +36,7 @@ void kunmap(struct page *page)
 }
 EXPORT_SYMBOL(kunmap);
 
+#ifndef CONFIG_PREEMPT_RT_FULL
 void *kmap_atomic(struct page *page)
 {
 	unsigned int idx;
@@ -135,3 +136,4 @@ struct page *kmap_atomic_to_page(const void *ptr)
 
 	return pte_page(get_top_pte(vaddr));
 }
+#endif

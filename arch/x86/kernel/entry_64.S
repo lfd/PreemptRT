@@ -1003,9 +1003,15 @@ retint_signal:
 ENTRY(retint_kernel)
 	cmpl $0,TI_preempt_count(%rcx)
 	jnz  retint_restore_args
-	bt  $TIF_NEED_RESCHED,TI_flags(%rcx)
+	bt   $TIF_NEED_RESCHED,TI_flags(%rcx)
+	jc   1f
+
+	cmpl $0,TI_preempt_lazy_count(%rcx)
+	jnz  retint_restore_args
+	bt   $TIF_NEED_RESCHED_LAZY,TI_flags(%rcx)
 	jnc  retint_restore_args
-	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
+
+1:	bt   $9,EFLAGS-ARGOFFSET(%rsp)	/* interrupts off? */
 	jnc  retint_restore_args
 	call preempt_schedule_irq
 	jmp exit_intr

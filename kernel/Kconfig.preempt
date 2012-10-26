@@ -6,6 +6,9 @@ config PREEMPT_RT_BASE
 	bool
 	select PREEMPT
 
+config HAVE_PREEMPT_LAZY
+	bool
+
 choice
 	prompt "Preemption Model"
 	default PREEMPT_NONE

@@ -1224,13 +1224,12 @@ static int powernowk8_target(struct cpufreq_policy *pol,
 					     .relation = relation };
 
 	/*
-	 * Must run on @pol->cpu.  cpufreq core is responsible for ensuring
-	 * that we're bound to the current CPU and pol->cpu stays online.
+	 * Must run on @pol->cpu. We queue it on the target cpu even
+	 * if we are currently on the target cpu. This is preemptible
+	 * non cpu bound context, so we can't call the target function
+	 * directly.
 	 */
-	if (smp_processor_id() == pol->cpu)
-		return powernowk8_target_fn(&pta);
-	else
-		return work_on_cpu(pol->cpu, powernowk8_target_fn, &pta);
+	return work_on_cpu(pol->cpu, powernowk8_target_fn, &pta);
 }
 
 /* Driver entry point to verify the policy and range of frequencies */

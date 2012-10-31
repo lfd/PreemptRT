@@ -221,6 +221,12 @@ __irq_svc:
 	movne	r0, #0				@ force flags to 0
 	tst	r0, #_TIF_NEED_RESCHED
 	blne	svc_preempt
+	ldr	r8, [tsk, #TI_PREEMPT_LAZY]	@ get preempt lazy count
+	ldr	r0, [tsk, #TI_FLAGS]		@ get flags
+	teq	r8, #0				@ if preempt lazy count != 0
+	movne	r0, #0				@ force flags to 0
+	tst	r0, #_TIF_NEED_RESCHED_LAZY
+	blne	svc_preempt
 #endif
 
 #ifdef CONFIG_TRACE_IRQFLAGS
@@ -240,6 +246,8 @@ svc_preempt:
 1:	bl	preempt_schedule_irq		@ irq en/disable is done inside
 	ldr	r0, [tsk, #TI_FLAGS]		@ get new tasks TI_FLAGS
 	tst	r0, #_TIF_NEED_RESCHED
+	bne	1b
+	tst	r0, #_TIF_NEED_RESCHED_LAZY
 	moveq	pc, r8				@ go again
 	b	1b
 #endif

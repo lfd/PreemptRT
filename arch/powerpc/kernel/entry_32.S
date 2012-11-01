@@ -674,7 +674,14 @@ resume_kernel:
 	cmpwi	0,r0,0		/* if non-zero, just restore regs and return */
 	bne	restore_kuap
 	andi.	r8,r8,_TIF_NEED_RESCHED
+	bne+	1f
+	lwz	r0,TI_PREEMPT_LAZY(r2)
+	cmpwi	0,r0,0          /* if non-zero, just restore regs and return */
+	bne	restore_kuap
+	lwz	r0,TI_FLAGS(r2)
+	andi.	r0,r0,_TIF_NEED_RESCHED_LAZY
 	beq+	restore_kuap
+1:
 	lwz	r3,_MSR(r1)
 	andi.	r0,r3,MSR_EE	/* interrupts off? */
 	beq	restore_kuap	/* don't schedule if so */
@@ -989,7 +996,7 @@ global_dbcr0:
 #endif /* !(CONFIG_4xx || CONFIG_BOOKE) */
 
 do_work:			/* r10 contains MSR_KERNEL here */
-	andi.	r0,r9,_TIF_NEED_RESCHED
+	andi.	r0,r9,_TIF_NEED_RESCHED_MASK
 	beq	do_user_signal
 
 do_resched:			/* r10 contains MSR_KERNEL here */
@@ -1008,7 +1015,7 @@ recheck:
 	LOAD_REG_IMMEDIATE(r10,MSR_KERNEL)
 	mtmsr	r10		/* disable interrupts */
 	lwz	r9,TI_FLAGS(r2)
-	andi.	r0,r9,_TIF_NEED_RESCHED
+	andi.	r0,r9,_TIF_NEED_RESCHED_MASK
 	bne-	do_resched
 	andi.	r0,r9,_TIF_USER_WORK_MASK
 	beq	restore_user

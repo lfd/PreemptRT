@@ -59,6 +59,8 @@ static inline void *kmap(struct page *page)
 	return page_address(page);
 }
 
+#define kmap_prot(page, prot)	kmap(page)
+
 static inline void kunmap(struct page *page)
 {
 }

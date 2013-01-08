@@ -56,16 +56,39 @@ extern unsigned long highstart_pfn, highend_pfn;
 
 extern void *kmap_high(struct page *page);
 extern void kunmap_high(struct page *page);
+extern void *kmap_high_prot(struct page *page, pgprot_t prot);
 
 void *kmap(struct page *page);
 void kunmap(struct page *page);
 
+#ifndef CONFIG_PREEMPT_RT_FULL
 void *kmap_atomic_prot(struct page *page, pgprot_t prot);
 void *kmap_atomic(struct page *page);
 void __kunmap_atomic(void *kvaddr);
 void *kmap_atomic_pfn(unsigned long pfn);
 void *kmap_atomic_prot_pfn(unsigned long pfn, pgprot_t prot);
 struct page *kmap_atomic_to_page(void *ptr);
+#else
+void *kmap_prot(struct page *page, pgprot_t prot);
+# define kmap_atomic(page)			\
+	({ pagefault_disable(); kmap(page); })
+
+# define kmap_atomic_pfn(pfn)			\
+	({ pagefault_disable(); kmap(pfn_to_page(pfn)) })
+
+# define __kunmap_atomic(kvaddr)		\
+	do { kunmap(kmap_to_page(kvaddr)); pagefault_enable(); } while(0)
+
+# define kmap_atomic_prot(page, prot)		\
+	({ pagefault_disable(); kmap_prot(page, prot); })
+
+# define kmap_atomic_prot_pfn(pfn, prot)	\
+	({ pagefault_disable(); kmap_prot(pfn_to_page(pfn), prot); })
+
+# define kmap_atomic_to_page(kvaddr)		\
+	kmap_to_page(kvaddr)
+
+#endif
 
 #define flush_cache_kmaps()	do { } while (0)
 

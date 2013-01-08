@@ -21,6 +21,17 @@ void kunmap(struct page *page)
 }
 EXPORT_SYMBOL(kunmap);
 
+#ifdef CONFIF_PREEMPT_RT_FULL
+void *__kmap_prot(struct page *page, pgprot_t prot)
+{
+	might_sleep();
+	if (!PageHighMem(page))
+		return page_address(page);
+	return kmap_high_prot(page, prot);
+}
+#endif
+
+#ifndef CONFIG_PREEMPT_RT_FULL
 /*
  * kmap_atomic/kunmap_atomic is significantly faster than kmap/kunmap because
  * no global lock is needed and because the kmap code must perform a global TLB
@@ -115,6 +126,7 @@ struct page *kmap_atomic_to_page(void *ptr)
 	return pte_page(*pte);
 }
 EXPORT_SYMBOL(kmap_atomic_to_page);
+#endif
 
 void __init set_highmem_pages_init(void)
 {

@@ -157,7 +157,7 @@ void kmap_flush_unused(void)
 	unlock_kmap();
 }
 
-static inline unsigned long map_new_virtual(struct page *page)
+static inline unsigned long map_new_virtual(struct page *page, pgprot_t prot)
 {
 	unsigned long vaddr;
 	int count;
@@ -199,7 +199,7 @@ start:
 	}
 	vaddr = PKMAP_ADDR(last_pkmap_nr);
 	set_pte_at(&init_mm, vaddr,
-		   &(pkmap_page_table[last_pkmap_nr]), mk_pte(page, kmap_prot));
+		   &(pkmap_page_table[last_pkmap_nr]), mk_pte(page, prot));
 
 	pkmap_count[last_pkmap_nr] = 1;
 	set_page_address(page, (void *)vaddr);
@@ -215,7 +215,7 @@ start:
  *
  * We cannot call this from interrupts, as it may block.
  */
-void *kmap_high(struct page *page)
+void *kmap_high_prot(struct page *page, pgprot_t prot)
 {
 	unsigned long vaddr;
 
@@ -226,13 +226,26 @@ void *kmap_high(struct page *page)
 	lock_kmap();
 	vaddr = (unsigned long)page_address(page);
 	if (!vaddr)
-		vaddr = map_new_virtual(page);
+		vaddr = map_new_virtual(page, prot);
 	pkmap_count[PKMAP_NR(vaddr)]++;
 	BUG_ON(pkmap_count[PKMAP_NR(vaddr)] < 2);
 	unlock_kmap();
 	return (void*) vaddr;
 }
+EXPORT_SYMBOL(kmap_high_prot);
 
+/**
+ * kmap_high - map a highmem page into memory
+ * @page: &struct page to map
+ *
+ * Returns the page's virtual memory address.
+ *
+ * We cannot call this from interrupts, as it may block.
+ */
+void *kmap_high(struct page *page)
+{
+	return kmap_high_prot(page, kmap_prot);
+}
 EXPORT_SYMBOL(kmap_high);
 
 #ifdef ARCH_NEEDS_KMAP_HIGH_GET

@@ -106,9 +106,9 @@ struct srcu_struct {
 
 void process_srcu(struct work_struct *work);
 
-#define __SRCU_STRUCT_INIT(name)					\
+#define __SRCU_STRUCT_INIT(name, pcpu_name)				\
 	{								\
-		.sda = &name##_srcu_data,				\
+		.sda = &pcpu_name,					\
 		.lock = __RAW_SPIN_LOCK_UNLOCKED(name.lock),		\
 		.srcu_gp_seq_needed = 0 - 1,				\
 		__SRCU_DEP_MAP_INIT(name)				\
@@ -135,7 +135,7 @@ void process_srcu(struct work_struct *work);
  */
 #define __DEFINE_SRCU(name, is_static)					\
 	static DEFINE_PER_CPU(struct srcu_data, name##_srcu_data);\
-	is_static struct srcu_struct name = __SRCU_STRUCT_INIT(name)
+	is_static struct srcu_struct name = __SRCU_STRUCT_INIT(name, name##_srcu_data)
 #define DEFINE_SRCU(name)		__DEFINE_SRCU(name, /* not static */)
 #define DEFINE_STATIC_SRCU(name)	__DEFINE_SRCU(name, static)
 

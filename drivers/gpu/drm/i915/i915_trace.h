@@ -244,7 +244,6 @@ TRACE_EVENT(i915_gem_ring_dispatch,
 			   __entry->ring = ring->id;
 			   __entry->seqno = seqno;
 			   __entry->flags = flags;
-			   i915_trace_irq_get(ring, seqno);
 			   ),
 
 	    TP_printk("dev=%u, ring=%u, seqno=%u, flags=%x",

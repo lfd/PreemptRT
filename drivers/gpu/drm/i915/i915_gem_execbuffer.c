@@ -1069,6 +1069,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	}
 
 	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
+	i915_trace_irq_get(ring, seqno);
 
 	i915_gem_execbuffer_move_to_active(&objects, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring);

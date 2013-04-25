@@ -5,6 +5,8 @@
 #error "Do not include directly. Include spinlock_types.h instead"
 #endif
 
+#include <linux/cache.h>
+
 /*
  * PREEMPT_RT: spinlocks - an RT mutex plus lock-break field:
  */

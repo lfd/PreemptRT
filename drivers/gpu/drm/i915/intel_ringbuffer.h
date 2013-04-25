@@ -232,8 +232,10 @@ static inline u32 intel_ring_get_seqno(struct intel_ring_buffer *ring)
 
 static inline void i915_trace_irq_get(struct intel_ring_buffer *ring, u32 seqno)
 {
+#ifdef CONFIG_TRACEPOINTS
 	if (ring->trace_irq_seqno == 0 && ring->irq_get(ring))
 		ring->trace_irq_seqno = seqno;
+#endif
 }
 
 /* DRI warts */

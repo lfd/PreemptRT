@@ -814,6 +814,7 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 	struct intel_ring_buffer *ring;
 	u32 ctx_id = i915_execbuffer2_get_context_id(*args);
 	u32 exec_start, exec_len;
+	u32 seqno;
 	u32 mask;
 	u32 flags;
 	int ret, mode, i;
@@ -1068,7 +1069,9 @@ i915_gem_do_execbuffer(struct drm_device *dev, void *data,
 			goto err;
 	}
 
-	trace_i915_gem_ring_dispatch(ring, intel_ring_get_seqno(ring), flags);
+	seqno = intel_ring_get_seqno(ring);
+	trace_i915_gem_ring_dispatch(ring, seqno, flags);
+	i915_trace_irq_get(ring, seqno);
 
 	i915_gem_execbuffer_move_to_active(&objects, ring);
 	i915_gem_execbuffer_retire_commands(dev, file, ring);

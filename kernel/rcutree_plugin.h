@@ -2036,7 +2036,7 @@ static int rcu_nocb_needs_gp(struct rcu_state *rsp)
  */
 static void rcu_nocb_gp_cleanup(struct rcu_state *rsp, struct rcu_node *rnp)
 {
-	swait_wake(&rnp->nocb_gp_wq[rnp->completed & 0x1]);
+	swait_wake_all(&rnp->nocb_gp_wq[rnp->completed & 0x1]);
 }
 
 /*

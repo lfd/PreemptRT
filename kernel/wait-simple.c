@@ -27,6 +27,8 @@ static inline void __swait_dequeue(struct swaiter *w)
 /* Check whether a head has waiters enqueued */
 static inline bool swait_head_has_waiters(struct swait_head *h)
 {
+	/* Make sure the condition is visible before checking list_empty() */
+	smp_mb();
 	return !list_empty(&h->list);
 }
 

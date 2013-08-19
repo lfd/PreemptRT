@@ -16,6 +16,8 @@
 static inline void __swait_enqueue(struct swait_head *head, struct swaiter *w)
 {
 	list_add(&w->node, &head->list);
+	/* We can't let the condition leak before the setting of head */
+	smp_mb();
 }
 
 /* Removes w from head->list. Must be called with head->lock locked. */

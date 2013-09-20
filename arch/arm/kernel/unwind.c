@@ -195,6 +195,11 @@ static const struct unwind_idx *unwind_find_idx(unsigned long addr)
 		/* module unwind tables */
 		struct unwind_table *table;
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+		if (irqs_disabled())
+			goto out;
+#endif
+
 		spin_lock_irqsave(&unwind_lock, flags);
 		list_for_each_entry(table, &unwind_tables, list) {
 			if (addr >= table->begin_addr &&
@@ -211,6 +216,7 @@ static const struct unwind_idx *unwind_find_idx(unsigned long addr)
 	}
 
 	pr_debug("%s: idx = %p\n", __func__, idx);
+out:
 	return idx;
 }
 
@@ -345,7 +351,9 @@ int unwind_frame(struct stackframe *frame)
 
 	idx = unwind_find_idx(frame->pc);
 	if (!idx) {
+#ifndef CONFIG_PREEMPT_RT_FULL
 		pr_warning("unwind: Index not found %08lx\n", frame->pc);
+#endif
 		return -URC_FAILURE;
 	}
 

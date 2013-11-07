@@ -1094,6 +1094,7 @@ static int __ref _cpu_down(unsigned int cpu, int tasks_frozen,
 		goto restore_cpus;
 	}
 
+	migrate_enable();
 	cpu_hotplug_begin();
 	ret = cpu_unplug_begin(cpu);
 	if (ret) {
@@ -1140,7 +1141,6 @@ out:
 	cpu_unplug_done(cpu);
 out_cancel:
 	cpu_hotplug_done();
-	migrate_enable();
 restore_cpus:
 	set_cpus_allowed_ptr(current, cpumask_org);
 	free_cpumask_var(cpumask_org);

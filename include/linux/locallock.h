@@ -39,7 +39,7 @@ struct local_irq_lock {
 static inline void __local_lock(struct local_irq_lock *lv)
 {
 	if (lv->owner != current) {
-		spin_lock(&lv->lock);
+		spin_lock_local(&lv->lock);
 		LL_WARN(lv->owner);
 		LL_WARN(lv->nestcnt);
 		lv->owner = current;
@@ -52,7 +52,7 @@ static inline void __local_lock(struct local_irq_lock *lv)
 
 static inline int __local_trylock(struct local_irq_lock *lv)
 {
-	if (lv->owner != current && spin_trylock(&lv->lock)) {
+	if (lv->owner != current && spin_trylock_local(&lv->lock)) {
 		LL_WARN(lv->owner);
 		LL_WARN(lv->nestcnt);
 		lv->owner = current;
@@ -79,7 +79,7 @@ static inline void __local_unlock(struct local_irq_lock *lv)
 		return;
 
 	lv->owner = NULL;
-	spin_unlock(&lv->lock);
+	spin_unlock_local(&lv->lock);
 }
 
 #define local_unlock(lvar)					\
@@ -211,7 +211,7 @@ static inline int __local_unlock_irqrestore(struct local_irq_lock *lv,
 		&__get_cpu_var(var);					\
 	}))
 
-#define put_locked_var(lvar, var)		local_unlock(lvar)
+#define put_locked_var(lvar, var)	local_unlock(lvar);
 
 #define local_lock_cpu(lvar)						\
 	({								\

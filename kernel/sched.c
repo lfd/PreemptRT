@@ -4809,9 +4809,8 @@ need_resched:
 
 static inline void sched_submit_work(struct task_struct *tsk)
 {
-	if (!tsk->state || tsk_is_pi_blocked(tsk))
+	if (!tsk->state)
 		return;
-
 	/*
 	 * If a worker went to sleep, notify and ask workqueue whether
 	 * it wants to wake up a task to maintain concurrency.
@@ -4820,6 +4819,10 @@ static inline void sched_submit_work(struct task_struct *tsk)
 	 */
 	if (tsk->flags & PF_WQ_WORKER && !tsk->saved_state)
 		wq_worker_sleeping(tsk);
+
+
+	if (tsk_is_pi_blocked(tsk))
+		return;
 
 	/*
 	 * If we are going to sleep and we have plugged IO queued,
@@ -4831,9 +4834,6 @@ static inline void sched_submit_work(struct task_struct *tsk)
 
 static inline void sched_update_worker(struct task_struct *tsk)
 {
-	if (tsk_is_pi_blocked(tsk))
-		return;
-
 	if (tsk->flags & PF_WQ_WORKER)
 		wq_worker_running(tsk);
 }

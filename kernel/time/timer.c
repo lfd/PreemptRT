@@ -1409,13 +1409,11 @@ unsigned long get_next_timer_interrupt(unsigned long now)
 
 #ifdef CONFIG_PREEMPT_RT_FULL
 	/*
-	 * On PREEMPT_RT we cannot sleep here. If the trylock does not
-	 * succeed then we return the worst-case 'expires in 1 tick'
-	 * value.  We use the rt functions here directly to avoid a
-	 * migrate_disable() call.
+	 * On PREEMPT_RT we cannot sleep here. As a result we can't take
+	 * the base lock to check when the next timer is pending and so
+	 * we assume the next jiffy.
 	 */
-	if (!spin_do_trylock(&base->lock))
-		return  now + 1;
+	return now + 1;
 #else
 	spin_lock(&base->lock);
 #endif
@@ -1424,11 +1422,7 @@ unsigned long get_next_timer_interrupt(unsigned long now)
 			base->next_timer = __next_timer_interrupt(base);
 		expires = base->next_timer;
 	}
-#ifdef CONFIG_PREEMPT_RT_FULL
-	rt_spin_unlock_after_trylock_in_irq(&base->lock);
-#else
 	spin_unlock(&base->lock);
-#endif
 
 	if (time_before_eq(expires, now))
 		return now;

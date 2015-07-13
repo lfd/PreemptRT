@@ -319,11 +319,17 @@ void  rt_up_write(struct rw_semaphore *rwsem)
 }
 EXPORT_SYMBOL(rt_up_write);
 
+
+void  __rt_up_read(struct rw_semaphore *rwsem)
+{
+	if (--rwsem->read_depth == 0)
+		rt_mutex_unlock(&rwsem->lock);
+}
+
 void  rt_up_read(struct rw_semaphore *rwsem)
 {
 	rwsem_release(&rwsem->dep_map, 1, _RET_IP_);
-	if (--rwsem->read_depth == 0)
-		rt_mutex_unlock(&rwsem->lock);
+	__rt_up_read(rwsem);
 }
 EXPORT_SYMBOL(rt_up_read);
 

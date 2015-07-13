@@ -59,6 +59,7 @@ extern void rt_down_write_nested_lock(struct rw_semaphore *rwsem,
 extern void  rt_down_read(struct rw_semaphore *rwsem);
 extern int  rt_down_write_trylock(struct rw_semaphore *rwsem);
 extern int  rt_down_read_trylock(struct rw_semaphore *rwsem);
+extern void  __rt_up_read(struct rw_semaphore *rwsem);
 extern void  rt_up_read(struct rw_semaphore *rwsem);
 extern void  rt_up_write(struct rw_semaphore *rwsem);
 extern void  rt_downgrade_write(struct rw_semaphore *rwsem);
@@ -90,6 +91,11 @@ static inline void down_write(struct rw_semaphore *sem)
 static inline int down_write_trylock(struct rw_semaphore *sem)
 {
 	return rt_down_write_trylock(sem);
+}
+
+static inline void __up_read(struct rw_semaphore *sem)
+{
+	__rt_up_read(sem);
 }
 
 static inline void up_read(struct rw_semaphore *sem)

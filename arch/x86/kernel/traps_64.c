@@ -32,6 +32,7 @@
 #include <linux/bug.h>
 #include <linux/kdebug.h>
 #include <linux/utsname.h>
+#include <linux/ftrace.h>
 
 #include <mach_traps.h>
 
@@ -834,6 +835,8 @@ asmlinkage notrace  __kprobes void default_do_nmi(struct pt_regs *regs)
 	int cpu;
 
 	cpu = smp_processor_id();
+
+	trace_event_irq(-1, user_mode(regs), regs->ip);
 
 	/* Only the BSP gets external NMIs from the system.  */
 	if (!cpu)

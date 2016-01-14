@@ -25,6 +25,7 @@
 #include <linux/kprobes.h>
 #include <linux/uaccess.h>
 #include <linux/kdebug.h>
+#include <linux/ftrace.h>
 
 #include <asm/system.h>
 #include <asm/desc.h>
@@ -601,6 +602,8 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 
 	/* get the address */
 	address = read_cr2();
+
+	trace_event_fault(regs->ip, error_code, address);
 
 	si_code = SEGV_MAPERR;
 

@@ -1031,6 +1031,7 @@ static void run_timer_softirq(struct softirq_action *h)
 void do_timer(unsigned long ticks)
 {
 	jiffies_64 += ticks;
+	timekeeping_accumulate();
 }
 
 #ifdef __ARCH_WANT_SYS_ALARM

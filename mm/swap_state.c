@@ -76,8 +76,8 @@ int add_to_swap_cache(struct page *page, swp_entry_t entry, gfp_t gfp_mask)
 	BUG_ON(PagePrivate(page));
 	error = radix_tree_preload(gfp_mask);
 	if (!error) {
-		set_page_nonewrefs(page);
-		spin_lock_irq(&swapper_space.tree_lock);
+		lock_page_ref_irq(page);
+		spin_lock(&swapper_space.tree_lock);
 		error = radix_tree_insert(&swapper_space.page_tree,
 						entry.val, page);
 		if (!error) {
@@ -88,8 +88,8 @@ int add_to_swap_cache(struct page *page, swp_entry_t entry, gfp_t gfp_mask)
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 			INC_CACHE_INFO(add_total);
 		}
-		spin_unlock_irq(&swapper_space.tree_lock);
-		clear_page_nonewrefs(page);
+		spin_unlock(&swapper_space.tree_lock);
+		unlock_page_ref_irq(page);
 		radix_tree_preload_end();
 	}
 	return error;
@@ -177,9 +177,11 @@ void delete_from_swap_cache(struct page *page)
 
 	entry.val = page_private(page);
 
-	spin_lock_irq(&swapper_space.tree_lock);
+	lock_page_ref_irq(page);
+	spin_lock(&swapper_space.tree_lock);
 	__delete_from_swap_cache(page);
-	spin_unlock_irq(&swapper_space.tree_lock);
+	spin_unlock(&swapper_space.tree_lock);
+	unlock_page_ref_irq(page);
 
 	swap_free(entry);
 	page_cache_release(page);

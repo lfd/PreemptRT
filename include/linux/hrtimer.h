@@ -336,6 +336,10 @@ static inline u64 hrtimer_forward_now(struct hrtimer *timer,
 	return hrtimer_forward(timer, timer->base->get_time(), interval);
 }
 
+/* Overrun count: */
+extern unsigned long
+hrtimer_overrun(struct hrtimer *timer, ktime_t now, ktime_t interval);
+
 /* Precise sleep: */
 extern long hrtimer_nanosleep(struct timespec *rqtp,
 			      struct timespec __user *rmtp,

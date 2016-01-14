@@ -208,7 +208,7 @@ void pmd_ctor(void *pmd, struct kmem_cache *cache, unsigned long flags)
  * vmalloc faults work because attached pagetables are never freed.
  * -- wli
  */
-DEFINE_SPINLOCK(pgd_lock);
+DEFINE_RAW_SPINLOCK(pgd_lock);
 struct page *pgd_list;
 
 static inline void pgd_list_add(pgd_t *pgd)

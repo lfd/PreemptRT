@@ -508,7 +508,11 @@ static void print_lock(struct held_lock *hlock)
 
 static void lockdep_print_held_locks(struct task_struct *curr)
 {
-	int i, depth = curr->lockdep_depth;
+	int i, depth;
+
+	if (!curr)
+		curr = current;
+	depth = curr->lockdep_depth;
 
 	if (!depth) {
 		printk("no locks held by %s/%d.\n", curr->comm, curr->pid);
@@ -3212,7 +3216,8 @@ void debug_show_held_locks(struct task_struct *task)
 		printk("INFO: lockdep is turned off.\n");
 		return;
 	}
-	lockdep_print_held_locks(task);
+	if (task == current)
+		lockdep_print_held_locks(task);
 }
 
 EXPORT_SYMBOL_GPL(debug_show_held_locks);

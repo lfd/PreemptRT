@@ -705,7 +705,7 @@ do {									\
 	unsigned long long val;						\
 	unsigned long flags;						\
 									\
-	local_irq_save(flags);						\
+	local_irq_save(flags);					\
 	if (sel == 0)							\
 		__asm__ __volatile__(					\
 			".set\tmips64\n\t"				\
@@ -733,7 +733,7 @@ do {									\
 do {									\
 	unsigned long flags;						\
 									\
-	local_irq_save(flags);						\
+	local_irq_save(flags);					\
 	if (sel == 0)							\
 		__asm__ __volatile__(					\
 			".set\tmips64\n\t"				\

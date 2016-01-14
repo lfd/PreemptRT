@@ -1238,8 +1238,7 @@ function_trace_call(unsigned long ip, unsigned long parent_ip)
 	if (skip_trace(ip))
 		return;
 
-	resched = need_resched();
-	preempt_disable_notrace();
+	resched = ftrace_preempt_disable();
 	cpu = raw_smp_processor_id();
 	data = tr->data[cpu];
 	disabled = atomic_inc_return(&data->disabled);
@@ -1251,17 +1250,7 @@ function_trace_call(unsigned long ip, unsigned long parent_ip)
 
 	atomic_dec(&data->disabled);
 
-	/*
-	 * To prevent recursion with schedule(), we look at the
-	 * resched flag before disabling preemption. If it is already
-	 * set, then we may be just calling schedule, and we don't
-	 * want to call schedule again. But if it was not set, then
-	 * it is fine to call schedule() if we need to.
-	 */
-	if (resched)
-		preempt_enable_no_resched_notrace();
-	else
-		preempt_enable_notrace();
+	ftrace_preempt_enable(resched);
 }
 
 static struct ftrace_ops trace_ops __read_mostly =

@@ -23,7 +23,7 @@ enum {
 
 struct call_function_data {
 	struct call_single_data csd;
-	spinlock_t lock;
+	raw_spinlock_t lock;
 	unsigned int refs;
 	struct rcu_head rcu_head;
 	unsigned long cpumask_bits[];
@@ -31,7 +31,7 @@ struct call_function_data {
 
 struct call_single_queue {
 	struct list_head list;
-	spinlock_t lock;
+	raw_spinlock_t lock;
 };
 
 static int __cpuinit init_call_single_data(void)

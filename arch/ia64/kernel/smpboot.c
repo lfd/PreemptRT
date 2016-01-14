@@ -370,6 +370,8 @@ smp_setup_percpu_timer (void)
 {
 }
 
+extern void register_itc_clockevent(void);
+
 static void __cpuinit
 smp_callin (void)
 {
@@ -444,6 +446,7 @@ smp_callin (void)
 #ifdef CONFIG_IA32_SUPPORT
 	ia32_gdt_init();
 #endif
+	register_itc_clockevent();
 
 	/*
 	 * Allow the master to continue.

@@ -17,8 +17,7 @@ __cacheline_aligned_in_smp DEFINE_RAW_SPINLOCK(call_function_lock);
 
 enum {
 	CSD_FLAG_WAIT		= 0x01,
-	CSD_FLAG_ALLOC		= 0x02,
-	CSD_FLAG_LOCK		= 0x04,
+	CSD_FLAG_LOCK		= 0x02,
 };
 
 struct call_function_data {
@@ -85,15 +84,6 @@ static void generic_exec_single(int cpu, struct call_single_data *data)
 		csd_flag_wait(data);
 }
 
-static void rcu_free_call_data(struct rcu_head *head)
-{
-	struct call_function_data *data;
-
-	data = container_of(head, struct call_function_data, rcu_head);
-
-	kfree(data);
-}
-
 /*
  * Invoked by arch to handle an IPI for call function. Must be called with
  * interrupts disabled.
@@ -138,8 +128,6 @@ void generic_smp_call_function_interrupt(void)
 			smp_wmb();
 			data->csd.flags &= ~CSD_FLAG_WAIT;
 		}
-		if (data->csd.flags & CSD_FLAG_ALLOC)
-			call_rcu(&data->rcu_head, rcu_free_call_data);
 	}
 	rcu_read_unlock();
 
@@ -190,8 +178,7 @@ void generic_smp_call_function_single_interrupt(void)
 			} else if (data_flags & CSD_FLAG_LOCK) {
 				smp_wmb();
 				data->flags &= ~CSD_FLAG_LOCK;
-			} else if (data_flags & CSD_FLAG_ALLOC)
-				kfree(data);
+			}
 		}
 		/*
 		 * See comment on outer loop
@@ -236,13 +223,11 @@ int smp_call_function_single(int cpu, void (*func) (void *info), void *info,
 			/*
 			 * We are calling a function on a single CPU
 			 * and we are not going to wait for it to finish.
-			 * We first try to allocate the data, but if we
-			 * fail, we fall back to use a per cpu data to pass
-			 * the information to that CPU. Since all callers
-			 * of this code will use the same data, we must
-			 * synchronize the callers to prevent a new caller
-			 * from corrupting the data before the callee
-			 * can access it.
+			 * We use a per cpu data to pass the information to
+			 * that CPU. Since all callers of this code will use
+			 * the same data, we must synchronize the callers to
+			 * prevent a new caller from corrupting the data before
+			 * the callee can access it.
 			 *
 			 * The CSD_FLAG_LOCK is used to let us know when
 			 * the IPI handler is done with the data.
@@ -252,15 +237,10 @@ int smp_call_function_single(int cpu, void (*func) (void *info), void *info,
 			 * will make sure the callee is done with the
 			 * data before a new caller will use it.
 			 */
-			data = NULL;
-			if (data)
-				data->flags = CSD_FLAG_ALLOC;
-			else {
-				data = &per_cpu(csd_data, me);
-				while (data->flags & CSD_FLAG_LOCK)
-					cpu_relax();
-				data->flags = CSD_FLAG_LOCK;
-			}
+			data = &per_cpu(csd_data, me);
+			while (data->flags & CSD_FLAG_LOCK)
+				cpu_relax();
+			data->flags = CSD_FLAG_LOCK;
 		} else {
 			data = &d;
 			data->flags = CSD_FLAG_WAIT;
@@ -321,8 +301,6 @@ void smp_call_function_many(const struct cpumask *mask,
 			    void (*func)(void *), void *info,
 			    bool wait)
 {
-	struct call_function_data *data;
-	unsigned long flags;
 	int cpu, next_cpu;
 
 	/* Can deadlock when called with interrupts disabled */
@@ -347,43 +325,13 @@ void smp_call_function_many(const struct cpumask *mask,
 		return;
 	}
 
-	data = NULL;
-	if (unlikely(!data)) {
-		/* Slow path. */
-		for_each_online_cpu(cpu) {
-			if (cpu == smp_processor_id())
-				continue;
-			if (cpumask_test_cpu(cpu, mask))
-				smp_call_function_single(cpu, func, info, wait);
-		}
-		return;
+	/* Slow path. */
+	for_each_online_cpu(cpu) {
+		if (cpu == smp_processor_id())
+			continue;
+		if (cpumask_test_cpu(cpu, mask))
+			smp_call_function_single(cpu, func, info, wait);
 	}
-
-	spin_lock_init(&data->lock);
-	data->csd.flags = CSD_FLAG_ALLOC;
-	if (wait)
-		data->csd.flags |= CSD_FLAG_WAIT;
-	data->csd.func = func;
-	data->csd.info = info;
-	cpumask_and(to_cpumask(data->cpumask_bits), mask, cpu_online_mask);
-	cpumask_clear_cpu(smp_processor_id(), to_cpumask(data->cpumask_bits));
-	data->refs = cpumask_weight(to_cpumask(data->cpumask_bits));
-
-	spin_lock_irqsave(&call_function_lock, flags);
-	list_add_tail_rcu(&data->csd.list, &call_function_queue);
-	spin_unlock_irqrestore(&call_function_lock, flags);
-
-	/*
-	 * Make the list addition visible before sending the ipi.
-	 */
-	smp_mb();
-
-	/* Send a message to all CPUs in the map */
-	arch_send_call_function_ipi_mask(to_cpumask(data->cpumask_bits));
-
-	/* optionally wait for the CPUs to complete */
-	if (wait)
-		csd_flag_wait(&data->csd);
 }
 EXPORT_SYMBOL(smp_call_function_many);
 

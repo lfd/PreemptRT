@@ -227,8 +227,8 @@ static unsigned int __devinit init_chipset_cs5530 (struct pci_dev *dev, const ch
 		goto out;
 	}
 
-	spin_lock_irqsave(&ide_lock, flags);
-		/* all CPUs (there should only be one CPU with this chipset) */
+	/* Local CPU. ide_lock is acquired in do_ide_setup_pci_device. */
+	local_irq_save(flags);
 
 	/*
 	 * Enable BusMaster and MemoryWriteAndInvalidate for the cs5530:
@@ -280,7 +280,7 @@ static unsigned int __devinit init_chipset_cs5530 (struct pci_dev *dev, const ch
 	pci_write_config_byte(master_0, 0x42, 0x00);
 	pci_write_config_byte(master_0, 0x43, 0xc1);
 
-	spin_unlock_irqrestore(&ide_lock, flags);
+	local_irq_restore(flags);
 
 out:
 	pci_dev_put(master_0);

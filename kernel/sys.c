@@ -32,6 +32,7 @@
 #include <linux/getcpu.h>
 #include <linux/task_io_accounting_ops.h>
 #include <linux/seccomp.h>
+#include <linux/hardirq.h>
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
@@ -796,6 +797,15 @@ out_unlock:
  */
 void emergency_restart(void)
 {
+	/*
+	 * Call the notifier chain if we are not in an
+	 * atomic context:
+	 */
+#ifdef CONFIG_PREEMPT
+	if (!in_atomic() && !irqs_disabled())
+		blocking_notifier_call_chain(&reboot_notifier_list,
+					     SYS_RESTART, NULL);
+#endif
 	machine_emergency_restart();
 }
 EXPORT_SYMBOL_GPL(emergency_restart);

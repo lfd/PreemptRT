@@ -247,12 +247,16 @@ config X86_XADD
 
 config RWSEM_GENERIC_SPINLOCK
 	bool
-	depends on !X86_XADD
+	depends on !X86_XADD || PREEMPT_RT
+	default y
+
+config ASM_SEMAPHORES
+	bool
 	default y
 
 config RWSEM_XCHGADD_ALGORITHM
 	bool
-	depends on X86_XADD
+	depends on X86_XADD && !RWSEM_GENERIC_SPINLOCK
 	default y
 
 config ARCH_HAS_ILOG2_U32

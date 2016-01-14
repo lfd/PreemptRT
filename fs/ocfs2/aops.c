@@ -227,7 +227,7 @@ int ocfs2_read_inline_data(struct inode *inode, struct page *page,
 	size = i_size_read(inode);
 
 	if (size > PAGE_CACHE_SIZE ||
-	    size > ocfs2_max_inline_data(inode->i_sb)) {
+	    size > ocfs2_max_inline_data_with_xattr(inode->i_sb, di)) {
 		ocfs2_error(inode->i_sb,
 			    "Inode %llu has with inline data has bad size: %Lu",
 			    (unsigned long long)OCFS2_I(inode)->ip_blkno,
@@ -1555,6 +1555,7 @@ static int ocfs2_try_to_write_inline_data(struct address_space *mapping,
 	int ret, written = 0;
 	loff_t end = pos + len;
 	struct ocfs2_inode_info *oi = OCFS2_I(inode);
+	struct ocfs2_dinode *di = NULL;
 
 	mlog(0, "Inode %llu, write of %u bytes at off %llu. features: 0x%x\n",
 	     (unsigned long long)oi->ip_blkno, len, (unsigned long long)pos,
@@ -1587,7 +1588,9 @@ static int ocfs2_try_to_write_inline_data(struct address_space *mapping,
 	/*
 	 * Check whether the write can fit.
 	 */
-	if (mmap_page || end > ocfs2_max_inline_data(inode->i_sb))
+	di = (struct ocfs2_dinode *)wc->w_di_bh->b_data;
+	if (mmap_page ||
+	    end > ocfs2_max_inline_data_with_xattr(inode->i_sb, di))
 		return 0;
 
 do_inline_write:
@@ -1643,7 +1646,7 @@ int ocfs2_write_begin_nolock(struct address_space *mapping,
 {
 	int ret, credits = OCFS2_INODE_UPDATE_CREDITS;
 	unsigned int clusters_to_alloc, extents_to_split;
-	struct ocfs2_write_ctxt *wc;
+	struct ocfs2_write_ctxt *uninitialized_var(wc);
 	struct inode *inode = mapping->host;
 	struct ocfs2_super *osb = OCFS2_SB(inode->i_sb);
 	struct ocfs2_dinode *di;

@@ -22,6 +22,7 @@ obj-$(CONFIG_GIANFAR) += gianfar_driver.o
 obj-$(CONFIG_TEHUTI) += tehuti.o
 obj-$(CONFIG_ENIC) += enic/
 obj-$(CONFIG_JME) += jme.o
+obj-$(CONFIG_BE2NET) += benet/
 
 gianfar_driver-objs := gianfar.o \
 		gianfar_ethtool.o \
@@ -110,7 +111,7 @@ ifeq ($(CONFIG_FEC_MPC52xx_MDIO),y)
 	obj-$(CONFIG_FEC_MPC52xx) += fec_mpc52xx_phy.o
 endif
 obj-$(CONFIG_68360_ENET) += 68360enet.o
-obj-$(CONFIG_WD80x3) += wd.o 8390.o
+obj-$(CONFIG_WD80x3) += wd.o 8390p.o
 obj-$(CONFIG_EL2) += 3c503.o 8390p.o
 obj-$(CONFIG_NE2000) += ne.o 8390p.o
 obj-$(CONFIG_NE2_MCA) += ne2.o 8390p.o
@@ -231,6 +232,7 @@ obj-$(CONFIG_ENC28J60) += enc28j60.o
 
 obj-$(CONFIG_XTENSA_XT2000_SONIC) += xtsonic.o
 
+obj-$(CONFIG_DNET) += dnet.o
 obj-$(CONFIG_MACB) += macb.o
 
 obj-$(CONFIG_ARM) += arm/

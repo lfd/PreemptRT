@@ -122,6 +122,9 @@ extern int do_getitimer(int which, struct itimerval *value);
 extern void getnstimeofday(struct timespec *tv);
 extern void getboottime(struct timespec *ts);
 extern void monotonic_to_bootbased(struct timespec *ts);
+#ifdef CONFIG_GENERIC_TIME
+s64 __get_nsec_offset(void);
+#endif
 
 extern struct timespec timespec_trunc(struct timespec t, unsigned gran);
 extern int timekeeping_is_continuous(void);

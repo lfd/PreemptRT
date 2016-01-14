@@ -5,7 +5,7 @@
 extra-y		:= head.o init_task.o vmlinux.lds
 
 obj-y		+= cpu-probe.o branch.o entry.o genex.o irq.o process.o \
-		   ptrace.o reset.o semaphore.o setup.o signal.o syscall.o \
+		   ptrace.o reset.o setup.o signal.o syscall.o \
 		   time.o topology.o traps.o unaligned.o
 
 binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
@@ -13,6 +13,8 @@ binfmt_irix-objs	:= irixelf.o irixinv.o irixioctl.o irixsig.o	\
 
 obj-$(CONFIG_STACKTRACE)	+= stacktrace.o
 obj-$(CONFIG_MODULES)		+= mips_ksyms.o module.o
+
+obj-$(CONFIG_ASM_SEMAPHORES)	+= semaphore.o
 
 obj-$(CONFIG_CPU_R3000)		+= r2300_fpu.o r2300_switch.o
 obj-$(CONFIG_CPU_TX39XX)	+= r2300_fpu.o r2300_switch.o

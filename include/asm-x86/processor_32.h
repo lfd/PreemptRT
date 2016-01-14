@@ -134,7 +134,7 @@ extern void detect_ht(struct cpuinfo_x86 *c);
 static inline void detect_ht(struct cpuinfo_x86 *c) {}
 #endif
 
-static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
+static inline void fastcall native_cpuid(unsigned int *eax, unsigned int *ebx,
 					 unsigned int *ecx, unsigned int *edx)
 {
 	/* ecx is often an input as well as an output. */

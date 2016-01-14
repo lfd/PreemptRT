@@ -6,10 +6,6 @@ extern int mcount_enabled;
 
 #include <linux/linkage.h>
 
-#define CALLER_ADDR0 ((unsigned long)__builtin_return_address(0))
-#define CALLER_ADDR1 ((unsigned long)__builtin_return_address(1))
-#define CALLER_ADDR2 ((unsigned long)__builtin_return_address(2))
-
 typedef void (*mcount_func_t)(unsigned long ip, unsigned long parent_ip);
 
 struct mcount_ops {

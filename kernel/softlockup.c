@@ -100,6 +100,8 @@ void softlockup_tick(void)
 	if (now > (touch_timestamp + 10)) {
 		per_cpu(print_timestamp, this_cpu) = touch_timestamp;
 
+		stop_trace();
+
 		spin_lock(&print_lock);
 		printk(KERN_ERR "BUG: soft lockup detected on CPU#%d!\n",
 			this_cpu);

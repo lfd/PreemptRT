@@ -11,16 +11,16 @@
  * within a page table are directly modified.  Thus, the following
  * hook is made available.
  */
-static inline void native_set_pte(pte_t *ptep , pte_t pte)
+static fastcall inline void native_set_pte(pte_t *ptep , pte_t pte)
 {
 	*ptep = pte;
 }
-static inline void native_set_pte_at(struct mm_struct *mm, unsigned long addr,
+static fastcall inline void native_set_pte_at(struct mm_struct *mm, unsigned long addr,
 				     pte_t *ptep , pte_t pte)
 {
 	native_set_pte(ptep, pte);
 }
-static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
+static fastcall inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	*pmdp = pmd;
 }
@@ -36,13 +36,13 @@ static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
 #define pte_clear(mm,addr,xp)	do { set_pte_at(mm, addr, xp, __pte(0)); } while (0)
 #define pmd_clear(xp)	do { set_pmd(xp, __pmd(0)); } while (0)
 
-static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *xp)
+static fastcall inline void native_pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *xp)
 {
 	*xp = __pte(0);
 }
 
 #ifdef CONFIG_SMP
-static inline pte_t native_ptep_get_and_clear(pte_t *xp)
+static fastcall inline pte_t native_ptep_get_and_clear(pte_t *xp)
 {
 	return __pte(xchg(&xp->pte_low, 0));
 }

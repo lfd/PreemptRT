@@ -44,6 +44,10 @@ config GENERIC_CLOCKEVENTS_BROADCAST
 	depends on GENERIC_CLOCKEVENTS
 	default y if SMP && !LOCAL_TIMERS
 
+config STACKTRACE_SUPPORT
+	bool
+	default y
+
 config MMU
 	bool
 	default y

@@ -560,15 +560,13 @@ static int proc_register(struct proc_dir_entry * dir, struct proc_dir_entry * dp
  */
 static void proc_kill_inodes(struct proc_dir_entry *de)
 {
-	struct list_head *p;
+	struct file *filp;
 	struct super_block *sb = proc_mnt->mnt_sb;
 
 	/*
 	 * Actually it's a partial revoke().
 	 */
-	file_list_lock();
-	list_for_each(p, &sb->s_files) {
-		struct file * filp = list_entry(p, struct file, f_u.fu_list);
+	lock_list_for_each_entry(filp, percpu_list_head(&sb->s_files), f_u.fu_llist) {
 		struct dentry * dentry = filp->f_path.dentry;
 		struct inode * inode;
 		const struct file_operations *fops;
@@ -582,7 +580,6 @@ static void proc_kill_inodes(struct proc_dir_entry *de)
 		filp->f_op = NULL;
 		fops_put(fops);
 	}
-	file_list_unlock();
 }
 
 static struct proc_dir_entry *proc_create(struct proc_dir_entry **parent,
@@ -724,6 +721,8 @@ void remove_proc_entry(const char *name, struct proc_dir_entry *parent)
 	if (!parent && xlate_proc_name(name, &parent, &fn) != 0)
 		goto out;
 	len = strlen(fn);
+
+	percpu_list_fold(&proc_mnt->mnt_sb->s_files);
 
 	spin_lock(&proc_subdir_lock);
 	for (p = &parent->subdir; *p; p=&(*p)->next ) {

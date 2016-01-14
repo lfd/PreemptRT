@@ -251,7 +251,7 @@ static inline void flush_write_buffers(void)
 
 #endif /* __KERNEL__ */
 
-static inline void native_io_delay(void)
+static fastcall inline void native_io_delay(void)
 {
 	asm volatile("outb %%al,$0x80" : : : "memory");
 }

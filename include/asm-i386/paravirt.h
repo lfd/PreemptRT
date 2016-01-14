@@ -70,31 +70,31 @@ struct paravirt_ops
 	void (*banner)(void);
 
 	/* Set and set time of day */
-	unsigned long (*get_wallclock)(void);
-	int (*set_wallclock)(unsigned long);
+	unsigned long (fastcall *get_wallclock)(void);
+	int (fastcall *set_wallclock)(unsigned long);
 
 	/* cpuid emulation, mostly so that caps bits can be disabled */
-	void (*cpuid)(unsigned int *eax, unsigned int *ebx,
+	void (fastcall *cpuid)(unsigned int *eax, unsigned int *ebx,
 		      unsigned int *ecx, unsigned int *edx);
 
 	/* hooks for various privileged instructions */
-	unsigned long (*get_debugreg)(int regno);
-	void (*set_debugreg)(int regno, unsigned long value);
+	unsigned long (fastcall *get_debugreg)(int regno);
+	void (fastcall *set_debugreg)(int regno, unsigned long value);
 
-	void (*clts)(void);
+	void (fastcall *clts)(void);
 
-	unsigned long (*read_cr0)(void);
-	void (*write_cr0)(unsigned long);
+	unsigned long (fastcall *read_cr0)(void);
+	void (fastcall *write_cr0)(unsigned long);
 
-	unsigned long (*read_cr2)(void);
-	void (*write_cr2)(unsigned long);
+	unsigned long (fastcall *read_cr2)(void);
+	void (fastcall *write_cr2)(unsigned long);
 
-	unsigned long (*read_cr3)(void);
-	void (*write_cr3)(unsigned long);
+	unsigned long (fastcall *read_cr3)(void);
+	void (fastcall *write_cr3)(unsigned long);
 
-	unsigned long (*read_cr4_safe)(void);
-	unsigned long (*read_cr4)(void);
-	void (*write_cr4)(unsigned long);
+	unsigned long (fastcall *read_cr4_safe)(void);
+	unsigned long (fastcall *read_cr4)(void);
+	void (fastcall *write_cr4)(unsigned long);
 
 	/*
 	 * Get/set interrupt state.  save_fl and restore_fl are only
@@ -102,44 +102,44 @@ struct paravirt_ops
 	 * returned from save_fl are undefined, and may be ignored by
 	 * restore_fl.
 	 */
-	unsigned long (*save_fl)(void);
-	void (*restore_fl)(unsigned long);
-	void (*irq_disable)(void);
-	void (*irq_enable)(void);
-	void (*safe_halt)(void);
-	void (*halt)(void);
+	unsigned long (fastcall *save_fl)(void);
+	void (fastcall *restore_fl)(unsigned long);
+	void (fastcall *irq_disable)(void);
+	void (fastcall *irq_enable)(void);
+	void (fastcall *safe_halt)(void);
+	void (fastcall *halt)(void);
 
-	void (*wbinvd)(void);
+	void (fastcall *wbinvd)(void);
 
 	/* MSR, PMC and TSR operations.
 	   err = 0/-EFAULT.  wrmsr returns 0/-EFAULT. */
-	u64 (*read_msr)(unsigned int msr, int *err);
-	int (*write_msr)(unsigned int msr, u64 val);
+	u64 (fastcall *read_msr)(unsigned int msr, int *err);
+	int (fastcall *write_msr)(unsigned int msr, u64 val);
 
-	u64 (*read_tsc)(void);
-	u64 (*read_pmc)(void);
+	u64 (fastcall *read_tsc)(void);
+	u64 (fastcall *read_pmc)(void);
 	unsigned long long (*sched_clock)(void);
 	unsigned long (*get_cpu_khz)(void);
 
 	/* Segment descriptor handling */
-	void (*load_tr_desc)(void);
-	void (*load_gdt)(const struct Xgt_desc_struct *);
-	void (*load_idt)(const struct Xgt_desc_struct *);
-	void (*store_gdt)(struct Xgt_desc_struct *);
-	void (*store_idt)(struct Xgt_desc_struct *);
-	void (*set_ldt)(const void *desc, unsigned entries);
-	unsigned long (*store_tr)(void);
-	void (*load_tls)(struct thread_struct *t, unsigned int cpu);
-	void (*write_ldt_entry)(struct desc_struct *,
+	void (fastcall *load_tr_desc)(void);
+	void (fastcall *load_gdt)(const struct Xgt_desc_struct *);
+	void (fastcall *load_idt)(const struct Xgt_desc_struct *);
+	void (fastcall *store_gdt)(struct Xgt_desc_struct *);
+	void (fastcall *store_idt)(struct Xgt_desc_struct *);
+	void (fastcall *set_ldt)(const void *desc, unsigned entries);
+	unsigned long (fastcall *store_tr)(void);
+	void (fastcall *load_tls)(struct thread_struct *t, unsigned int cpu);
+	void (fastcall *write_ldt_entry)(struct desc_struct *,
 				int entrynum, u32 low, u32 high);
-	void (*write_gdt_entry)(struct desc_struct *,
+	void (fastcall *write_gdt_entry)(struct desc_struct *,
 				int entrynum, u32 low, u32 high);
-	void (*write_idt_entry)(struct desc_struct *,
+	void (fastcall *write_idt_entry)(struct desc_struct *,
 				int entrynum, u32 low, u32 high);
-	void (*load_esp0)(struct tss_struct *tss, struct thread_struct *t);
+	void (fastcall *load_esp0)(struct tss_struct *tss, struct thread_struct *t);
 
-	void (*set_iopl_mask)(unsigned mask);
-	void (*io_delay)(void);
+	void (fastcall *set_iopl_mask)(unsigned mask);
+	void (fastcall *io_delay)(void);
 
 	/*
 	 * Hooks for intercepting the creation/use/destruction of an
@@ -156,9 +156,9 @@ struct paravirt_ops
 	 * Direct APIC operations, principally for VMI.  Ideally
 	 * these shouldn't be in this interface.
 	 */
-	void (*apic_write)(unsigned long reg, unsigned long v);
-	void (*apic_write_atomic)(unsigned long reg, unsigned long v);
-	unsigned long (*apic_read)(unsigned long reg);
+	void (fastcall *apic_write)(unsigned long reg, unsigned long v);
+	void (fastcall *apic_write_atomic)(unsigned long reg, unsigned long v);
+	unsigned long (fastcall *apic_read)(unsigned long reg);
 	void (*setup_boot_clock)(void);
 	void (*setup_secondary_clock)(void);
 
@@ -168,56 +168,56 @@ struct paravirt_ops
 #endif
 
 	/* TLB operations */
-	void (*flush_tlb_user)(void);
-	void (*flush_tlb_kernel)(void);
-	void (*flush_tlb_single)(unsigned long addr);
-	void (*flush_tlb_others)(const cpumask_t *cpus, struct mm_struct *mm,
+	void (fastcall *flush_tlb_user)(void);
+	void (fastcall *flush_tlb_kernel)(void);
+	void (fastcall *flush_tlb_single)(unsigned long addr);
+	void (fastcall *flush_tlb_others)(const cpumask_t *cpus, struct mm_struct *mm,
 				 unsigned long va);
 
 	/* Hooks for allocating/releasing pagetable pages */
-	void (*alloc_pt)(struct mm_struct *mm, u32 pfn);
-	void (*alloc_pd)(u32 pfn);
-	void (*alloc_pd_clone)(u32 pfn, u32 clonepfn, u32 start, u32 count);
-	void (*release_pt)(u32 pfn);
-	void (*release_pd)(u32 pfn);
+	void (fastcall *alloc_pt)(struct mm_struct *mm, u32 pfn);
+	void (fastcall *alloc_pd)(u32 pfn);
+	void (fastcall *alloc_pd_clone)(u32 pfn, u32 clonepfn, u32 start, u32 count);
+	void (fastcall *release_pt)(u32 pfn);
+	void (fastcall *release_pd)(u32 pfn);
 
 	/* Pagetable manipulation functions */
-	void (*set_pte)(pte_t *ptep, pte_t pteval);
-	void (*set_pte_at)(struct mm_struct *mm, unsigned long addr,
+	void (fastcall *set_pte)(pte_t *ptep, pte_t pteval);
+	void (fastcall *set_pte_at)(struct mm_struct *mm, unsigned long addr,
 			   pte_t *ptep, pte_t pteval);
-	void (*set_pmd)(pmd_t *pmdp, pmd_t pmdval);
-	void (*pte_update)(struct mm_struct *mm, unsigned long addr, pte_t *ptep);
-	void (*pte_update_defer)(struct mm_struct *mm,
+	void (fastcall *set_pmd)(pmd_t *pmdp, pmd_t pmdval);
+	void (fastcall *pte_update)(struct mm_struct *mm, unsigned long addr, pte_t *ptep);
+	void (fastcall *pte_update_defer)(struct mm_struct *mm,
 				 unsigned long addr, pte_t *ptep);
 
 #ifdef CONFIG_HIGHPTE
-	void *(*kmap_atomic_pte)(struct page *page, enum km_type type);
+	void *(fastcall *kmap_atomic_pte)(struct page *page, enum km_type type);
 #endif
 
 #ifdef CONFIG_X86_PAE
-	void (*set_pte_atomic)(pte_t *ptep, pte_t pteval);
- 	void (*set_pte_present)(struct mm_struct *mm, unsigned long addr, pte_t *ptep, pte_t pte);
-	void (*set_pud)(pud_t *pudp, pud_t pudval);
- 	void (*pte_clear)(struct mm_struct *mm, unsigned long addr, pte_t *ptep);
-	void (*pmd_clear)(pmd_t *pmdp);
+	void (fastcall *set_pte_atomic)(pte_t *ptep, pte_t pteval);
+ 	void (fastcall *set_pte_present)(struct mm_struct *mm, unsigned long addr, pte_t *ptep, pte_t pte);
+	void (fastcall *set_pud)(pud_t *pudp, pud_t pudval);
+ 	void (fastcall *pte_clear)(struct mm_struct *mm, unsigned long addr, pte_t *ptep);
+	void (fastcall *pmd_clear)(pmd_t *pmdp);
 
-	unsigned long long (*pte_val)(pte_t);
-	unsigned long long (*pmd_val)(pmd_t);
-	unsigned long long (*pgd_val)(pgd_t);
+	unsigned long long (fastcall *pte_val)(pte_t);
+	unsigned long long (fastcall *pmd_val)(pmd_t);
+	unsigned long long (fastcall *pgd_val)(pgd_t);
 
-	pte_t (*make_pte)(unsigned long long pte);
-	pmd_t (*make_pmd)(unsigned long long pmd);
-	pgd_t (*make_pgd)(unsigned long long pgd);
+	pte_t (fastcall *make_pte)(unsigned long long pte);
+	pmd_t (fastcall *make_pmd)(unsigned long long pmd);
+	pgd_t (fastcall *make_pgd)(unsigned long long pgd);
 #else
-	unsigned long (*pte_val)(pte_t);
-	unsigned long (*pgd_val)(pgd_t);
+	unsigned long (fastcall *pte_val)(pte_t);
+	unsigned long (fastcall *pgd_val)(pgd_t);
 
-	pte_t (*make_pte)(unsigned long pte);
-	pgd_t (*make_pgd)(unsigned long pgd);
+	pte_t (fastcall *make_pte)(unsigned long pte);
+	pgd_t (fastcall *make_pgd)(unsigned long pgd);
 #endif
 
 	/* Set deferred update mode, used for batching operations. */
-	void (*set_lazy_mode)(enum paravirt_lazy_mode mode);
+	void (fastcall *set_lazy_mode)(enum paravirt_lazy_mode mode);
 
 	/* These two are jmp to, not actually called. */
 	void (*irq_enable_sysexit)(void);
@@ -415,12 +415,12 @@ static inline void load_esp0(struct tss_struct *tss,
 }
 
 #define ARCH_SETUP			paravirt_ops.arch_setup();
-static inline unsigned long get_wallclock(void)
+static fastcall inline unsigned long get_wallclock(void)
 {
 	return PVOP_CALL0(unsigned long, get_wallclock);
 }
 
-static inline int set_wallclock(unsigned long nowtime)
+static fastcall inline int set_wallclock(unsigned long nowtime)
 {
 	return PVOP_CALL1(int, set_wallclock, nowtime);
 }

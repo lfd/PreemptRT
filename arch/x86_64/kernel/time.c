@@ -32,7 +32,6 @@
 #include <acpi/achware.h>	/* for PM timer frequency */
 #include <acpi/acpi_bus.h>
 #endif
-#include <asm/8253pit.h>
 #include <asm/i8253.h>
 #include <asm/pgtable.h>
 #include <asm/vsyscall.h>
@@ -319,9 +318,6 @@ static unsigned int __init pit_calibrate_tsc(void)
 	
 	return (end - start) / 50;
 }
-
-#define PIT_MODE 0x43
-#define PIT_CH0  0x40
 
 static void __pit_init(int val, u8 mode)
 {

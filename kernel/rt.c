@@ -98,16 +98,22 @@ EXPORT_SYMBOL(_mutex_init);
 void __lockfunc _mutex_lock(struct mutex *lock)
 {
 	mutex_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	rt_mutex_lock(&lock->lock);
+	LOCK_CONTENDED_RT(lock, rt_mutex_trylock, rt_mutex_lock);
 }
 EXPORT_SYMBOL(_mutex_lock);
+
+static int __lockfunc __rt_mutex_lock_interruptible(struct rt_mutex *lock)
+{
+	return rt_mutex_lock_interruptible(lock, 0);
+}
 
 int __lockfunc _mutex_lock_interruptible(struct mutex *lock)
 {
 	int ret;
 
 	mutex_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	ret = rt_mutex_lock_interruptible(&lock->lock, 0);
+	ret = LOCK_CONTENDED_RT_RET(lock, rt_mutex_trylock,
+			__rt_mutex_lock_interruptible);
 	if (ret)
 		mutex_release(&lock->dep_map, 1, _RET_IP_);
 	return ret;
@@ -130,7 +136,7 @@ EXPORT_SYMBOL(_mutex_lock_killable);
 void __lockfunc _mutex_lock_nested(struct mutex *lock, int subclass)
 {
 	mutex_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
-	rt_mutex_lock(&lock->lock);
+	LOCK_CONTENDED_RT(lock, rt_mutex_trylock, rt_mutex_lock);
 }
 EXPORT_SYMBOL(_mutex_lock_nested);
 
@@ -139,7 +145,8 @@ int __lockfunc _mutex_lock_interruptible_nested(struct mutex *lock, int subclass
 	int ret;
 
 	mutex_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
-	ret = rt_mutex_lock_interruptible(&lock->lock, 0);
+	ret = LOCK_CONTENDED_RT_RET(lock, rt_mutex_trylock,
+			__rt_mutex_lock_interruptible);
 	if (ret)
 		mutex_release(&lock->dep_map, 1, _RET_IP_);
 	return ret;
@@ -227,7 +234,7 @@ EXPORT_SYMBOL(rt_read_trylock);
 void __lockfunc rt_write_lock(rwlock_t *rwlock)
 {
 	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
-	__rt_spin_lock(&rwlock->lock);
+	LOCK_CONTENDED_RT(rwlock, rt_mutex_trylock, __rt_spin_lock);
 }
 EXPORT_SYMBOL(rt_write_lock);
 
@@ -247,7 +254,7 @@ void __lockfunc rt_read_lock(rwlock_t *rwlock)
 		return;
 	}
 	spin_unlock_irqrestore(&lock->wait_lock, flags);
-	__rt_spin_lock(lock);
+	LOCK_CONTENDED_RT(rwlock, rt_mutex_trylock, __rt_spin_lock);
 }
 
 EXPORT_SYMBOL(rt_read_lock);
@@ -383,14 +390,14 @@ EXPORT_SYMBOL(rt_down_write_trylock);
 void  rt_down_write(struct rw_semaphore *rwsem)
 {
 	rwsem_acquire(&rwsem->dep_map, 0, 0, _RET_IP_);
-	rt_mutex_lock(&rwsem->lock);
+	LOCK_CONTENDED_RT(rwsem, rt_mutex_trylock, rt_mutex_lock);
 }
 EXPORT_SYMBOL(rt_down_write);
 
 void  rt_down_write_nested(struct rw_semaphore *rwsem, int subclass)
 {
 	rwsem_acquire(&rwsem->dep_map, subclass, 0, _RET_IP_);
-	rt_mutex_lock(&rwsem->lock);
+	LOCK_CONTENDED_RT(rwsem, rt_mutex_trylock, rt_mutex_lock);
 }
 EXPORT_SYMBOL(rt_down_write_nested);
 
@@ -435,7 +442,7 @@ static void __rt_down_read(struct rw_semaphore *rwsem, int subclass)
 		return;
 	}
 	spin_unlock_irqrestore(&rwsem->lock.wait_lock, flags);
-	rt_mutex_lock(&rwsem->lock);
+	LOCK_CONTENDED_RT(rwsem, rt_mutex_trylock, rt_mutex_lock);
 }
 
 void  rt_down_read(struct rw_semaphore *rwsem)

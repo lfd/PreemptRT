@@ -138,4 +138,6 @@ static inline void lapic_shutdown(void) { }
 
 #endif /* !CONFIG_X86_LOCAL_APIC */
 
+extern void smp_send_nmi_allbutself(void);
+
 #endif /* __ASM_APIC_H */

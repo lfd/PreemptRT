@@ -993,7 +993,7 @@ static inline int netif_rx_reschedule(struct net_device *dev, int undo)
 
 		local_irq_save(flags);
 		list_add_tail(&dev->poll_list, &__get_cpu_var(softnet_data).poll_list);
-		__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+		raise_softirq_irqoff(NET_RX_SOFTIRQ);
 		local_irq_restore(flags);
 		return 1;
 	}
@@ -1041,20 +1041,20 @@ static inline void netif_poll_enable(struct net_device *dev)
 static inline void netif_tx_lock(struct net_device *dev)
 {
 	spin_lock(&dev->_xmit_lock);
-	dev->xmit_lock_owner = smp_processor_id();
+	dev->xmit_lock_owner = raw_smp_processor_id();
 }
 
 static inline void netif_tx_lock_bh(struct net_device *dev)
 {
 	spin_lock_bh(&dev->_xmit_lock);
-	dev->xmit_lock_owner = smp_processor_id();
+	dev->xmit_lock_owner = raw_smp_processor_id();
 }
 
 static inline int netif_tx_trylock(struct net_device *dev)
 {
 	int ok = spin_trylock(&dev->_xmit_lock);
 	if (likely(ok))
-		dev->xmit_lock_owner = smp_processor_id();
+		dev->xmit_lock_owner = raw_smp_processor_id();
 	return ok;
 }
 

@@ -40,10 +40,10 @@
 #include <asm/hpet.h>
 #include <asm/apic.h>
 
-int apic_mapped;
 int apic_verbosity;
-int apic_calibrate_pmtmr __initdata;
-int disable_apic_timer __initdata;
+static int apic_mapped;
+static int apic_calibrate_pmtmr __initdata;
+static int disable_apic_timer __initdata;
 
 /* Local APIC timer works in C2? */
 int local_apic_timer_c2_ok;

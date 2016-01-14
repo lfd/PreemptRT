@@ -164,8 +164,13 @@ static inline struct hd_struct *get_part(struct gendisk *gendiskp,
 }
 
 #ifdef	CONFIG_SMP
-#define __disk_stat_add(gendiskp, field, addnd) 	\
-	(per_cpu_ptr(gendiskp->dkstats, smp_processor_id())->field += addnd)
+#define __disk_stat_add(gendiskp, field, addnd)			\
+do {								\
+	preempt_disable();					\
+	(per_cpu_ptr(gendiskp->dkstats,				\
+			smp_processor_id())->field += addnd);	\
+	preempt_enable();					\
+} while (0)
 
 #define disk_stat_read(gendiskp, field)					\
 ({									\

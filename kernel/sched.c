@@ -3409,7 +3409,7 @@ out:
  */
 static void run_rebalance_domains(struct softirq_action *h)
 {
-	int local_cpu = smp_processor_id();
+	int local_cpu = raw_smp_processor_id();
 	struct rq *local_rq = cpu_rq(local_cpu);
 	enum cpu_idle_type idle = local_rq->idle_at_tick ?
 						CPU_IDLE : CPU_NOT_IDLE;

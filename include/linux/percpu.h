@@ -23,16 +23,33 @@
 	__attribute__((__section__(SHARED_ALIGNED_SECTION)))		\
 	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name		\
 	____cacheline_aligned_in_smp
+
+#define DEFINE_PER_CPU_LOCKED(type, name)					\
+	__attribute__((__section__(".data.percpu")))				\
+	PER_CPU_ATTRIBUTES __DEFINE_SPINLOCK(per_cpu_lock__##name##_locked);	\
+	__attribute__((__section__(".data.percpu")))				\
+	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name##_locked
+
 #else
 #define DEFINE_PER_CPU(type, name)					\
 	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name
 
 #define DEFINE_PER_CPU_SHARED_ALIGNED(type, name)		      \
 	DEFINE_PER_CPU(type, name)
+
+#define DEFINE_PER_CPU_LOCKED(type, name)					\
+	PER_CPU_ATTRIBUTES __DEFINE_SPINLOCK(per_cpu_lock__##name##_locked);	\
+	PER_CPU_ATTRIBUTES __typeof__(type) per_cpu__##name##_locked
 #endif
 
 #define EXPORT_PER_CPU_SYMBOL(var) EXPORT_SYMBOL(per_cpu__##var)
 #define EXPORT_PER_CPU_SYMBOL_GPL(var) EXPORT_SYMBOL_GPL(per_cpu__##var)
+#define EXPORT_PER_CPU_LOCKED_SYMBOL(var)		\
+	EXPORT_SYMBOL(per_cpu_lock__##var##_locked);	\
+	EXPORT_SYMBOL(per_cpu__##var##_locked)
+#define EXPORT_PER_CPU_LOCKED_SYMBOL_GPL(var)			\
+	EXPORT_SYMBOL_GPL(per_cpu_lock__##var##_locked);	\
+	EXPORT_SYMBOL_GPL(per_cpu__##var##_locked)
 
 /* Enough to cover all DEFINE_PER_CPUs in kernel, including modules. */
 #ifndef PERCPU_ENOUGH_ROOM
@@ -55,6 +72,29 @@
 	preempt_disable();				\
 	&__get_cpu_var(var); }))
 #define put_cpu_var(var) preempt_enable()
+
+/*
+ * Per-CPU data structures with an additional lock - useful for
+ * PREEMPT_RT code that wants to reschedule but also wants
+ * per-CPU data structures.
+ *
+ * 'cpu' gets updated with the CPU the task is currently executing on.
+ *
+ * NOTE: on normal !PREEMPT_RT kernels these per-CPU variables
+ * are the same as the normal per-CPU variables, so there no
+ * runtime overhead.
+ */
+#define get_cpu_var_locked(var, cpuptr)			\
+(*({							\
+	int __cpu = raw_smp_processor_id();		\
+							\
+	*(cpuptr) = __cpu;				\
+	spin_lock(&__get_cpu_lock(var, __cpu));		\
+	&__get_cpu_var_locked(var, __cpu);		\
+}))
+
+#define put_cpu_var_locked(var, cpu) \
+	 do { (void)cpu; spin_unlock(&__get_cpu_lock(var, cpu)); } while (0)
 
 #ifdef CONFIG_SMP
 

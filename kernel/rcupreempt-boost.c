@@ -30,13 +30,13 @@
 #include <linux/syscalls.h>
 #include <linux/kthread.h>
 
-DEFINE_SPINLOCK(rcu_boost_wake_lock);
+DEFINE_RAW_SPINLOCK(rcu_boost_wake_lock);
 static int rcu_boost_prio = MAX_PRIO;	/* Prio to set preempted RCU readers */
 static long rcu_boost_counter;		/* used to keep track of who boosted */
 static int rcu_preempt_thread_secs = 3;	/* Seconds between waking rcupreemptd thread */
 
 struct rcu_boost_dat {
-	spinlock_t rbs_lock;		/* Sync changes to this struct */
+	raw_spinlock_t rbs_lock;	/* Sync changes to this struct */
 	int rbs_prio;			/* CPU copy of rcu_boost_prio  */
 	struct list_head rbs_toboost;	/* Preempted RCU readers       */
 	struct list_head rbs_boosted;	/* RCU readers that have been boosted */

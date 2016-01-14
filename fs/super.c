@@ -66,7 +66,8 @@ static struct super_block *alloc_super(struct file_system_type *type)
 		INIT_LIST_HEAD(&s->s_dirty);
 		INIT_LIST_HEAD(&s->s_io);
 		INIT_LIST_HEAD(&s->s_more_io);
-		INIT_LIST_HEAD(&s->s_files);
+		percpu_list_init(&s->s_files);
+		init_qrcu_struct(&s->s_qrcu);
 		INIT_LIST_HEAD(&s->s_instances);
 		INIT_HLIST_HEAD(&s->s_anon);
 		INIT_LIST_HEAD(&s->s_inodes);
@@ -105,6 +106,7 @@ out:
  */
 static inline void destroy_super(struct super_block *s)
 {
+	percpu_list_destroy(&s->s_files);
 	security_sb_free(s);
 	kfree(s->s_subtype);
 	kfree(s->s_options);
@@ -568,10 +570,12 @@ out:
 static void mark_files_ro(struct super_block *sb)
 {
 	struct file *f;
+	int idx;
 
 retry:
-	file_list_lock();
-	list_for_each_entry(f, &sb->s_files, f_u.fu_list) {
+	idx = qrcu_read_lock(&sb->s_qrcu);
+	percpu_list_fold(&sb->s_files);
+	lock_list_for_each_entry(f, percpu_list_head(&sb->s_files), f_u.fu_llist) {
 		struct vfsmount *mnt;
 		if (!S_ISREG(f->f_path.dentry->d_inode->i_mode))
 		       continue;
@@ -584,7 +588,7 @@ retry:
 			continue;
 		file_release_write(f);
 		mnt = mntget(f->f_path.mnt);
-		file_list_unlock();
+		qrcu_read_unlock(&sb->s_qrcu, idx);
 		/*
 		 * This can sleep, so we can't hold
 		 * the file_list_lock() spinlock.
@@ -593,7 +597,7 @@ retry:
 		mntput(mnt);
 		goto retry;
 	}
-	file_list_unlock();
+	qrcu_read_unlock(&sb->s_qrcu, idx);
 }
 
 /**

@@ -3480,6 +3480,7 @@ need_resched_nonpreemptible:
 
 	spin_lock_irq(&rq->lock);
 	clear_tsk_need_resched(prev);
+	clear_tsk_need_resched_delayed(prev);
 	__update_rq_clock(rq);
 
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
@@ -3519,7 +3520,8 @@ need_resched_nonpreemptible:
 		goto need_resched_nonpreemptible;
 	}
 	__preempt_enable_no_resched();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+		     test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 EXPORT_SYMBOL(schedule);
@@ -3563,7 +3565,8 @@ need_resched:
 
 	/* we could miss a preemption opportunity between schedule and now */
 	barrier();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+			test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 EXPORT_SYMBOL(preempt_schedule);
@@ -3605,7 +3608,8 @@ need_resched:
 
 	/* we could miss a preemption opportunity between schedule and now */
 	barrier();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+		     test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 

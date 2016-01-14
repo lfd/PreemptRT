@@ -28,11 +28,27 @@ config GENERIC_TIME
 	bool
 	default y
 
+config GENERIC_CLOCKEVENTS
+	bool
+	default y
+
+config GENERIC_CLOCKEVENTS_BROADCAST
+	bool
+	default y
+
+config NONIRQ_WAKEUP
+	bool
+	default y
+
 config GENERIC_TIME_VSYSCALL
 	bool
 	default y
 
 config GENERIC_CMOS_UPDATE
+	bool
+	default y
+
+config CLOCKSOURCE_WATCHDOG
 	bool
 	default y
 
@@ -129,6 +145,8 @@ source "init/Kconfig"
 
 
 menu "Processor type and features"
+
+source "kernel/time/Kconfig"
 
 choice
 	prompt "Subarchitecture Type"
@@ -705,6 +723,8 @@ source kernel/power/Kconfig
 source "drivers/acpi/Kconfig"
 
 source "arch/x86_64/kernel/cpufreq/Kconfig"
+
+source "drivers/cpuidle/Kconfig"
 
 endmenu
 

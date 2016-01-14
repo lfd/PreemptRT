@@ -147,6 +147,13 @@ yield_task_rt(struct rq *rq, struct task_struct *p)
 	requeue_task_rt(rq, p);
 }
 
+#ifdef CONFIG_SMP
+static int select_task_rq_rt(struct task_struct *p, int sync)
+{
+	return task_cpu(p);
+}
+#endif /* CONFIG_SMP */
+
 /*
  * Preempt the current task with a newly woken task if needed:
  */
@@ -646,6 +653,9 @@ static struct sched_class rt_sched_class __read_mostly = {
 	.enqueue_task		= enqueue_task_rt,
 	.dequeue_task		= dequeue_task_rt,
 	.yield_task		= yield_task_rt,
+#ifdef CONFIG_SMP
+	.select_task_rq		= select_task_rq_rt,
+#endif /* CONFIG_SMP */
 
 	.check_preempt_curr	= check_preempt_curr_rt,
 

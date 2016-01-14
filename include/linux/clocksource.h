@@ -52,6 +52,7 @@ struct clocksource;
  * @resume:		resume function for the clocksource, if necessary
  * @cycle_last:		Used internally by timekeeping core, please ignore.
  * @cycle_accumulated:	Used internally by timekeeping core, please ignore.
+ * @cycle_montonic:	Used internally by timekeeping core, please ignore.
  * @cycle_interval:	Used internally by timekeeping core, please ignore.
  * @xtime_interval:	Used internally by timekeeping core, please ignore.
  * @xtime_nsec:		Used internally by timekeeping core, please ignore.
@@ -87,7 +88,7 @@ struct clocksource {
 	 * more than one cache line.
 	 */
 	struct {
-		cycle_t cycle_last, cycle_accumulated;
+		cycle_t cycle_last, cycle_accumulated, cycle_monotonic;
 	} ____cacheline_aligned_in_smp;
 
 	u64 xtime_nsec;
@@ -204,6 +205,7 @@ static inline void clocksource_accumulate(struct clocksource *cs, cycle_t now)
 	cycle_t offset = (now - cs->cycle_last) & cs->mask;
 	cs->cycle_last = now;
 	cs->cycle_accumulated += offset;
+	cs->cycle_monotonic += offset;
 }
 
 /**

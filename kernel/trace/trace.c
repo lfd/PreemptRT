@@ -3709,9 +3709,9 @@ void ftrace_dump(void)
 }
 
 /**
- * ftrace_stop - called when we need to drastically disable the tracer.
+ * ftrace_halt - called when we need to drastically disable the tracer.
  */
-void ftrace_stop(void)
+void ftrace_halt(void)
 {
 	struct tracer *saved_tracer = current_trace;
 	struct trace_array *tr = &global_trace;

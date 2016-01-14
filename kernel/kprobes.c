@@ -70,7 +70,7 @@ static atomic_t kprobe_count;
 static bool kprobe_enabled;
 
 DEFINE_MUTEX(kprobe_mutex);		/* Protects kprobe_table */
-DEFINE_SPINLOCK(kretprobe_lock);	/* Protects kretprobe_inst_table */
+DEFINE_RAW_SPINLOCK(kretprobe_lock);	/* Protects kretprobe_inst_table */
 static DEFINE_PER_CPU(struct kprobe *, kprobe_instance) = NULL;
 
 static struct notifier_block kprobe_page_fault_nb = {

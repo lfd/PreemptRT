@@ -62,7 +62,7 @@ extern int module_sysfs_initialized;
 #define INIT_OFFSET_MASK (1UL << (BITS_PER_LONG-1))
 
 /* Protects module list */
-static DEFINE_SPINLOCK(modlist_lock);
+static DEFINE_RAW_SPINLOCK(modlist_lock);
 
 /* List of modules, protected by module_mutex AND modlist_lock */
 static DEFINE_MUTEX(module_mutex);

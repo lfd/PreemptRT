@@ -43,7 +43,9 @@ ctx_switch_func(struct task_struct *prev, struct task_struct *next)
 
 void ftrace_ctx_switch(struct task_struct *prev, struct task_struct *next)
 {
-	tracing_record_cmdline(prev);
+	if (unlikely(atomic_read(&trace_record_cmdline_enabled)))
+		tracing_record_cmdline(prev);
+
 
 	/*
 	 * If tracer_switch_func only points to the local
@@ -70,11 +72,13 @@ static notrace void sched_switch_reset(struct trace_array *tr)
 static notrace void start_sched_trace(struct trace_array *tr)
 {
 	sched_switch_reset(tr);
+	atomic_inc(&trace_record_cmdline_enabled);
 	tracer_enabled = 1;
 }
 
 static notrace void stop_sched_trace(struct trace_array *tr)
 {
+	atomic_dec(&trace_record_cmdline_enabled);
 	tracer_enabled = 0;
 }
 

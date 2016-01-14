@@ -29,12 +29,14 @@ static notrace void function_reset(struct trace_array *tr)
 static notrace void start_function_trace(struct trace_array *tr)
 {
 	function_reset(tr);
+	atomic_inc(&trace_record_cmdline_enabled);
 	tracing_start_function_trace();
 }
 
 static notrace void stop_function_trace(struct trace_array *tr)
 {
 	tracing_stop_function_trace();
+	atomic_dec(&trace_record_cmdline_enabled);
 }
 
 static notrace void function_trace_init(struct trace_array *tr)

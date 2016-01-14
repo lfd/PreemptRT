@@ -42,7 +42,13 @@
 
 #define rcu_qsctr_inc(cpu)
 #define rcu_bh_qsctr_inc(cpu)
-#define call_rcu_bh(head, rcu) call_rcu(head, rcu)
+
+/*
+ * Someone might want to pass call_rcu_bh as a function pointer.
+ * So this needs to just be a rename and not a macro function.
+ *  (no parentheses)
+ */
+#define call_rcu_bh	 	call_rcu
 
 #ifdef CONFIG_PREEMPT_RCU_BOOST
 /*

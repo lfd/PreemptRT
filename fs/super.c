@@ -67,7 +67,7 @@ static struct super_block *alloc_super(struct file_system_type *type)
 		}
 		INIT_LIST_HEAD(&s->s_dirty);
 		INIT_LIST_HEAD(&s->s_io);
-		INIT_LIST_HEAD(&s->s_files);
+		INIT_LOCK_LIST_HEAD(&s->s_files);
 		INIT_LIST_HEAD(&s->s_instances);
 		INIT_HLIST_HEAD(&s->s_anon);
 		INIT_LIST_HEAD(&s->s_inodes);
@@ -569,12 +569,11 @@ static void mark_files_ro(struct super_block *sb)
 {
 	struct file *f;
 
-	file_list_lock();
-	list_for_each_entry(f, &sb->s_files, f_u.fu_list) {
+	filevec_add_drain_all();
+	lock_list_for_each_entry(f, &sb->s_files, f_u.fu_llist) {
 		if (S_ISREG(f->f_path.dentry->d_inode->i_mode) && file_count(f))
 			f->f_mode &= ~FMODE_WRITE;
 	}
-	file_list_unlock();
 }
 
 /**

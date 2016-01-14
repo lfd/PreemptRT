@@ -52,10 +52,12 @@
 #define IRQF_SAMPLE_RANDOM	0x00000040
 #define IRQF_SHARED		0x00000080
 #define IRQF_PROBE_SHARED	0x00000100
-#define IRQF_TIMER		0x00000200
+#define __IRQF_TIMER		0x00000200
 #define IRQF_PERCPU		0x00000400
 #define IRQF_NOBALANCING	0x00000800
 #define IRQF_IRQPOLL		0x00001000
+#define IRQF_NODELAY		0x00002000
+#define IRQF_TIMER		(__IRQF_TIMER | IRQF_NODELAY)
 
 /*
  * Migration helpers. Scheduled for removal in 9/2007
@@ -89,7 +91,7 @@ struct irqaction {
 	void *dev_id;
 	struct irqaction *next;
 	int irq;
-	struct proc_dir_entry *dir;
+	struct proc_dir_entry *dir, *threaded;
 };
 
 extern irqreturn_t no_action(int cpl, void *dev_id);
@@ -209,6 +211,7 @@ static inline int disable_irq_wake(unsigned int irq)
 
 #ifndef __ARCH_SET_SOFTIRQ_PENDING
 #define set_softirq_pending(x) (local_softirq_pending() = (x))
+// FIXME: PREEMPT_RT: set_bit()?
 #define or_softirq_pending(x)  (local_softirq_pending() |= (x))
 #endif
 
@@ -270,6 +273,8 @@ enum
 	HRTIMER_SOFTIRQ,
 #endif
 	RCU_SOFTIRQ,	/* Preferable RCU should always be the last softirq */
+	/* Entries after this are ignored in split softirq mode */
+	MAX_SOFTIRQ,
 };
 
 /* softirq mask and active fields moved to irq_cpustat_t in
@@ -285,10 +290,24 @@ struct softirq_action
 asmlinkage void do_softirq(void);
 extern void open_softirq(int nr, void (*action)(struct softirq_action*), void *data);
 extern void softirq_init(void);
-#define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
+
+#ifdef CONFIG_PREEMPT_HARDIRQS
+# define __raise_softirq_irqoff(nr) raise_softirq_irqoff(nr)
+# define __do_raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
+#else
+# define __raise_softirq_irqoff(nr) do { or_softirq_pending(1UL << (nr)); } while (0)
+# define __do_raise_softirq_irqoff(nr) __raise_softirq_irqoff(nr)
+#endif
+
 extern void FASTCALL(raise_softirq_irqoff(unsigned int nr));
 extern void FASTCALL(raise_softirq(unsigned int nr));
+extern void wakeup_irqd(void);
 
+#ifdef CONFIG_PREEMPT_SOFTIRQS
+extern void wait_for_softirq(int softirq);
+#else
+# define wait_for_softirq(x) do {} while(0)
+#endif
 
 /* Tasklets --- multithreaded analogue of BHs.
 
@@ -400,6 +419,7 @@ extern void tasklet_kill(struct tasklet_struct *t);
 extern void tasklet_kill_immediate(struct tasklet_struct *t, unsigned int cpu);
 extern void tasklet_init(struct tasklet_struct *t,
 			 void (*func)(unsigned long), unsigned long data);
+void takeover_tasklets(unsigned int cpu);
 
 /*
  * Autoprobing for irqs:

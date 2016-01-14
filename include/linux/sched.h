@@ -89,6 +89,17 @@ struct sched_param {
 
 #include <asm/processor.h>
 
+#ifdef CONFIG_PREEMPT_SOFTIRQS
+extern int softirq_preemption;
+#else
+# define softirq_preemption 0
+#endif
+#ifdef CONFIG_PREEMPT_HARDIRQS
+extern int hardirq_preemption;
+#else
+# define hardirq_preemption 0
+#endif
+
 struct exec_domain;
 struct futex_pi_state;
 struct bio;
@@ -255,6 +266,12 @@ extern void cpu_init (void);
 extern void trap_init(void);
 extern void update_process_times(int user);
 extern void scheduler_tick(void);
+
+#ifdef CONFIG_GENERIC_HARDIRQS
+extern int debug_direct_keyboard;
+#else
+# define debug_direct_keyboard 0
+#endif
 
 #ifdef CONFIG_DETECT_SOFTLOCKUP
 extern void softlockup_tick(void);
@@ -1393,6 +1410,8 @@ static inline void put_task_struct(struct task_struct *t)
 #define PF_SWAPWRITE	0x00800000	/* Allowed to write to swap */
 #define PF_SPREAD_PAGE	0x01000000	/* Spread page cache over cpuset */
 #define PF_SPREAD_SLAB	0x02000000	/* Spread some slab caches over cpuset */
+#define PF_SOFTIRQ	0x04000000	/* softirq context */
+#define PF_HARDIRQ	0x08000000	/* hardirq context */
 #define PF_MEMPOLICY	0x10000000	/* Non-default NUMA mempolicy */
 #define PF_MUTEX_TESTER	0x20000000	/* Thread belongs to the rt mutex tester */
 #define PF_FREEZER_SKIP	0x40000000	/* Freezer should not count it as freezeable */
@@ -1817,6 +1836,8 @@ static inline int need_resched(void)
 extern int cond_resched(void);
 extern int cond_resched_lock(spinlock_t * lock);
 extern int cond_resched_softirq(void);
+extern int cond_resched_softirq_context(void);
+extern int cond_resched_hardirq_context(void);
 
 /*
  * Does a critical section need to be broken due to another
@@ -1832,10 +1853,20 @@ extern int cond_resched_softirq(void);
  * Does a critical section need to be broken due to another
  * task waiting or preemption being signalled:
  */
-static inline int lock_need_resched(spinlock_t *lock)
+#define lock_need_resched(lock) \
+	unlikely(need_lockbreak(lock) || need_resched())
+
+static inline int softirq_need_resched(void)
 {
-	if (need_lockbreak(lock) || need_resched())
-		return 1;
+	if (softirq_preemption && (current->flags & PF_SOFTIRQ))
+		return need_resched();
+	return 0;
+}
+
+static inline int hardirq_need_resched(void)
+{
+	if (hardirq_preemption && (current->flags & PF_HARDIRQ))
+		return need_resched();
 	return 0;
 }
 

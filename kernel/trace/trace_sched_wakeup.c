@@ -17,6 +17,7 @@
 #include <linux/ftrace.h>
 
 #include "trace.h"
+#include "trace_hist.h"
 
 static struct trace_array	*wakeup_trace;
 static int __read_mostly	tracer_enabled;
@@ -55,7 +56,9 @@ wakeup_sched_switch(struct task_struct *prev, struct task_struct *next)
 	long disabled;
 	int cpu;
 
-	if (unlikely(!tracer_enabled))
+	tracing_hist_wakeup_stop(next);
+
+	if (!tracer_enabled)
 		return;
 
 	/*

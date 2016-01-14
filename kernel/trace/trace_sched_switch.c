@@ -13,6 +13,7 @@
 #include <linux/ftrace.h>
 
 #include "trace.h"
+#include "trace_hist.h"
 
 static struct trace_array	*ctx_trace;
 static int __read_mostly	tracer_enabled;
@@ -96,6 +97,7 @@ ftrace_wake_up_task(void *__rq, struct task_struct *wakee,
 		    struct task_struct *curr)
 {
 	trace_event_wakeup(wakee, curr);
+	tracing_hist_wakeup_start(wakee, curr);
 
 	wakeup_func(__rq, wakee, curr);
 

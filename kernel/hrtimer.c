@@ -1409,7 +1409,10 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 
 static void run_hrtimer_softirq(struct softirq_action *h)
 {
-	run_hrtimer_pending(&__get_cpu_var(hrtimer_bases));
+	struct hrtimer_cpu_base *cpu_base;
+
+	cpu_base = &per_cpu(hrtimer_bases, raw_smp_processor_id());
+	run_hrtimer_pending(cpu_base);
 }
 
 #endif	/* CONFIG_HIGH_RES_TIMERS */

@@ -256,7 +256,7 @@ static void ata_input_data(ide_drive_t *drive, struct request *rq,
 		unsigned long uninitialized_var(flags);
 
 		if ((io_32bit & 2) && !mmio) {
-			local_irq_save(flags);
+			local_irq_save_nort(flags);
 			ata_vlb_sync(io_ports->nsect_addr);
 		}
 
@@ -266,7 +266,7 @@ static void ata_input_data(ide_drive_t *drive, struct request *rq,
 			insl(data_addr, buf, len / 4);
 
 		if ((io_32bit & 2) && !mmio)
-			local_irq_restore(flags);
+			local_irq_restore_nort(flags);
 
 		if ((len & 3) >= 2) {
 			if (mmio)
@@ -299,7 +299,7 @@ static void ata_output_data(ide_drive_t *drive, struct request *rq,
 		unsigned long uninitialized_var(flags);
 
 		if ((io_32bit & 2) && !mmio) {
-			local_irq_save(flags);
+			local_irq_save_nort(flags);
 			ata_vlb_sync(io_ports->nsect_addr);
 		}
 
@@ -309,7 +309,7 @@ static void ata_output_data(ide_drive_t *drive, struct request *rq,
 			outsl(data_addr, buf, len / 4);
 
 		if ((io_32bit & 2) && !mmio)
-			local_irq_restore(flags);
+			local_irq_restore_nort(flags);
 
 		if ((len & 3) >= 2) {
 			if (mmio)
@@ -537,12 +537,12 @@ static int __ide_wait_stat(ide_drive_t *drive, u8 good, u8 bad, unsigned long ti
 				if (!(stat & BUSY_STAT))
 					break;
 
-				local_irq_restore(flags);
+				local_irq_restore_nort(flags);
 				*rstat = stat;
 				return -EBUSY;
 			}
 		}
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 	}
 	/*
 	 * Allow status to settle, then read it again.
@@ -711,17 +711,17 @@ int ide_driveid_update(ide_drive_t *drive)
 		printk("%s: CHECK for good STATUS\n", drive->name);
 		return 0;
 	}
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 	SELECT_MASK(drive, 0);
 	id = kmalloc(SECTOR_WORDS*4, GFP_ATOMIC);
 	if (!id) {
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 		return 0;
 	}
 	hwif->input_data(drive, NULL, id, SECTOR_SIZE);
 	(void)ide_read_status(drive);	/* clear drive IRQ */
-	local_irq_enable();
-	local_irq_restore(flags);
+	local_irq_enable_nort();
+	local_irq_restore_nort(flags);
 	ide_fix_driveid(id);
 	if (id) {
 		drive->id->dma_ultra = id->dma_ultra;

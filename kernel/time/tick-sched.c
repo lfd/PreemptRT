@@ -225,6 +225,8 @@ void tick_nohz_stop_sched_tick(int inidle)
 	if (need_resched())
 		goto end;
 
+
+#ifndef CONFIG_PREEMPT_RT
 	if (unlikely(local_softirq_pending())) {
 		static int ratelimit;
 
@@ -234,6 +236,7 @@ void tick_nohz_stop_sched_tick(int inidle)
 			ratelimit++;
 		}
 	}
+#endif
 
 	ts->idle_calls++;
 	/* Read jiffies and the time when jiffies were updated last */

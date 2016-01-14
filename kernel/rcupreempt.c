@@ -129,6 +129,8 @@ void __rcu_read_lock(void)
 			atomic_inc(current->rcu_flipctr2);
 			smp_mb__after_atomic_inc();  /* might optimize out... */
 		}
+	} else {
+		WARN_ON_ONCE(current->rcu_read_lock_nesting > NR_CPUS);
 	}
 	local_irq_restore(oldirq);
 }
@@ -154,6 +156,8 @@ void __rcu_read_unlock(void)
 			atomic_dec(current->rcu_flipctr2);
 			current->rcu_flipctr2 = NULL;
 		}
+	} else {
+		WARN_ON_ONCE(current->rcu_read_lock_nesting < 0);
 	}
 
 	local_irq_restore(oldirq);

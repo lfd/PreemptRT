@@ -16,6 +16,7 @@
 #include <linux/kobject.h>
 #include <linux/moduleparam.h>
 #include <linux/marker.h>
+#include <linux/tracepoint.h>
 #include <asm/local.h>
 
 #include <asm/module.h>
@@ -342,6 +343,10 @@ struct module
 	struct marker *markers;
 	unsigned int num_markers;
 #endif
+#ifdef CONFIG_TRACEPOINTS
+	struct tracepoint *tracepoints;
+	unsigned int num_tracepoints;
+#endif
 };
 #ifndef MODULE_ARCH_INIT
 #define MODULE_ARCH_INIT {}
@@ -450,6 +455,9 @@ extern void print_modules(void);
 
 extern void module_update_markers(void);
 
+extern void module_update_tracepoints(void);
+extern int module_get_iter_tracepoints(struct tracepoint_iter *iter);
+
 #else /* !CONFIG_MODULES... */
 #define EXPORT_SYMBOL(sym)
 #define EXPORT_SYMBOL_GPL(sym)
@@ -552,6 +560,15 @@ static inline void print_modules(void)
 
 static inline void module_update_markers(void)
 {
+}
+
+static inline void module_update_tracepoints(void)
+{
+}
+
+static inline int module_get_iter_tracepoints(struct tracepoint_iter *iter)
+{
+	return 0;
 }
 
 #endif /* CONFIG_MODULES */

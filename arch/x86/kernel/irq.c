@@ -6,10 +6,12 @@
 #include <linux/kernel_stat.h>
 #include <linux/seq_file.h>
 #include <linux/smp.h>
+#include <linux/ftrace.h>
 
 #include <asm/apic.h>
 #include <asm/io_apic.h>
 #include <asm/irq.h>
+#include <asm/idle.h>
 
 atomic_t irq_err_count;
 
@@ -36,11 +38,7 @@ void ack_bad_irq(unsigned int irq)
 #endif
 }
 
-#ifdef CONFIG_X86_32
-# define irq_stats(x)		(&per_cpu(irq_stat, x))
-#else
-# define irq_stats(x)		cpu_pda(x)
-#endif
+#define irq_stats(x)		(&per_cpu(irq_stat, x))
 /*
  * /proc/interrupts printing:
  */
@@ -57,6 +55,10 @@ static int show_other_interrupts(struct seq_file *p)
 	for_each_online_cpu(j)
 		seq_printf(p, "%10u ", irq_stats(j)->apic_timer_irqs);
 	seq_printf(p, "  Local timer interrupts\n");
+	seq_printf(p, "CNT: ");
+	for_each_online_cpu(j)
+		seq_printf(p, "%10u ", irq_stats(j)->apic_perf_irqs);
+	seq_printf(p, "  Performance counter interrupts\n");
 #endif
 #ifdef CONFIG_SMP
 	seq_printf(p, "RES: ");
@@ -164,6 +166,7 @@ u64 arch_irq_stat_cpu(unsigned int cpu)
 
 #ifdef CONFIG_X86_LOCAL_APIC
 	sum += irq_stats(cpu)->apic_timer_irqs;
+	sum += irq_stats(cpu)->apic_perf_irqs;
 #endif
 #ifdef CONFIG_SMP
 	sum += irq_stats(cpu)->irq_resched_count;
@@ -190,6 +193,42 @@ u64 arch_irq_stat(void)
 	sum += atomic_read(&irq_mis_count);
 #endif
 	return sum;
+}
+
+
+/*
+ * do_IRQ handles all normal device IRQ's (the special
+ * SMP cross-CPU interrupts have their own specific
+ * handlers).
+ */
+unsigned int __irq_entry do_IRQ(struct pt_regs *regs)
+{
+	struct pt_regs *old_regs = set_irq_regs(regs);
+
+	/* high bit used in ret_from_ code  */
+	unsigned vector = ~regs->orig_ax;
+	unsigned irq;
+
+	exit_idle();
+	irq_enter();
+
+	irq = __get_cpu_var(vector_irq)[vector];
+
+	if (!handle_irq(irq, regs)) {
+#ifdef CONFIG_X86_64
+		if (!disable_apic)
+			ack_APIC_irq();
+#endif
+
+		if (printk_ratelimit())
+			printk(KERN_EMERG "%s: %d.%d No irq handler for vector (irq %d)\n",
+			       __func__, smp_processor_id(), vector, irq);
+	}
+
+	irq_exit();
+
+	set_irq_regs(old_regs);
+	return 1;
 }
 
 EXPORT_SYMBOL_GPL(vector_used_by_percpu_irq);

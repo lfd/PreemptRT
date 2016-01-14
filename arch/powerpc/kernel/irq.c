@@ -104,6 +104,13 @@ static inline notrace void set_soft_enabled(unsigned long enable)
 	: : "r" (enable), "i" (offsetof(struct paca_struct, soft_enabled)));
 }
 
+#ifdef CONFIG_PERF_COUNTERS
+notrace void __weak perf_counter_do_pending(void)
+{
+	set_perf_counter_pending(0);
+}
+#endif
+
 notrace void raw_local_irq_restore(unsigned long en)
 {
 	/*
@@ -134,6 +141,9 @@ notrace void raw_local_irq_restore(unsigned long en)
 		if (local_paca->lppaca_ptr->int_dword.any_int)
 			iseries_handle_interrupts();
 	}
+
+	if (get_perf_counter_pending())
+		perf_counter_do_pending();
 
 	/*
 	 * if (get_paca()->hard_enabled) return;
@@ -190,7 +200,7 @@ int show_interrupts(struct seq_file *p, void *v)
 		seq_printf(p, "%3d: ", i);
 #ifdef CONFIG_SMP
 		for_each_online_cpu(j)
-			seq_printf(p, "%10u ", kstat_cpu(j).irqs[i]);
+			seq_printf(p, "%10u ", kstat_irqs_cpu(i, j));
 #else
 		seq_printf(p, "%10u ", kstat_irqs(i));
 #endif /* CONFIG_SMP */
@@ -231,7 +241,7 @@ void fixup_irqs(cpumask_t map)
 		if (irq_desc[irq].status & IRQ_PER_CPU)
 			continue;
 
-		cpus_and(mask, irq_desc[irq].affinity, map);
+		cpumask_and(&mask, irq_desc[irq].affinity, &map);
 		if (any_online_cpu(mask) == NR_CPUS) {
 			printk("Breaking affinity for irq %i\n", irq);
 			mask = map;

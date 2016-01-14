@@ -16,6 +16,13 @@
   extern void trace_hardirqs_off(void);
   extern void trace_softirqs_on(unsigned long ip);
   extern void trace_softirqs_off(unsigned long ip);
+# ifdef CONFIG_CRITICAL_PREEMPT_TIMING
+   extern void trace_preempt_enter_idle(void);
+   extern void trace_preempt_exit_idle(void);
+# else
+#  define trace_preempt_enter_idle()	do { } while (0)
+#  define trace_preempt_exit_idle()	do { } while (0)
+# endif
 # define trace_hardirq_context(p)	((p)->hardirq_context)
 # define trace_softirq_context(p)	((p)->softirq_context)
 # define trace_hardirqs_enabled(p)	((p)->hardirqs_enabled)
@@ -26,6 +33,8 @@
 # define trace_softirq_exit()	do { current->softirq_context--; } while (0)
 # define INIT_TRACE_IRQFLAGS	.softirqs_enabled = 1,
 #else
+# define trace_preempt_enter_idle()	do { } while (0)
+# define trace_preempt_exit_idle()	do { } while (0)
 # define trace_hardirqs_on()		do { } while (0)
 # define trace_hardirqs_off()		do { } while (0)
 # define trace_softirqs_on(ip)		do { } while (0)

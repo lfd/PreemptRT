@@ -655,7 +655,7 @@ void __kprobes do_page_fault(struct pt_regs *regs, unsigned long error_code)
 	 * If we're in an interrupt, have no user context or are running in an
 	 * atomic region then we must not take the fault.
 	 */
-	if (in_atomic() || !mm)
+	if (unlikely(in_atomic() || !mm || current->pagefault_disabled))
 		goto bad_area_nosemaphore;
 #else /* CONFIG_X86_64 */
 	if (likely(regs->flags & X86_EFLAGS_IF))

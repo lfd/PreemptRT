@@ -69,7 +69,7 @@ static inline void reset_ahead_window(struct file_ra_state *ra)
 static inline void ra_off(struct file_ra_state *ra)
 {
 	ra->start = 0;
-	ra->flags = 0;
+	ra->flags &= (~0UL) << F_SHIFT;
 	ra->size = 0;
 	reset_ahead_window(ra);
 	return;

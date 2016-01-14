@@ -58,7 +58,7 @@
  * Try to keep this structure as small as possible to avoid cache line ping pongs
  */
 struct vsyscall_gtod_data_t {
-	seqlock_t	lock;
+	raw_seqlock_t	lock;
 
 	/* open coded 'struct timespec' */
 	time_t		wall_time_sec;
@@ -78,7 +78,7 @@ int __vgetcpu_mode __section_vgetcpu_mode;
 
 struct vsyscall_gtod_data_t __vsyscall_gtod_data __section_vsyscall_gtod_data =
 {
-	.lock = SEQLOCK_UNLOCKED,
+	.lock = __RAW_SEQLOCK_UNLOCKED(__vsyscall_gtod_data.lock),
 	.sysctl_enabled = 1,
 };
 

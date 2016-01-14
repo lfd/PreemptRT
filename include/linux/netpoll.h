@@ -69,7 +69,7 @@ static inline void *netpoll_poll_lock(struct net_device *dev)
 	rcu_read_lock(); /* deal with race on ->npinfo */
 	if (dev->npinfo) {
 		spin_lock(&dev->npinfo->poll_lock);
-		dev->npinfo->poll_owner = smp_processor_id();
+		dev->npinfo->poll_owner = raw_smp_processor_id();
 		return dev->npinfo;
 	}
 	return NULL;

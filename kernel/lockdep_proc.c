@@ -428,17 +428,17 @@ static void seq_stats(struct seq_file *m, struct lock_stat_data *data)
 			seq_printf(m, "%40s:", name);
 
 		seq_lock_time(m, &stats->write_waittime);
-		seq_puts(m, " ");
+		seq_printf(m, " %14lu ", stats->bounces[bounce_contended_write]);
 		seq_lock_time(m, &stats->write_holdtime);
-		seq_puts(m, "\n");
+		seq_printf(m, " %14lu\n", stats->bounces[bounce_acquired_write]);
 	}
 
 	if (stats->read_holdtime.nr) {
 		seq_printf(m, "%38s-R:", name);
 		seq_lock_time(m, &stats->read_waittime);
-		seq_puts(m, " ");
+		seq_printf(m, " %14lu ", stats->bounces[bounce_contended_read]);
 		seq_lock_time(m, &stats->read_holdtime);
-		seq_puts(m, "\n");
+		seq_printf(m, " %14lu\n", stats->bounces[bounce_acquired_read]);
 	}
 
 	if (stats->read_waittime.nr + stats->write_waittime.nr == 0)
@@ -466,26 +466,28 @@ static void seq_stats(struct seq_file *m, struct lock_stat_data *data)
 	}
 	if (i) {
 		seq_puts(m, "\n");
-		seq_line(m, '.', 0, 40 + 1 + 8 * (14 + 1));
+		seq_line(m, '.', 0, 40 + 1 + 10 * (14 + 1));
 		seq_puts(m, "\n");
 	}
 }
 
 static void seq_header(struct seq_file *m)
 {
-	seq_printf(m, "lock_stat version 0.1\n");
-	seq_line(m, '-', 0, 40 + 1 + 8 * (14 + 1));
-	seq_printf(m, "%40s %14s %14s %14s %14s %14s %14s %14s %14s\n",
+	seq_printf(m, "lock_stat version 0.2\n");
+	seq_line(m, '-', 0, 40 + 1 + 10 * (14 + 1));
+	seq_printf(m, "%40s %14s %14s %14s %14s %14s %14s %14s %14s %14s %14s\n",
 			"class name",
 			"contentions",
 			"waittime-min",
 			"waittime-max",
 			"waittime-total",
+			"con-bounces",
 			"acquisitions",
 			"holdtime-min",
 			"holdtime-max",
-			"holdtime-total");
-	seq_line(m, '-', 0, 40 + 1 + 8 * (14 + 1));
+			"holdtime-total",
+			"acq-bounces");
+	seq_line(m, '-', 0, 40 + 1 + 10 * (14 + 1));
 	seq_printf(m, "\n");
 }
 

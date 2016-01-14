@@ -1392,7 +1392,8 @@ static inline int wake_idle(int cpu, struct task_struct *p)
  *
  * returns failure only if the task is already active.
  */
-static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
+static int
+try_to_wake_up(struct task_struct *p, unsigned int state, int sync, int mutex)
 {
 	int cpu, this_cpu, success = 0;
 	unsigned long flags;
@@ -1534,17 +1535,51 @@ out:
 
 int fastcall wake_up_process(struct task_struct *p)
 {
-	int ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
-				 TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE, 0);
+	int ret;
+
+	ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
+				TASK_RUNNING_MUTEX | TASK_INTERRUPTIBLE |
+				TASK_UNINTERRUPTIBLE, 0, 0);
 	mcount();
 	return ret;
 }
 EXPORT_SYMBOL(wake_up_process);
 
+int fastcall wake_up_process_sync(struct task_struct * p)
+{
+	int ret;
+
+	ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
+				 TASK_RUNNING_MUTEX | TASK_INTERRUPTIBLE |
+				 TASK_UNINTERRUPTIBLE, 1, 0);
+	mcount();
+	return ret;
+}
+EXPORT_SYMBOL(wake_up_process_sync);
+
+int fastcall wake_up_process_mutex(struct task_struct * p)
+{
+	int ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
+				 TASK_RUNNING_MUTEX | TASK_INTERRUPTIBLE |
+				 TASK_UNINTERRUPTIBLE, 0, 1);
+	mcount();
+	return ret;
+}
+EXPORT_SYMBOL(wake_up_process_mutex);
+
+int fastcall wake_up_process_mutex_sync(struct task_struct * p)
+{
+	int ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
+				 TASK_RUNNING_MUTEX | TASK_INTERRUPTIBLE |
+				 TASK_UNINTERRUPTIBLE, 1, 1);
+	mcount();
+	return ret;
+}
+EXPORT_SYMBOL(wake_up_process_mutex_sync);
+
 int fastcall wake_up_state(struct task_struct *p, unsigned int state)
 {
-	int ret = try_to_wake_up(p, state, 0);
-
+	int ret = try_to_wake_up(p, state | TASK_RUNNING_MUTEX, 0, 0);
 	mcount();
 	return ret;
 }
@@ -3331,6 +3366,7 @@ need_resched_nonpreemptible:
 
 	spin_lock_irq(&rq->lock);
 	clear_tsk_need_resched(prev);
+	clear_tsk_need_resched_delayed(prev);
 
 	if (prev->state && !(preempt_count() & PREEMPT_ACTIVE)) {
 		if (unlikely((prev->state & TASK_INTERRUPTIBLE) &&
@@ -3367,8 +3403,9 @@ need_resched_nonpreemptible:
 		rq = cpu_rq(cpu);
 		goto need_resched_nonpreemptible;
 	}
-	preempt_enable_no_resched();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	__preempt_enable_no_resched();
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+		     test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 EXPORT_SYMBOL(schedule);
@@ -3412,7 +3449,8 @@ need_resched:
 
 	/* we could miss a preemption opportunity between schedule and now */
 	barrier();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+			test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 EXPORT_SYMBOL(preempt_schedule);
@@ -3454,7 +3492,8 @@ need_resched:
 
 	/* we could miss a preemption opportunity between schedule and now */
 	barrier();
-	if (unlikely(test_thread_flag(TIF_NEED_RESCHED)))
+	if (unlikely(test_thread_flag(TIF_NEED_RESCHED) ||
+		     test_thread_flag(TIF_NEED_RESCHED_DELAYED)))
 		goto need_resched;
 }
 
@@ -3463,7 +3502,8 @@ need_resched:
 int default_wake_function(wait_queue_t *curr, unsigned mode, int sync,
 			  void *key)
 {
-	return try_to_wake_up(curr->private, mode, sync);
+	return try_to_wake_up(curr->private, mode | TASK_RUNNING_MUTEX,
+			      sync, 0);
 }
 EXPORT_SYMBOL(default_wake_function);
 
@@ -3504,8 +3544,9 @@ void fastcall __wake_up(wait_queue_head_t *q, unsigned int mode,
 	unsigned long flags;
 
 	spin_lock_irqsave(&q->lock, flags);
-	__wake_up_common(q, mode, nr_exclusive, 0, key);
+	__wake_up_common(q, mode, nr_exclusive, 1, key);
 	spin_unlock_irqrestore(&q->lock, flags);
+	preempt_check_resched_delayed();
 }
 EXPORT_SYMBOL(__wake_up);
 
@@ -3555,8 +3596,9 @@ void fastcall complete(struct completion *x)
 	spin_lock_irqsave(&x->wait.lock, flags);
 	x->done++;
 	__wake_up_common(&x->wait, TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE,
-			 1, 0, NULL);
+			 1, 1, NULL);
 	spin_unlock_irqrestore(&x->wait.lock, flags);
+	preempt_check_resched_delayed();
 }
 EXPORT_SYMBOL(complete);
 
@@ -3567,10 +3609,17 @@ void fastcall complete_all(struct completion *x)
 	spin_lock_irqsave(&x->wait.lock, flags);
 	x->done += UINT_MAX/2;
 	__wake_up_common(&x->wait, TASK_UNINTERRUPTIBLE | TASK_INTERRUPTIBLE,
-			 0, 0, NULL);
+			 0, 1, NULL);
 	spin_unlock_irqrestore(&x->wait.lock, flags);
+	preempt_check_resched_delayed();
 }
 EXPORT_SYMBOL(complete_all);
+
+unsigned int fastcall completion_done(struct completion *x)
+{
+	return x->done;
+}
+EXPORT_SYMBOL(completion_done);
 
 void fastcall __sched wait_for_completion(struct completion *x)
 {
@@ -4401,10 +4450,7 @@ asmlinkage long sys_sched_yield(void)
 	 * Since we are going to call schedule() anyway, there's
 	 * no need to preempt or enable interrupts:
 	 */
-	__release(rq->lock);
-	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
-	_raw_spin_unlock(&rq->lock);
-	preempt_enable_no_resched();
+	spin_unlock_no_resched(&rq->lock);
 
 	schedule();
 
@@ -4447,7 +4493,7 @@ EXPORT_SYMBOL(cond_resched);
  * operations here to prevent schedule() from being called twice (once via
  * spin_unlock(), once by hand).
  */
-int cond_resched_lock(spinlock_t *lock)
+int __cond_resched_raw_spinlock(raw_spinlock_t *lock)
 {
 	int ret = 0;
 
@@ -4458,24 +4504,23 @@ int cond_resched_lock(spinlock_t *lock)
 		spin_lock(lock);
 	}
 	if (need_resched() && system_state == SYSTEM_RUNNING) {
-		spin_release(&lock->dep_map, 1, _THIS_IP_);
-		_raw_spin_unlock(lock);
-		preempt_enable_no_resched();
+		spin_unlock_no_resched(lock);
 		__cond_resched();
 		ret = 1;
 		spin_lock(lock);
 	}
 	return ret;
 }
-EXPORT_SYMBOL(cond_resched_lock);
+EXPORT_SYMBOL(__cond_resched_raw_spinlock);
 
 /*
  * Voluntarily preempt a process context that has softirqs disabled:
  */
 int __sched cond_resched_softirq(void)
 {
+#ifndef CONFIG_PREEMPT_RT
 	WARN_ON_ONCE(!in_softirq());
-
+#endif
 	if (need_resched() && system_state == SYSTEM_RUNNING) {
 		local_bh_enable();
 		__cond_resched();
@@ -4661,7 +4706,7 @@ out_unlock:
 	return retval;
 }
 
-static const char stat_nam[] = "RSDTtZX";
+static const char stat_nam[] = "RMSDTtZX";
 
 static void show_task(struct task_struct *p)
 {
@@ -4669,19 +4714,23 @@ static void show_task(struct task_struct *p)
 	unsigned state;
 
 	state = p->state ? __ffs(p->state) + 1 : 0;
-	printk("%-13.13s %c", p->comm,
-		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?');
+	printk("%-13.13s %c [%p]", p->comm,
+		state < sizeof(stat_nam) - 1 ? stat_nam[state] : '?', p);
 #if (BITS_PER_LONG == 32)
-	if (state == TASK_RUNNING)
+	if (0 && (state == TASK_RUNNING))
 		printk(" running ");
 	else
 		printk(" %08lX ", thread_saved_pc(p));
 #else
-	if (state == TASK_RUNNING)
+	if (0 && (state == TASK_RUNNING))
 		printk("  running task   ");
 	else
 		printk(" %016lx ", thread_saved_pc(p));
 #endif
+	if (task_curr(p))
+		printk("[curr] ");
+	else if (p->se.on_rq)
+		printk("[on rq #%d] ", task_cpu(p));
 #ifdef CONFIG_DEBUG_STACK_USAGE
 	{
 		unsigned long *n = end_of_stack(p);
@@ -6358,7 +6407,7 @@ void __init sched_init(void)
 	current->sched_class = &fair_sched_class;
 }
 
-#ifdef CONFIG_DEBUG_SPINLOCK_SLEEP
+#if defined(CONFIG_DEBUG_SPINLOCK_SLEEP) || defined(CONFIG_DEBUG_PREEMPT)
 void __might_sleep(char *file, int line)
 {
 #ifdef in_atomic
@@ -6488,3 +6537,23 @@ void set_curr_task(int cpu, struct task_struct *p)
 }
 
 #endif
+
+#ifdef CONFIG_DEBUG_PREEMPT
+void notrace preempt_enable_no_resched(void)
+{
+	static int once = 1;
+
+	barrier();
+	dec_preempt_count();
+
+	if (once && !preempt_count()) {
+		once = 0;
+		printk(KERN_ERR "BUG: %s:%d task might have lost a preemption check!\n",
+			current->comm, current->pid);
+		dump_stack();
+	}
+}
+
+EXPORT_SYMBOL(preempt_enable_no_resched);
+#endif
+

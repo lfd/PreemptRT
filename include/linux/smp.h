@@ -131,7 +131,7 @@ static inline int smp_call_function_single(int cpuid, void (*func) (void *info),
 
 #define get_cpu()		({ preempt_disable(); smp_processor_id(); })
 #define put_cpu()		preempt_enable()
-#define put_cpu_no_resched()	preempt_enable_no_resched()
+#define put_cpu_no_resched()	__preempt_enable_no_resched()
 
 void smp_setup_processor_id(void);
 

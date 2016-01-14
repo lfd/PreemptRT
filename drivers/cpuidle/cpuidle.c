@@ -43,6 +43,8 @@ static void cpuidle_idle_call(void)
 	if (!dev || dev->status != CPUIDLE_STATUS_DOIDLE) {
 		if (pm_idle_old)
 			pm_idle_old();
+		else
+			local_irq_enable();
 		return;
 	}
 

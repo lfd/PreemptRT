@@ -107,11 +107,20 @@ int cpuidle_switch_driver(struct cpuidle_driver *drv)
 	cpuidle_curr_driver = drv;
 
 	if (drv) {
+		int ret = 1;
 		list_for_each_entry(dev, &cpuidle_detected_devices, device_list)
-			cpuidle_attach_driver(dev);
-		if (cpuidle_curr_governor)
+			if (cpuidle_attach_driver(dev) == 0)
+				ret = 0;
+
+		/* If attach on all devices fail, switch to NULL driver */
+		if (ret)
+			cpuidle_curr_driver = NULL;
+
+		if (cpuidle_curr_driver && cpuidle_curr_governor) {
+			printk(KERN_INFO "cpuidle: using driver %s\n",
+					drv->name);
 			cpuidle_install_idle_handler();
-		printk(KERN_INFO "cpuidle: using driver %s\n", drv->name);
+		}
 	}
 
 	return 0;

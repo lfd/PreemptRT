@@ -838,7 +838,6 @@ void __cpuinit lapic_setup_esr(void)
 void __cpuinit end_local_APIC_setup(void)
 {
 	lapic_setup_esr();
-	nmi_watchdog_default();
 	setup_apic_nmi_watchdog(NULL);
 	apic_pm_activate();
 }

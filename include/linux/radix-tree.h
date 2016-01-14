@@ -2,6 +2,7 @@
  * Copyright (C) 2001 Momchil Velikov
  * Portions Copyright (C) 2001 Christoph Hellwig
  * Copyright (C) 2006 Nick Piggin
+ * Copyright (C) 2007 Peter Zijlstra
  *
  * This program is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License as
@@ -24,6 +25,7 @@
 #include <linux/types.h>
 #include <linux/kernel.h>
 #include <linux/rcupdate.h>
+#include <linux/spinlock.h>
 
 /*
  * An indirect pointer (root->rnode pointing to a radix_tree_node, rather
@@ -59,14 +61,12 @@ static inline int radix_tree_is_indirect_ptr(void *ptr)
 
 /* root tags are stored in gfp_mask, shifted by __GFP_BITS_SHIFT */
 struct radix_tree_root {
-	unsigned int		height;
 	gfp_t			gfp_mask;
 	struct radix_tree_node	*rnode;
 	spinlock_t		lock;
 };
 
 #define RADIX_TREE_INIT(mask)	{					\
-	.height = 0,							\
 	.gfp_mask = (mask),						\
 	.rnode = NULL,							\
 	.lock = __SPIN_LOCK_UNLOCKED(radix_tree_root.lock),		\
@@ -77,7 +77,6 @@ struct radix_tree_root {
 
 static inline void INIT_RADIX_TREE(struct radix_tree_root *root, gfp_t gfp_mask)
 {
-	root->height = 0;
 	root->gfp_mask = gfp_mask;
 	root->rnode = NULL;
 	spin_lock_init(&root->lock);

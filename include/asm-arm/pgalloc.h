@@ -111,7 +111,7 @@ static inline void __pmd_populate(pmd_t *pmdp, unsigned long pmdval)
  *
  * Ensure that we always set both PMD entries.
  */
-static inline void
+static inline void notrace
 pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 {
 	unsigned long pte_ptr = (unsigned long)ptep;
@@ -124,7 +124,7 @@ pmd_populate_kernel(struct mm_struct *mm, pmd_t *pmdp, pte_t *ptep)
 	__pmd_populate(pmdp, __pa(pte_ptr) | _PAGE_KERNEL_TABLE);
 }
 
-static inline void
+static inline void notrace
 pmd_populate(struct mm_struct *mm, pmd_t *pmdp, pgtable_t ptep)
 {
 	__pmd_populate(pmdp, page_to_pfn(ptep) << PAGE_SHIFT | _PAGE_USER_TABLE);

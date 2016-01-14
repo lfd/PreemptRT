@@ -38,7 +38,7 @@ struct sched_clock_data {
 	 * from within instrumentation code so we dont want to do any
 	 * instrumentation ourselves.
 	 */
-	raw_spinlock_t		lock;
+	__raw_spinlock_t	lock;
 
 	unsigned long		prev_jiffies;
 	u64			prev_raw;
@@ -70,7 +70,7 @@ void sched_clock_init(void)
 	for_each_possible_cpu(cpu) {
 		struct sched_clock_data *scd = cpu_sdc(cpu);
 
-		scd->lock = (raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
+		scd->lock = (__raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
 		scd->prev_jiffies = now_jiffies;
 		scd->prev_raw = 0;
 		scd->tick_raw = 0;

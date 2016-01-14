@@ -2050,6 +2050,9 @@ notrace void trace_hardirqs_on(void)
 	curr->hardirq_enable_ip = ip;
 	curr->hardirq_enable_event = ++curr->irq_events;
 	debug_atomic_inc(&hardirqs_on_events);
+#ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
+	time_hardirqs_on(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+#endif
 }
 
 EXPORT_SYMBOL(trace_hardirqs_on);
@@ -2075,6 +2078,9 @@ notrace void trace_hardirqs_off(void)
 		curr->hardirq_disable_ip = _RET_IP_;
 		curr->hardirq_disable_event = ++curr->irq_events;
 		debug_atomic_inc(&hardirqs_off_events);
+#ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
+		time_hardirqs_off(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+#endif
 	} else
 		debug_atomic_inc(&redundant_hardirqs_off);
 }
@@ -2301,6 +2307,7 @@ static notrace int mark_lock(struct task_struct *curr, struct held_lock *this,
 	 * We must printk outside of the graph_lock:
 	 */
 	if (ret == 2) {
+		user_trace_stop();
 		printk("\nmarked lock as {%s}:\n", usage_str[new_bit]);
 		print_lock(this);
 		print_irqtrace_events(curr);
@@ -2697,9 +2704,9 @@ notrace void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		return;
 
 	raw_local_irq_save(flags);
+	current->lockdep_recursion = 1;
 	check_flags(flags);
 
-	current->lockdep_recursion = 1;
 	__lock_acquire(lock, subclass, trylock, read, check,
 		       irqs_disabled_flags(flags), ip);
 	current->lockdep_recursion = 0;
@@ -2720,8 +2727,8 @@ notrace void lock_release(struct lockdep_map *lock, int nested,
 		return;
 
 	raw_local_irq_save(flags);
-	check_flags(flags);
 	current->lockdep_recursion = 1;
+	check_flags(flags);
 	__lock_release(lock, nested, ip);
 	current->lockdep_recursion = 0;
 	raw_local_irq_restore(flags);

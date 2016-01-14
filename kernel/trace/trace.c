@@ -1119,6 +1119,24 @@ void tracing_event_program_event(struct trace_array *tr,
 	entry->field.program.delta	= *delta;
 }
 
+void tracing_event_resched_task(struct trace_array *tr,
+				struct trace_array_cpu *data,
+				unsigned long flags,
+				unsigned long ip,
+				struct task_struct *p,
+				int cpu)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_RESCHED_TASK;
+	entry->field.task.ip	= ip;
+	entry->field.task.prio	= p->prio;
+	entry->field.task.pid	= p->pid;
+	entry->field.task.cpu	= cpu;
+}
+
 void tracing_event_timer_triggered(struct trace_array *tr,
 				   struct trace_array_cpu *data,
 				   unsigned long flags,
@@ -1913,6 +1931,15 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 		trace_print_ktime(s, entry->field.program.expire);
 		trace_seq_printf(s, " (%Ld)\n", entry->field.program.delta);
 		break;
+	case TRACE_RESCHED_TASK:
+		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
+		comm = trace_find_cmdline(field->task.pid);
+		trace_seq_printf(s, " ++> [%03d] %5d:%3d %s\n",
+				 field->task.cpu,
+				 field->task.pid,
+				 field->task.prio,
+				 comm);
+		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
 		comm = trace_find_cmdline(entry->field.task.pid);
@@ -2110,6 +2137,15 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
 		trace_print_ktime(s, entry->field.program.expire);
 		trace_seq_printf(s, " (%Ld)\n", entry->field.program.delta);
+		break;
+	case TRACE_RESCHED_TASK:
+		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
+		comm = trace_find_cmdline(field->task.pid);
+		trace_seq_printf(s, " ++> [%03d] %5d:%3d %s\n",
+				 field->task.cpu,
+				 field->task.pid,
+				 field->task.prio,
+				 comm);
 		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);

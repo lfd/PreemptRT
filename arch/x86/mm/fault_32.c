@@ -310,6 +310,7 @@ notrace fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 
 	/* get the address */
         address = read_cr2();
+	trace_special(regs->eip, error_code, address);
 
 	tsk = current;
 
@@ -499,6 +500,8 @@ bad_area_nosemaphore:
 
 		if (nr == 6) {
 		stop_trace();
+		user_trace_stop();
+		zap_rt_locks();
 			do_invalid_op(regs, 0);
 			return;
 		}

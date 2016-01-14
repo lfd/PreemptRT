@@ -948,7 +948,7 @@ static int acpi_idle_enter_c2(struct cpuidle_device *dev,
 }
 
 static int c3_cpu_count;
-static DEFINE_SPINLOCK(c3_lock);
+static DEFINE_RAW_SPINLOCK(c3_lock);
 
 /**
  * acpi_idle_enter_c3 - enters an ACPI C3 state-type

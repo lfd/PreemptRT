@@ -193,7 +193,7 @@ static inline int page_kills_ppro(unsigned long pagenr)
 	return 0;
 }
 
-int page_is_ram(unsigned long pagenr)
+int notrace page_is_ram(unsigned long pagenr)
 {
 	int i;
 	unsigned long addr, end;

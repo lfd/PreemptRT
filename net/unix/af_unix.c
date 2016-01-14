@@ -307,10 +307,11 @@ static void unix_write_space(struct sock *sk)
 	read_lock(&sk->sk_callback_lock);
 	if (unix_writable(sk)) {
 		if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
-			wake_up_interruptible(sk->sk_sleep);
+			wake_up_interruptible_sync(sk->sk_sleep);
 		sk_wake_async(sk, 2, POLL_OUT);
 	}
 	read_unlock(&sk->sk_callback_lock);
+	preempt_check_resched_delayed();
 }
 
 /* When dgram socket disconnects (or changes its peer), we clear its receive

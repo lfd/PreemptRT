@@ -23,6 +23,7 @@ enum {
 
 #ifdef CONFIG_LATENCY_HIST
 extern void latency_hist(int latency_type, int cpu, unsigned long latency);
+extern void latency_hist_reset(void);
 # define latency_hist_flag 1
 #else
 # define latency_hist(a,b,c) do { (void)(cpu); } while (0)

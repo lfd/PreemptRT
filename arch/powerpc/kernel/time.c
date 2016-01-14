@@ -916,7 +916,7 @@ struct clocksource clocksource_timebase = {
 	.mask		= (cycle_t)-1,
 	.mult		= 0,
 	.shift		= 22,
-	.is_continuous	= 1,
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
 };
 
 

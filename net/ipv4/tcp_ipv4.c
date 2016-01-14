@@ -2040,7 +2040,12 @@ static void *established_get_first(struct seq_file *seq)
 	struct tcp_iter_state* st = seq->private;
 	void *rc = NULL;
 
-	for (st->bucket = 0; st->bucket < tcp_hashinfo.ehash_size; ++st->bucket) {
+	for (st->bucket = find_first_bit(tcp_hashinfo.ebitmask,
+					 tcp_hashinfo.ehash_size);
+	     st->bucket < tcp_hashinfo.ehash_size;
+	     st->bucket = find_next_bit(tcp_hashinfo.ebitmask,
+					tcp_hashinfo.ehash_size,
+					st->bucket+1)) {
 		struct sock *sk;
 		struct hlist_node *node;
 		struct inet_timewait_sock *tw;

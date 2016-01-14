@@ -138,8 +138,8 @@ static void do_dabr(struct pt_regs *regs, unsigned long address,
  * The return value is 0 if the fault was handled, or the signal
  * number if this is a kernel fault that can't be handled here.
  */
-int __kprobes do_page_fault(struct pt_regs *regs, unsigned long address,
-			    unsigned long error_code)
+int __kprobes notrace do_page_fault(struct pt_regs *regs,
+		unsigned long address, unsigned long error_code)
 {
 	struct vm_area_struct * vma;
 	struct mm_struct *mm = current->mm;

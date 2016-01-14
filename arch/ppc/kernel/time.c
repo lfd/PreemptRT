@@ -102,7 +102,7 @@ static inline int tb_delta(unsigned *jiffy_stamp) {
 }
 
 #ifdef CONFIG_SMP
-unsigned long profile_pc(struct pt_regs *regs)
+unsigned long notrace profile_pc(struct pt_regs *regs)
 {
 	unsigned long pc = instruction_pointer(regs);
 

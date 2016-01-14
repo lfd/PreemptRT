@@ -11,12 +11,16 @@
 #include <linux/hardirq.h>
 #include <linux/ftrace.h>
 #include <linux/percpu.h>
+#include <linux/module.h>
 #include <linux/init.h>
 #include <linux/list.h>
 
 #include <asm/cacheflush.h>
 #include <asm/ftrace.h>
 
+EXPORT_SYMBOL(_mcount);
+
+#ifdef CONFIG_DYNAMIC_FTRACE
 
 static unsigned int ftrace_nop = 0x60000000;
 
@@ -152,3 +156,4 @@ int __init ftrace_dyn_arch_init(void *data)
 	return 0;
 }
 
+#endif /* CONFIG_DYNAMIC_FTRACE */

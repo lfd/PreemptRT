@@ -28,7 +28,7 @@ static inline void update_curr_rt(struct rq *rq, u64 now)
 static void
 enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup, u64 now)
 {
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 
 	list_add_tail(&p->run_list, array->queue + p->prio);
 	__set_bit(p->prio, array->bitmap);
@@ -42,7 +42,7 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup, u64 now)
 static void
 dequeue_task_rt(struct rq *rq, struct task_struct *p, int sleep, u64 now)
 {
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 
 	update_curr_rt(rq, now);
 
@@ -59,7 +59,7 @@ dequeue_task_rt(struct rq *rq, struct task_struct *p, int sleep, u64 now)
  */
 static void requeue_task_rt(struct rq *rq, struct task_struct *p)
 {
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 
 	list_move_tail(&p->run_list, array->queue + p->prio);
 }
@@ -79,9 +79,9 @@ static void check_preempt_curr_rt(struct rq *rq, struct task_struct *p)
 		resched_task(rq->curr);
 }
 
-static struct task_struct * pick_next_task_rt(struct rq *rq, u64 now)
+static struct task_struct *pick_next_task_rt(struct rq *rq, u64 now)
 {
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 	struct task_struct *next;
 	struct list_head *queue;
 	int idx;
@@ -114,7 +114,7 @@ static void put_prev_task_rt(struct rq *rq, struct task_struct *p, u64 now)
 static struct task_struct *load_balance_start_rt(void *arg)
 {
 	struct rq *rq = arg;
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 	struct list_head *head, *curr;
 	struct task_struct *p;
 	int idx;
@@ -140,7 +140,7 @@ static struct task_struct *load_balance_start_rt(void *arg)
 static struct task_struct *load_balance_next_rt(void *arg)
 {
 	struct rq *rq = arg;
-	struct prio_array *array = &rq->rt.active;
+	struct rt_prio_array *array = &rq->rt.active;
 	struct list_head *head, *curr;
 	struct task_struct *p;
 	int idx;

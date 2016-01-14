@@ -44,6 +44,9 @@ struct sched_param {
 	int sched_priority;
 };
 
+#define DEFINE_PER_CPU_SHARED_ALIGNED(x, y) \
+		DEFINE_PER_CPU(x, y) ____cacheline_aligned_in_smp
+
 #include <asm/param.h>	/* for HZ */
 
 #include <linux/capability.h>

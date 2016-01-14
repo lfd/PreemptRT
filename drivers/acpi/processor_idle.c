@@ -616,7 +616,7 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr)
 		return -ENODEV;
 
 	acpi_processor_get_power_info(pr);
-	return cpuidle_force_redetect(&per_cpu(cpuidle_devices, pr->id));
+	return cpuidle_force_redetect(per_cpu(cpuidle_devices, pr->id));
 }
 
 /* proc interface */

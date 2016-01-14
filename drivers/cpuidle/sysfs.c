@@ -210,8 +210,16 @@ static struct sysfs_ops cpuidle_sysfs_ops = {
 	.store = cpuidle_store,
 };
 
+static void cpuidle_sysfs_release(struct kobject *kobj)
+{
+	struct cpuidle_device *dev = kobj_to_cpuidledev(kobj);
+
+	complete(&dev->kobj_unregister);
+}
+
 static struct kobj_type ktype_cpuidle = {
 	.sysfs_ops = &cpuidle_sysfs_ops,
+	.release = cpuidle_sysfs_release,
 };
 
 struct cpuidle_state_attr {
@@ -246,7 +254,8 @@ static struct attribute *cpuidle_state_default_attrs[] = {
 	NULL
 };
 
-#define kobj_to_state(k) container_of(k, struct cpuidle_state, kobj)
+#define kobj_to_state_obj(k) container_of(k, struct cpuidle_state_kobj, kobj)
+#define kobj_to_state(k) (kobj_to_state_obj(k)->state)
 #define attr_to_stateattr(a) container_of(a, struct cpuidle_state_attr, attr)
 static ssize_t cpuidle_state_show(struct kobject * kobj,
 	struct attribute * attr ,char * buf)
@@ -265,10 +274,26 @@ static struct sysfs_ops cpuidle_state_sysfs_ops = {
 	.show = cpuidle_state_show,
 };
 
+static void cpuidle_state_sysfs_release(struct kobject *kobj)
+{
+	struct cpuidle_state_kobj *state_obj = kobj_to_state_obj(kobj);
+
+	complete(&state_obj->kobj_unregister);
+}
+
 static struct kobj_type ktype_state_cpuidle = {
 	.sysfs_ops = &cpuidle_state_sysfs_ops,
 	.default_attrs = cpuidle_state_default_attrs,
+	.release = cpuidle_state_sysfs_release,
 };
+
+static void inline cpuidle_free_state_kobj(struct cpuidle_device *device, int i)
+{
+	kobject_unregister(&device->kobjs[i]->kobj);
+	wait_for_completion(&device->kobjs[i]->kobj_unregister);
+	kfree(device->kobjs[i]);
+	device->kobjs[i] = NULL;
+}
 
 /**
  * cpuidle_add_driver_sysfs - adds driver-specific sysfs attributes
@@ -277,24 +302,32 @@ static struct kobj_type ktype_state_cpuidle = {
 int cpuidle_add_driver_sysfs(struct cpuidle_device *device)
 {
 	int i, ret;
-	struct cpuidle_state *state;
+	struct cpuidle_state_kobj *kobj;
 
 	/* state statistics */
 	for (i = 0; i < device->state_count; i++) {
-		state = &device->states[i];
-		state->kobj.parent = &device->kobj;
-		state->kobj.ktype = &ktype_state_cpuidle;
-		kobject_set_name(&state->kobj, "state%d", i);
-		ret = kobject_register(&state->kobj);
-		if (ret)
+		kobj = kzalloc(sizeof(struct cpuidle_state_kobj), GFP_KERNEL);
+		if (!kobj)
 			goto error_state;
+		kobj->state = &device->states[i];
+		init_completion(&kobj->kobj_unregister);
+
+		kobj->kobj.parent = &device->kobj;
+		kobj->kobj.ktype = &ktype_state_cpuidle;
+		kobject_set_name(&kobj->kobj, "state%d", i);
+		ret = kobject_register(&kobj->kobj);
+		if (ret) {
+			kfree(kobj);
+			goto error_state;
+		}
+		device->kobjs[i] = kobj;
 	}
 
 	return 0;
 
 error_state:
 	for (i = i - 1; i >= 0; i--)
-		kobject_unregister(&device->states[i].kobj);
+		cpuidle_free_state_kobj(device, i);
 	return ret;
 }
 
@@ -307,7 +340,7 @@ void cpuidle_remove_driver_sysfs(struct cpuidle_device *device)
 	int i;
 
 	for (i = 0; i < device->state_count; i++)
-		kobject_unregister(&device->states[i].kobj);
+		cpuidle_free_state_kobj(device, i);
 }
 
 /**
@@ -319,7 +352,7 @@ int cpuidle_add_sysfs(struct sys_device *sysdev)
 	int cpu = sysdev->id;
 	struct cpuidle_device *dev;
 
-	dev = &per_cpu(cpuidle_devices, cpu);
+	dev = per_cpu(cpuidle_devices, cpu);
 	dev->kobj.parent = &sysdev->kobj;
 	dev->kobj.ktype = &ktype_cpuidle;
 	kobject_set_name(&dev->kobj, "%s", "cpuidle");
@@ -335,6 +368,6 @@ void cpuidle_remove_sysfs(struct sys_device *sysdev)
 	int cpu = sysdev->id;
 	struct cpuidle_device *dev;
 
-	dev = &per_cpu(cpuidle_devices, cpu);
+	dev = per_cpu(cpuidle_devices, cpu);
 	kobject_unregister(&dev->kobj);
 }

@@ -41,8 +41,6 @@ struct cpuidle_state {
 
 	int (*enter)	(struct cpuidle_device *dev,
 			 struct cpuidle_state *state);
-
-	struct kobject	kobj;
 };
 
 /* Idle State Flags */
@@ -74,6 +72,12 @@ cpuidle_set_statedata(struct cpuidle_state *state, void *data)
 	state->driver_data = data;
 }
 
+struct cpuidle_state_kobj {
+	struct cpuidle_state *state;
+	struct completion kobj_unregister;
+	struct kobject kobj;
+};
+
 struct cpuidle_device {
 	unsigned int		status;
 	int			cpu;
@@ -81,6 +85,7 @@ struct cpuidle_device {
 	int			last_residency;
 	int			state_count;
 	struct cpuidle_state	states[CPUIDLE_STATE_MAX];
+	struct cpuidle_state_kobj *kobjs[CPUIDLE_STATE_MAX];
 	struct cpuidle_state	*last_state;
 
 	struct list_head 	device_list;
@@ -89,9 +94,7 @@ struct cpuidle_device {
 	void			*governor_data;
 };
 
-#define to_cpuidle_device(n) container_of(n, struct cpuidle_device, kobj);
-
-DECLARE_PER_CPU(struct cpuidle_device, cpuidle_devices);
+DECLARE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
 
 /* Device Status Flags */
 #define CPUIDLE_STATUS_DETECTED		 (0x1)

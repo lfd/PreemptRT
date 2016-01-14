@@ -18,7 +18,7 @@
 
 #include "cpuidle.h"
 
-DEFINE_PER_CPU(struct cpuidle_device, cpuidle_devices);
+DEFINE_PER_CPU(struct cpuidle_device *, cpuidle_devices);
 EXPORT_PER_CPU_SYMBOL_GPL(cpuidle_devices);
 
 DEFINE_MUTEX(cpuidle_lock);
@@ -34,13 +34,13 @@ static void (*pm_idle_old)(void);
  */
 static void cpuidle_idle_call(void)
 {
-	struct cpuidle_device *dev = &__get_cpu_var(cpuidle_devices);
+	struct cpuidle_device *dev = __get_cpu_var(cpuidle_devices);
 
 	struct cpuidle_state *target_state;
 	int next_state;
 
 	/* check if the device is ready */
-	if (dev->status != CPUIDLE_STATUS_DOIDLE) {
+	if (!dev || dev->status != CPUIDLE_STATUS_DOIDLE) {
 		if (pm_idle_old)
 			pm_idle_old();
 		return;
@@ -117,19 +117,32 @@ static int cpuidle_add_device(struct sys_device *sys_dev)
 	int cpu = sys_dev->id;
 	struct cpuidle_device *dev;
 
-	dev = &per_cpu(cpuidle_devices, cpu);
+	dev = per_cpu(cpuidle_devices, cpu);
 
-	dev->cpu = cpu;
 	mutex_lock(&cpuidle_lock);
 	if (cpu_is_offline(cpu)) {
 		mutex_unlock(&cpuidle_lock);
 		return 0;
 	}
 
+	if (!dev) {
+		dev = kzalloc(sizeof(struct cpuidle_device), GFP_KERNEL);
+		if (!dev) {
+			mutex_unlock(&cpuidle_lock);
+			return -ENOMEM;
+		}
+		init_completion(&dev->kobj_unregister);
+		per_cpu(cpuidle_devices, cpu) = dev;
+	}
+	dev->cpu = cpu;
+
 	if (dev->status & CPUIDLE_STATUS_DETECTED) {
 		mutex_unlock(&cpuidle_lock);
 		return 0;
 	}
+
+	cpuidle_add_sysfs(sys_dev);
+
 	if (cpuidle_curr_driver) {
 		if (cpuidle_attach_driver(dev))
 			goto err_ret;
@@ -146,7 +159,6 @@ static int cpuidle_add_device(struct sys_device *sys_dev)
 		cpuidle_install_idle_handler();
 
 	list_add(&dev->device_list, &cpuidle_detected_devices);
-	cpuidle_add_sysfs(sys_dev);
 	dev->status |= CPUIDLE_STATUS_DETECTED;
 
 err_ret:
@@ -165,7 +177,7 @@ static int __cpuidle_remove_device(struct sys_device *sys_dev)
 {
 	struct cpuidle_device *dev;
 
-	dev = &per_cpu(cpuidle_devices, sys_dev->id);
+	dev = per_cpu(cpuidle_devices, sys_dev->id);
 
 	if (!(dev->status & CPUIDLE_STATUS_DETECTED)) {
 		return 0;
@@ -178,6 +190,9 @@ static int __cpuidle_remove_device(struct sys_device *sys_dev)
 		cpuidle_detach_driver(dev);
 	cpuidle_remove_sysfs(sys_dev);
 	list_del(&dev->device_list);
+	wait_for_completion(&dev->kobj_unregister);
+	per_cpu(cpuidle_devices, sys_dev->id) = NULL;
+	kfree(dev);
 
 	return 0;
 }

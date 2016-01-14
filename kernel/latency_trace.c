@@ -2745,10 +2745,11 @@ void * __init tracer_alloc_bootmem(unsigned long size)
 {
 	void * ret;
 
-	ret =__alloc_bootmem(size, SMP_CACHE_BYTES, ARCH_LOW_ADDRESS_LIMIT);
+	ret =__alloc_bootmem_nopanic(size, SMP_CACHE_BYTES,
+				     ARCH_LOW_ADDRESS_LIMIT);
 	if (ret != NULL && ((unsigned long)ret) < ARCH_LOW_ADDRESS_LIMIT) {
 		free_bootmem(__pa(ret), size);
-		ret = __alloc_bootmem(size,
+		ret = __alloc_bootmem_nopanic(size,
 				SMP_CACHE_BYTES,
 				__pa(MAX_DMA_ADDRESS));
 	}

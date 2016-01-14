@@ -560,9 +560,19 @@ static void schedule_tail_balance_rt(struct rq *rq)
 		spin_unlock_irq(&rq->lock);
 	}
 }
+
+static void wakeup_balance_rt(struct rq *rq, struct task_struct *p)
+{
+	if (unlikely(rt_task(p)) &&
+	    !task_running(rq, p) &&
+	    (p->prio >= rq->curr->prio))
+		push_rt_tasks(rq);
+}
+
 #else /* CONFIG_SMP */
 # define schedule_tail_balance_rt(rq)	do { } while (0)
 # define schedule_balance_rt(rq, prev)	do { } while (0)
+# define wakeup_balance_rt(rq, p)	do { } while (0)
 #endif /* CONFIG_SMP */
 
 

@@ -22,6 +22,7 @@
  *              by Peter Williams
  *  2007-05-06  Interactivity improvements to CFS by Mike Galbraith
  *  2007-07-01  Group scheduling enhancements by Srivatsa Vaddagiri
+ *  2007-10-22  RT overload balancing by Steven Rostedt
  */
 
 #include <linux/mm.h>
@@ -1560,6 +1561,7 @@ out_activate:
 
 out_running:
 	p->state = TASK_RUNNING;
+	wakeup_balance_rt(rq, p);
 out:
 	task_rq_unlock(rq, &flags);
 

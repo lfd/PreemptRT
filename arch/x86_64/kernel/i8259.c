@@ -395,7 +395,8 @@ device_initcall(i8259A_init_sysfs);
  * IRQ2 is cascade interrupt to second interrupt controller
  */
 
-static struct irqaction irq2 = { no_action, 0, CPU_MASK_NONE, "cascade", NULL, NULL};
+static struct irqaction irq2 = { no_action, IRQF_NODELAY, CPU_MASK_NONE, "cascade", NULL, NULL};
+
 DEFINE_PER_CPU(vector_irq_t, vector_irq) = {
 	[0 ... IRQ0_VECTOR - 1] = -1,
 	[IRQ0_VECTOR] = 0,

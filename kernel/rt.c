@@ -297,11 +297,10 @@ EXPORT_SYMBOL(rt_up_read);
 
 /*
  * downgrade a write lock into a read lock
- * - just wake up any readers at the front of the queue
  */
 void  rt_downgrade_write(struct rw_semaphore *rwsem)
 {
-	BUG();
+	rt_mutex_downgrade_write(&rwsem->owners);
 }
 EXPORT_SYMBOL(rt_downgrade_write);
 

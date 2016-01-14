@@ -1003,7 +1003,7 @@ static int min_idx(struct block_idx *bidx)
 		idx = bidx->idx[cpu];
 		if (idx >= min(max_tr.traces[cpu].trace_idx, MAX_TRACE))
 			continue;
-		if (idx >= MAX_TRACE*NR_CPUS) {
+		if (idx > MAX_TRACE*NR_CPUS) {
 			printk("huh: idx (%d) > %ld*%d!\n", idx, MAX_TRACE,
 				NR_CPUS);
 			WARN_ON(1);
@@ -1150,7 +1150,7 @@ static void update_out_trace(void)
 		*out_entry = *entry;
 		out_entry++;
 		sum++;
-		if (sum >= MAX_TRACE*NR_CPUS) {
+		if (sum > MAX_TRACE*NR_CPUS) {
 			printk("huh: sum (%d) > %ld*%d!\n", sum, MAX_TRACE,
 				NR_CPUS);
 			WARN_ON(1);

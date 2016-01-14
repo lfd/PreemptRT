@@ -21,6 +21,9 @@
 typedef u64 cycle_t;
 struct clocksource;
 
+extern unsigned long preempt_max_latency;
+extern unsigned long preempt_thresh;
+
 /**
  * struct clocksource - hardware abstraction for a free running counter
  *	Provides mostly state-free accessors to the underlying hardware.
@@ -220,9 +223,7 @@ static inline void clocksource_accumulate(struct clocksource *cs, cycle_t now)
  */
 static inline s64 cyc2ns(struct clocksource *cs, cycle_t cycles)
 {
-	u64 ret = (u64)cycles;
-	ret = (ret * cs->mult) >> cs->shift;
-	return ret;
+	return ((u64)cycles * cs->mult) >> cs->shift;
 }
 
 /**

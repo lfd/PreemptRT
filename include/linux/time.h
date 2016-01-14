@@ -97,6 +97,7 @@ extern unsigned long read_persistent_clock(void);
 extern int update_persistent_clock(struct timespec now);
 extern int no_sync_cmos_clock __read_mostly;
 void timekeeping_init(void);
+extern void timekeeping_accumulate(void);
 
 static inline unsigned long get_seconds(void)
 {

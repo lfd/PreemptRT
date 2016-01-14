@@ -791,9 +791,9 @@ static void poll_vortex(struct net_device *dev)
 {
 	struct vortex_private *vp = netdev_priv(dev);
 	unsigned long flags;
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 	(vp->full_bus_master_rx ? boomerang_interrupt:vortex_interrupt)(dev->irq,dev);
-	local_irq_restore(flags);
+	local_irq_restore_nort(flags);
 }
 #endif
 
@@ -1738,6 +1738,7 @@ vortex_timer(unsigned long data)
 	int next_tick = 60*HZ;
 	int ok = 0;
 	int media_status, old_window;
+	unsigned long flags;
 
 	if (vortex_debug > 2) {
 		printk(KERN_DEBUG "%s: Media selection timer tick happened, %s.\n",
@@ -1745,7 +1746,7 @@ vortex_timer(unsigned long data)
 		printk(KERN_DEBUG "dev->watchdog_timeo=%d\n", dev->watchdog_timeo);
 	}
 
-	disable_irq_lockdep(dev->irq);
+	spin_lock_irqsave(&vp->lock, flags);
 	old_window = ioread16(ioaddr + EL3_CMD) >> 13;
 	EL3WINDOW(4);
 	media_status = ioread16(ioaddr + Wn4_Media);
@@ -1768,10 +1769,7 @@ vortex_timer(unsigned long data)
 	case XCVR_MII: case XCVR_NWAY:
 		{
 			ok = 1;
-			/* Interrupts are already disabled */
-			spin_lock(&vp->lock);
 			vortex_check_media(dev, 0);
-			spin_unlock(&vp->lock);
 		}
 		break;
 	  default:					/* Other media types handled by Tx timeouts. */
@@ -1827,7 +1825,7 @@ leave_media_alone:
 			 dev->name, media_tbl[dev->if_port].name);
 
 	EL3WINDOW(old_window);
-	enable_irq_lockdep(dev->irq);
+	spin_unlock_irqrestore(&vp->lock, flags);
 	mod_timer(&vp->timer, RUN_AT(next_tick));
 	if (vp->deferred)
 		iowrite16(FakeIntr, ioaddr + EL3_CMD);
@@ -1861,12 +1859,12 @@ static void vortex_tx_timeout(struct net_device *dev)
 			 * Block interrupts because vortex_interrupt does a bare spin_lock()
 			 */
 			unsigned long flags;
-			local_irq_save(flags);
+			local_irq_save_nort(flags);
 			if (vp->full_bus_master_tx)
 				boomerang_interrupt(dev->irq, dev);
 			else
 				vortex_interrupt(dev->irq, dev);
-			local_irq_restore(flags);
+			local_irq_restore_nort(flags);
 		}
 	}
 

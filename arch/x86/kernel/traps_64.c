@@ -518,7 +518,7 @@ int is_valid_bugaddr(unsigned long ip)
 	return ud2 == 0x0b0f;
 }
 
-static raw_spinlock_t die_lock = __RAW_SPIN_LOCK_UNLOCKED;
+static raw_spinlock_t die_lock = RAW_SPIN_LOCK_UNLOCKED(die_lock);
 static int die_owner = -1;
 static unsigned int die_nest_count;
 
@@ -532,11 +532,11 @@ unsigned __kprobes long oops_begin(void)
 	/* racy, but better than risking deadlock. */
 	raw_local_irq_save(flags);
 	cpu = smp_processor_id();
-	if (!__raw_spin_trylock(&die_lock)) {
+	if (!spin_trylock(&die_lock)) {
 		if (cpu == die_owner) 
 			/* nested oops. should stop eventually */;
 		else
-			__raw_spin_lock(&die_lock);
+			spin_lock(&die_lock);
 	}
 	die_nest_count++;
 	die_owner = cpu;
@@ -552,7 +552,7 @@ void __kprobes oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 	die_nest_count--;
 	if (!die_nest_count)
 		/* Nest count reaches zero, release the lock. */
-		__raw_spin_unlock(&die_lock);
+		spin_unlock(&die_lock);
 	raw_local_irq_restore(flags);
 	if (!regs) {
 		oops_exit();

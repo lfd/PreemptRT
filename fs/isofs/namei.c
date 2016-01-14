@@ -158,7 +158,7 @@ isofs_find_entry(struct inode *dir, struct dentry *dentry,
 struct dentry *isofs_lookup(struct inode * dir, struct dentry * dentry, struct nameidata *nd)
 {
 	int found;
-	unsigned long block, offset;
+	unsigned long block = 0, offset = 0 /* avoid stupid gcc warning */;
 	struct inode *inode;
 	struct page *page;
 

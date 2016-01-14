@@ -154,10 +154,10 @@ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	dev->last_rx = jiffies;
 
-	/* it's OK to use __get_cpu_var() because BHs are off */
-	lb_stats = &__get_cpu_var(pcpu_lstats);
+	lb_stats = &per_cpu(pcpu_lstats, get_cpu());
 	lb_stats->bytes += skb->len;
 	lb_stats->packets++;
+	put_cpu();
 
 	netif_rx(skb);
 

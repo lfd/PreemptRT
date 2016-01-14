@@ -1,6 +1,7 @@
 #ifndef __ASM_X86_MSR_H_
 #define __ASM_X86_MSR_H_
 
+#include <linux/compiler.h>
 #include <asm/msr-index.h>
 
 #ifdef __i386__
@@ -10,7 +11,7 @@
 
 #include <asm/errno.h>
 
-static inline unsigned long long native_read_msr(unsigned int msr)
+static fastcall inline unsigned long long native_read_msr(unsigned int msr)
 {
 	unsigned long long val;
 
@@ -18,7 +19,7 @@ static inline unsigned long long native_read_msr(unsigned int msr)
 	return val;
 }
 
-static inline unsigned long long native_read_msr_safe(unsigned int msr,
+static fastcall inline unsigned long long native_read_msr_safe(unsigned int msr,
 						      int *err)
 {
 	unsigned long long val;
@@ -38,12 +39,12 @@ static inline unsigned long long native_read_msr_safe(unsigned int msr,
 	return val;
 }
 
-static inline void native_write_msr(unsigned int msr, unsigned long long val)
+static fastcall inline void native_write_msr(unsigned int msr, unsigned long long val)
 {
 	asm volatile("wrmsr" : : "c" (msr), "A"(val));
 }
 
-static inline int native_write_msr_safe(unsigned int msr,
+static fastcall inline int native_write_msr_safe(unsigned int msr,
 					unsigned long long val)
 {
 	int err;
@@ -62,14 +63,14 @@ static inline int native_write_msr_safe(unsigned int msr,
 	return err;
 }
 
-static inline unsigned long long native_read_tsc(void)
+static fastcall inline unsigned long long native_read_tsc(void)
 {
 	unsigned long long val;
 	asm volatile("rdtsc" : "=A" (val));
 	return val;
 }
 
-static inline unsigned long long native_read_pmc(void)
+static fastcall inline unsigned long long native_read_pmc(void)
 {
 	unsigned long long val;
 	asm volatile("rdpmc" : "=A" (val));

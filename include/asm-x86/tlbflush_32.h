@@ -115,7 +115,7 @@ static inline void flush_tlb_range(struct vm_area_struct *vma,
 		__flush_tlb();
 }
 
-static inline void native_flush_tlb_others(const cpumask_t *cpumask,
+static fastcall inline void native_flush_tlb_others(const cpumask_t *cpumask,
 					   struct mm_struct *mm, unsigned long va)
 {
 }
@@ -139,7 +139,7 @@ static inline void flush_tlb_range(struct vm_area_struct * vma, unsigned long st
 	flush_tlb_mm(vma->vm_mm);
 }
 
-void native_flush_tlb_others(const cpumask_t *cpumask, struct mm_struct *mm,
+void fastcall native_flush_tlb_others(const cpumask_t *cpumask, struct mm_struct *mm,
 			     unsigned long va);
 
 #define TLBSTATE_OK	1

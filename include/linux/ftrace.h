@@ -240,4 +240,8 @@ DEFINE_TRACE(event_task_deactivate,
 	TPPROTO(struct task_struct *p, int cpu),
 	     TPARGS(p, cpu));
 
+DEFINE_TRACE(event_program_event,
+	TPPROTO(ktime_t *expires, int64_t *delta),
+	     TPARGS(expires, delta));
+
 #endif /* _LINUX_FTRACE_H */

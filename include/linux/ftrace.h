@@ -176,7 +176,7 @@ static inline void __ftrace_enabled_restore(int enabled)
 #ifdef CONFIG_TRACING
 extern void
 ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3);
-void ftrace_stop(void);
+void ftrace_halt(void);
 
 /**
  * ftrace_printk - printf formatting in the ftrace buffer
@@ -202,7 +202,7 @@ extern void ftrace_dump(void);
 #else
 static inline void
 ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3) { }
-static inline void ftrace_stop(void) { }
+static inline void ftrace_halt(void) { }
 static inline int
 ftrace_printk(const char *fmt, ...) __attribute__ ((format (printf, 1, 0)));
 

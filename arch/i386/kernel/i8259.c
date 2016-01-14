@@ -170,6 +170,8 @@ static void mask_and_ack_8259A(unsigned int irq)
 	 */
 	if (cached_irq_mask & irqmask)
 		goto spurious_8259A_irq;
+	if (irq & 8)
+		outb(0x60+(irq&7),PIC_SLAVE_CMD); /* 'Specific EOI' to slave */
 	cached_irq_mask |= irqmask;
 
 handle_real_irq:
@@ -297,10 +299,10 @@ void init_8259A(int auto_eoi)
 	outb_p(0x11, PIC_MASTER_CMD);	/* ICW1: select 8259A-1 init */
 	outb_p(0x20 + 0, PIC_MASTER_IMR);	/* ICW2: 8259A-1 IR0-7 mapped to 0x20-0x27 */
 	outb_p(1U << PIC_CASCADE_IR, PIC_MASTER_IMR);	/* 8259A-1 (the master) has a slave on IR2 */
-	if (auto_eoi)	/* master does Auto EOI */
-		outb_p(MASTER_ICW4_DEFAULT | PIC_ICW4_AEOI, PIC_MASTER_IMR);
-	else		/* master expects normal EOI */
+	if (!auto_eoi)	/* master expects normal EOI */
 		outb_p(MASTER_ICW4_DEFAULT, PIC_MASTER_IMR);
+	else		/* master does Auto EOI */
+		outb_p(MASTER_ICW4_DEFAULT | PIC_ICW4_AEOI, PIC_MASTER_IMR);
 
 	outb_p(0x11, PIC_SLAVE_CMD);	/* ICW1: select 8259A-2 init */
 	outb_p(0x20 + 8, PIC_SLAVE_IMR);	/* ICW2: 8259A-2 IR0-7 mapped to 0x28-0x2f */
@@ -350,7 +352,7 @@ static irqreturn_t math_error_irq(int cpl, void *dev_id)
  * New motherboards sometimes make IRQ 13 be a PCI interrupt,
  * so allow interrupt sharing.
  */
-static struct irqaction fpu_irq = { math_error_irq, 0, CPU_MASK_NONE, "fpu", NULL, NULL };
+static struct irqaction fpu_irq = { math_error_irq, IRQF_NODELAY, CPU_MASK_NONE, "fpu", NULL, NULL };
 
 void __init init_ISA_irqs (void)
 {

@@ -169,4 +169,12 @@ static inline void ftrace_event_task(pid_t pid, int prio,
 # define ftrace_event_task(pid, prio, running)	do { } while (0)
 #endif /* CONFIG_TRACE_EVENTS */
 
+#ifdef CONFIG_TRACING
+extern void user_trace_start(void);
+extern void user_trace_stop(void);
+#else
+# define user_trace_start do { } while (0)
+# define user_trace_stop do { } while (0)
+#endif
+
 #endif /* _LINUX_FTRACE_H */

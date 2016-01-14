@@ -2231,6 +2231,8 @@ static inline void migration_init(void)
 }
 #endif
 
+extern int task_is_current(struct task_struct *task);
+
 #define TASK_STATE_TO_CHAR_STR "RMSDTtZX"
 
 #endif /* __KERNEL__ */

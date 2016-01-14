@@ -303,6 +303,8 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 		return 0;
 	}
 
+	SetPageNoNewRefs(page);
+	smp_wmb();
 	write_lock_irq(&mapping->tree_lock);
 
 	pslot = radix_tree_lookup_slot(&mapping->page_tree,
@@ -311,6 +313,7 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 	if (page_count(page) != 2 + !!PagePrivate(page) ||
 			(struct page *)radix_tree_deref_slot(pslot) != page) {
 		write_unlock_irq(&mapping->tree_lock);
+		ClearPageNoNewRefs(page);
 		return -EAGAIN;
 	}
 
@@ -326,6 +329,10 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 #endif
 
 	radix_tree_replace_slot(pslot, newpage);
+	page->mapping = NULL;
+  	write_unlock_irq(&mapping->tree_lock);
+	smp_wmb();
+	ClearPageNoNewRefs(page);
 
 	/*
 	 * Drop cache reference from old page.
@@ -345,8 +352,6 @@ static int migrate_page_move_mapping(struct address_space *mapping,
 	 */
 	__dec_zone_page_state(page, NR_FILE_PAGES);
 	__inc_zone_page_state(newpage, NR_FILE_PAGES);
-
-	write_unlock_irq(&mapping->tree_lock);
 
 	return 0;
 }

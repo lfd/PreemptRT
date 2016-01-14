@@ -301,7 +301,7 @@ static void inline cpuidle_free_state_kobj(struct cpuidle_device *device, int i)
  */
 int cpuidle_add_driver_sysfs(struct cpuidle_device *device)
 {
-	int i, ret;
+	int i, ret = -ENOMEM;
 	struct cpuidle_state_kobj *kobj;
 
 	/* state statistics */

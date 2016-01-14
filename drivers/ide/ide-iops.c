@@ -194,10 +194,10 @@ static void ata_input_data(ide_drive_t *drive, void *buffer, u32 wcount)
 	if (io_32bit) {
 		if (io_32bit & 2) {
 			unsigned long flags;
-			local_irq_save(flags);
+			local_irq_save_nort(flags);
 			ata_vlb_sync(drive, IDE_NSECTOR_REG);
 			hwif->INSL(IDE_DATA_REG, buffer, wcount);
-			local_irq_restore(flags);
+			local_irq_restore_nort(flags);
 		} else
 			hwif->INSL(IDE_DATA_REG, buffer, wcount);
 	} else {
@@ -216,10 +216,10 @@ static void ata_output_data(ide_drive_t *drive, void *buffer, u32 wcount)
 	if (io_32bit) {
 		if (io_32bit & 2) {
 			unsigned long flags;
-			local_irq_save(flags);
+			local_irq_save_nort(flags);
 			ata_vlb_sync(drive, IDE_NSECTOR_REG);
 			hwif->OUTSL(IDE_DATA_REG, buffer, wcount);
-			local_irq_restore(flags);
+			local_irq_restore_nort(flags);
 		} else
 			hwif->OUTSL(IDE_DATA_REG, buffer, wcount);
 	} else {
@@ -479,12 +479,12 @@ static int __ide_wait_stat(ide_drive_t *drive, u8 good, u8 bad, unsigned long ti
 				if (!(stat & BUSY_STAT))
 					break;
 
-				local_irq_restore(flags);
+				local_irq_restore_nort(flags);
 				*rstat = stat;
 				return -EBUSY;
 			}
 		}
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 	}
 	/*
 	 * Allow status to settle, then read it again.
@@ -651,17 +651,17 @@ int ide_driveid_update(ide_drive_t *drive)
 		printk("%s: CHECK for good STATUS\n", drive->name);
 		return 0;
 	}
-	local_irq_save(flags);
-	SELECT_MASK(drive, 0);
 	id = kmalloc(SECTOR_WORDS*4, GFP_ATOMIC);
+	local_irq_save_nort(flags);
+	SELECT_MASK(drive, 0);
 	if (!id) {
 		local_irq_restore(flags);
 		return 0;
 	}
 	hwif->ata_input_data(drive, id, SECTOR_WORDS);
 	(void)ide_read_status(drive);	/* clear drive IRQ */
-	local_irq_enable();
-	local_irq_restore(flags);
+	local_irq_enable_nort();
+	local_irq_restore_nort(flags);
 	ide_fix_driveid(id);
 	if (id) {
 		drive->id->dma_ultra = id->dma_ultra;

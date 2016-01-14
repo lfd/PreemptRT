@@ -265,7 +265,7 @@ enum ieee1284_phase {
 struct ieee1284_info {
 	int mode;
 	volatile enum ieee1284_phase phase;
-	struct semaphore irq;
+	struct compat_semaphore irq;
 };
 
 /* A parallel port */

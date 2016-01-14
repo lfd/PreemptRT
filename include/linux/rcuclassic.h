@@ -144,5 +144,8 @@ extern void rcu_check_callbacks(int cpu, int user);
 extern void rcu_restart_cpu(int cpu);
 extern long rcu_batches_completed(void);
 
+struct softirq_action;
+extern void rcu_process_callbacks(struct softirq_action *unused);
+
 #endif /* __KERNEL__ */
 #endif /* __LINUX_RCUCLASSIC_H */

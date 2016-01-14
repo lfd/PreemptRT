@@ -1185,7 +1185,7 @@ void __netif_rx_schedule(struct net_device *dev)
 		dev->quota += dev->weight;
 	else
 		dev->quota = dev->weight;
-	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+	raise_softirq_irqoff(NET_RX_SOFTIRQ);
 	local_irq_restore(flags);
 }
 EXPORT_SYMBOL(__netif_rx_schedule);
@@ -2060,7 +2060,7 @@ out:
 
 softnet_break:
 	__get_cpu_var(netdev_rx_stat).time_squeeze++;
-	__raise_softirq_irqoff(NET_RX_SOFTIRQ);
+	raise_softirq_irqoff(NET_RX_SOFTIRQ);
 	goto out;
 }
 

@@ -478,7 +478,7 @@ ENDPROC(system_call)
 	ALIGN
 	RING0_PTREGS_FRAME		# can't unwind into user space anyway
 work_pending:
-	testb $_TIF_NEED_RESCHED, %cl
+	testl $(_TIF_NEED_RESCHED|_TIF_NEED_RESCHED_DELAYED), %ecx
 	jz work_notifysig
 work_resched:
 	call schedule
@@ -490,7 +490,7 @@ work_resched:
 	andl $_TIF_WORK_MASK, %ecx	# is there any work to be done other
 					# than syscall tracing?
 	jz restore_all
-	testb $_TIF_NEED_RESCHED, %cl
+	testl $(_TIF_NEED_RESCHED|_TIF_NEED_RESCHED_DELAYED), %ecx
 	jnz work_resched
 
 work_notifysig:				# deal with pending signals and

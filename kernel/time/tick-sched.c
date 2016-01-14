@@ -438,7 +438,6 @@ static void tick_nohz_handler(struct clock_event_device *dev)
 	}
 
 	update_process_times(user_mode(regs));
-	profile_tick(CPU_PROFILING);
 
 	/* Do not restart, when we are in the idle loop */
 	if (ts->tick_stopped)
@@ -552,7 +551,6 @@ static enum hrtimer_restart tick_sched_timer(struct hrtimer *timer)
 		 */
 		spin_unlock(&base->lock);
 		update_process_times(user_mode(regs));
-		profile_tick(CPU_PROFILING);
 		spin_lock(&base->lock);
 	}
 

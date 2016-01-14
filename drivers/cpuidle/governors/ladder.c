@@ -14,11 +14,9 @@
 
 #include <linux/kernel.h>
 #include <linux/cpuidle.h>
-#include <linux/acpi.h>
 #include <linux/latency.h>
 #include <linux/moduleparam.h>
 #include <linux/jiffies.h>
-#include <acpi/processor.h>
 
 #include <asm/io.h>
 #include <asm/uaccess.h>

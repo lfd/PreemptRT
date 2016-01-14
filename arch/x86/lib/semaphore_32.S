@@ -30,7 +30,7 @@
  * value or just clobbered..
  */
 	.section .sched.text, "ax"
-ENTRY(__down_failed)
+ENTRY(__compat_down_failed)
 	CFI_STARTPROC
 	FRAME
 	pushl %edx
@@ -39,7 +39,7 @@ ENTRY(__down_failed)
 	pushl %ecx
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET ecx,0
-	call __down
+	call __compat_down
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
 	CFI_RESTORE ecx
@@ -50,8 +50,9 @@ ENTRY(__down_failed)
 	ret
 	CFI_ENDPROC
 	ENDPROC(__down_failed)
+	ENDPROC(__compat_down_failed)
 
-ENTRY(__down_failed_interruptible)
+ENTRY(__compat_down_failed_interruptible)
 	CFI_STARTPROC
 	FRAME
 	pushl %edx
@@ -60,7 +61,7 @@ ENTRY(__down_failed_interruptible)
 	pushl %ecx
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET ecx,0
-	call __down_interruptible
+	call __compat_down_interruptible
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
 	CFI_RESTORE ecx
@@ -71,8 +72,9 @@ ENTRY(__down_failed_interruptible)
 	ret
 	CFI_ENDPROC
 	ENDPROC(__down_failed_interruptible)
+	ENDPROC(__compat_down_failed_interruptible)
 
-ENTRY(__down_failed_trylock)
+ENTRY(__compat_down_failed_trylock)
 	CFI_STARTPROC
 	FRAME
 	pushl %edx
@@ -81,7 +83,7 @@ ENTRY(__down_failed_trylock)
 	pushl %ecx
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET ecx,0
-	call __down_trylock
+	call __compat_down_trylock
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
 	CFI_RESTORE ecx
@@ -91,9 +93,9 @@ ENTRY(__down_failed_trylock)
 	ENDFRAME
 	ret
 	CFI_ENDPROC
-	ENDPROC(__down_failed_trylock)
+	ENDPROC(__compat_down_failed_trylock)
 
-ENTRY(__up_wakeup)
+ENTRY(__compat_up_wakeup)
 	CFI_STARTPROC
 	FRAME
 	pushl %edx
@@ -102,7 +104,7 @@ ENTRY(__up_wakeup)
 	pushl %ecx
 	CFI_ADJUST_CFA_OFFSET 4
 	CFI_REL_OFFSET ecx,0
-	call __up
+	call __compat_up
 	popl %ecx
 	CFI_ADJUST_CFA_OFFSET -4
 	CFI_RESTORE ecx
@@ -112,7 +114,7 @@ ENTRY(__up_wakeup)
 	ENDFRAME
 	ret
 	CFI_ENDPROC
-	ENDPROC(__up_wakeup)
+	ENDPROC(__compat_up_wakeup)
 
 /*
  * rw spinlock fallbacks

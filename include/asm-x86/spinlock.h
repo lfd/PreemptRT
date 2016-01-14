@@ -64,21 +64,21 @@ typedef int _slock_t;
  * much between them in performance though, especially as locks are out of line.
  */
 #if (NR_CPUS < 256)
-static inline int __raw_spin_is_locked(raw_spinlock_t *lock)
+static inline int __raw_spin_is_locked(__raw_spinlock_t *lock)
 {
 	int tmp = *(volatile signed int *)(&(lock)->slock);
 
 	return (((tmp >> 8) & 0xff) != (tmp & 0xff));
 }
 
-static inline int __raw_spin_is_contended(raw_spinlock_t *lock)
+static inline int __raw_spin_is_contended(__raw_spinlock_t *lock)
 {
 	int tmp = *(volatile signed int *)(&(lock)->slock);
 
 	return (((tmp >> 8) & 0xff) - (tmp & 0xff)) > 1;
 }
 
-static inline void __raw_spin_lock(raw_spinlock_t *lock)
+static inline void __raw_spin_lock(__raw_spinlock_t *lock)
 {
 	short inc = 0x0100;
 
@@ -99,7 +99,7 @@ static inline void __raw_spin_lock(raw_spinlock_t *lock)
 
 #define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
 
-static inline int __raw_spin_trylock(raw_spinlock_t *lock)
+static inline int __raw_spin_trylock(__raw_spinlock_t *lock)
 {
 	int tmp;
 	short new;
@@ -121,7 +121,7 @@ static inline int __raw_spin_trylock(raw_spinlock_t *lock)
 	return tmp;
 }
 
-static inline void __raw_spin_unlock(raw_spinlock_t *lock)
+static inline void __raw_spin_unlock(__raw_spinlock_t *lock)
 {
 	__asm__ __volatile__(
 		UNLOCK_LOCK_PREFIX "incb %0"
@@ -130,21 +130,21 @@ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 		:"memory", "cc");
 }
 #else
-static inline int __raw_spin_is_locked(raw_spinlock_t *lock)
+static inline int __raw_spin_is_locked(__raw_spinlock_t *lock)
 {
 	int tmp = *(volatile signed int *)(&(lock)->slock);
 
 	return (((tmp >> 16) & 0xffff) != (tmp & 0xffff));
 }
 
-static inline int __raw_spin_is_contended(raw_spinlock_t *lock)
+static inline int __raw_spin_is_contended(__raw_spinlock_t *lock)
 {
 	int tmp = *(volatile signed int *)(&(lock)->slock);
 
 	return (((tmp >> 16) & 0xffff) - (tmp & 0xffff)) > 1;
 }
 
-static inline void __raw_spin_lock(raw_spinlock_t *lock)
+static inline void __raw_spin_lock(__raw_spinlock_t *lock)
 {
 	int inc = 0x00010000;
 	int tmp;
@@ -168,7 +168,7 @@ static inline void __raw_spin_lock(raw_spinlock_t *lock)
 
 #define __raw_spin_lock_flags(lock, flags) __raw_spin_lock(lock)
 
-static inline int __raw_spin_trylock(raw_spinlock_t *lock)
+static inline int __raw_spin_trylock(__raw_spinlock_t *lock)
 {
 	int tmp;
 	int new;
@@ -191,7 +191,7 @@ static inline int __raw_spin_trylock(raw_spinlock_t *lock)
 	return tmp;
 }
 
-static inline void __raw_spin_unlock(raw_spinlock_t *lock)
+static inline void __raw_spin_unlock(__raw_spinlock_t *lock)
 {
 	__asm__ __volatile__(
 		UNLOCK_LOCK_PREFIX "incw %0"
@@ -201,7 +201,7 @@ static inline void __raw_spin_unlock(raw_spinlock_t *lock)
 }
 #endif
 
-static inline void __raw_spin_unlock_wait(raw_spinlock_t *lock)
+static inline void __raw_spin_unlock_wait(__raw_spinlock_t *lock)
 {
 	while (__raw_spin_is_locked(lock))
 		cpu_relax();
@@ -225,7 +225,7 @@ static inline void __raw_spin_unlock_wait(raw_spinlock_t *lock)
  * read_can_lock - would read_trylock() succeed?
  * @lock: the rwlock in question.
  */
-static inline int __raw_read_can_lock(raw_rwlock_t *lock)
+static inline int __raw_read_can_lock(__raw_rwlock_t *lock)
 {
 	return (int)(lock)->lock > 0;
 }
@@ -234,12 +234,12 @@ static inline int __raw_read_can_lock(raw_rwlock_t *lock)
  * write_can_lock - would write_trylock() succeed?
  * @lock: the rwlock in question.
  */
-static inline int __raw_write_can_lock(raw_rwlock_t *lock)
+static inline int __raw_write_can_lock(__raw_rwlock_t *lock)
 {
 	return (lock)->lock == RW_LOCK_BIAS;
 }
 
-static inline void __raw_read_lock(raw_rwlock_t *rw)
+static inline void __raw_read_lock(__raw_rwlock_t *rw)
 {
 	asm volatile(LOCK_PREFIX " subl $1,(%0)\n\t"
 		     "jns 1f\n"
@@ -248,7 +248,7 @@ static inline void __raw_read_lock(raw_rwlock_t *rw)
 		     ::LOCK_PTR_REG (rw) : "memory");
 }
 
-static inline void __raw_write_lock(raw_rwlock_t *rw)
+static inline void __raw_write_lock(__raw_rwlock_t *rw)
 {
 	asm volatile(LOCK_PREFIX " subl %1,(%0)\n\t"
 		     "jz 1f\n"
@@ -257,7 +257,7 @@ static inline void __raw_write_lock(raw_rwlock_t *rw)
 		     ::LOCK_PTR_REG (rw), "i" (RW_LOCK_BIAS) : "memory");
 }
 
-static inline int __raw_read_trylock(raw_rwlock_t *lock)
+static inline int __raw_read_trylock(__raw_rwlock_t *lock)
 {
 	atomic_t *count = (atomic_t *)lock;
 
@@ -268,7 +268,7 @@ static inline int __raw_read_trylock(raw_rwlock_t *lock)
 	return 0;
 }
 
-static inline int __raw_write_trylock(raw_rwlock_t *lock)
+static inline int __raw_write_trylock(__raw_rwlock_t *lock)
 {
 	atomic_t *count = (atomic_t *)lock;
 
@@ -278,12 +278,12 @@ static inline int __raw_write_trylock(raw_rwlock_t *lock)
 	return 0;
 }
 
-static inline void __raw_read_unlock(raw_rwlock_t *rw)
+static inline void __raw_read_unlock(__raw_rwlock_t *rw)
 {
 	asm volatile(LOCK_PREFIX "incl %0" :"+m" (rw->lock) : : "memory");
 }
 
-static inline void __raw_write_unlock(raw_rwlock_t *rw)
+static inline void __raw_write_unlock(__raw_rwlock_t *rw)
 {
 	asm volatile(LOCK_PREFIX "addl %1, %0"
 		     : "+m" (rw->lock) : "i" (RW_LOCK_BIAS) : "memory");

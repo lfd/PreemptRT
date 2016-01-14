@@ -344,8 +344,9 @@ out:
 	put_cpu_no_resched();
 }
 
-void native_flush_tlb_others(const cpumask_t *cpumaskp, struct mm_struct *mm,
-			     unsigned long va)
+void fastcall
+native_flush_tlb_others(const cpumask_t *cpumaskp, struct mm_struct *mm,
+			unsigned long va)
 {
 	cpumask_t cpumask = *cpumaskp;
 
@@ -470,6 +471,7 @@ void flush_tlb_all(void)
  */
 static void native_smp_send_reschedule(int cpu)
 {
+	trace_special(cpu, 0, 0);
 	WARN_ON(cpu_is_offline(cpu));
 	send_IPI_mask(cpumask_of_cpu(cpu), RESCHEDULE_VECTOR);
 }
@@ -639,6 +641,7 @@ static void native_smp_send_stop(void)
  */
 fastcall void smp_reschedule_interrupt(struct pt_regs *regs)
 {
+	trace_special(regs->eip, 0, 0);
 	ack_APIC_irq();
 }
 

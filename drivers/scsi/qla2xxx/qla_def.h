@@ -2344,7 +2344,7 @@ typedef struct scsi_qla_host {
 #define MBX_UPDATE_FLASH_ACTIVE	3
 
 	struct semaphore mbx_cmd_sem;	/* Serialialize mbx access */
-	struct semaphore mbx_intr_sem;  /* Used for completion notification */
+	struct compat_semaphore mbx_intr_sem;  /* Used for completion notification */
 
 	uint32_t	mbx_flags;
 #define  MBX_IN_PROGRESS	BIT_0

@@ -323,6 +323,54 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "prof_pid",
+		.data		= &prof_pid,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#ifdef CONFIG_PREEMPT
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "kernel_preemption",
+		.data		= &kernel_preemption,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_PREEMPT_VOLUNTARY
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "voluntary_preemption",
+		.data		= &voluntary_preemption,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#if defined(CONFIG_PREEMPT_SOFTIRQS) && !defined(CONFIG_PREEMPT_RT)
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "softirq_preemption",
+		.data		= &softirq_preemption,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#if defined(CONFIG_PREEMPT_HARDIRQS) && !defined(CONFIG_PREEMPT_RT)
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "hardirq_preemption",
+		.data		= &hardirq_preemption,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 #ifdef CONFIG_WAKEUP_TIMING
 	{
 		.ctl_name	= CTL_UNNUMBERED,
@@ -452,6 +500,16 @@ static ctl_table kern_table[] = {
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "trace_all_runnable",
 		.data		= &trace_all_runnable,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_GENERIC_HARDIRQS
+	{
+		.ctl_name	= KERN_PANIC,
+		.procname	= "debug_direct_keyboard",
+		.data		= &debug_direct_keyboard,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,

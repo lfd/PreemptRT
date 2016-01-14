@@ -1024,11 +1024,13 @@ static int __init acpi_processor_init(void)
 	acpi_processor_ppc_init();
 
 	cpuidle_register_driver(&acpi_idle_driver);
+	acpi_do_set_cstate_limit = acpi_max_cstate_changed;
 	return 0;
 }
 
 static void __exit acpi_processor_exit(void)
 {
+	acpi_do_set_cstate_limit = NULL;
 	cpuidle_unregister_driver(&acpi_idle_driver);
 
 	acpi_processor_ppc_exit();

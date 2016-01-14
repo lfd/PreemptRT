@@ -281,6 +281,7 @@ int acpi_processor_cst_has_changed(struct acpi_processor *pr);
 int acpi_processor_power_exit(struct acpi_processor *pr,
 			      struct acpi_device *device);
 extern struct cpuidle_driver acpi_idle_driver;
+void acpi_max_cstate_changed(void);
 
 /* in processor_thermal.c */
 int acpi_processor_get_limit_info(struct acpi_processor *pr);

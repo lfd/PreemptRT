@@ -67,7 +67,26 @@ ACPI_MODULE_NAME("processor_idle");
 #define C2_OVERHEAD			1	/* 1us */
 #define C3_OVERHEAD			1	/* 1us */
 
-module_param(max_cstate, uint, 0644);
+void acpi_max_cstate_changed(void)
+{
+	/* Driver will reset devices' max cstate limit */
+	cpuidle_force_redetect_devices(&acpi_idle_driver);
+}
+
+static int change_max_cstate(const char *val, struct kernel_param *kp)
+{
+	int max;
+
+	max = simple_strtol(val, NULL, 0);
+	if (!max)
+		return -EINVAL;
+	max_cstate = max;
+	if (acpi_do_set_cstate_limit)
+		acpi_do_set_cstate_limit();
+	return 0;
+}
+
+module_param_call(max_cstate, change_max_cstate, param_get_uint, &max_cstate, 0644);
 
 static unsigned int nocst __read_mostly;
 module_param(nocst, uint, 0000);
@@ -1047,7 +1066,7 @@ static int acpi_idle_init(struct cpuidle_device *dev)
 		return -EINVAL;
 	}
 
-	for (i = 1; i < ACPI_PROCESSOR_MAX_POWER; i++) {
+	for (i = 1; i < ACPI_PROCESSOR_MAX_POWER && i <= max_cstate; i++) {
 		cx = &pr->power.states[i];
 		state = &dev->states[count];
 

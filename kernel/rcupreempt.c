@@ -1122,6 +1122,8 @@ void __init __rcu_init(void)
 		rcu_cpu_notify(&rcu_nb, CPU_UP_PREPARE,	(void *)(long) cpu);
 
 	open_softirq(RCU_SOFTIRQ, rcu_process_callbacks, NULL);
+
+	rcu_preempt_boost_init();
 }
 
 /*

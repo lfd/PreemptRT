@@ -59,8 +59,8 @@ static int slots;
 static atomic_t extracting;
 int cpci_debug;
 static struct cpci_hp_controller *controller;
-static struct semaphore event_semaphore;	/* mutex for process loop (up if something to process) */
-static struct semaphore thread_exit;		/* guard ensure thread has exited before calling it quits */
+static struct compat_semaphore event_semaphore;	/* mutex for process loop (up if something to process) */
+static struct compat_semaphore thread_exit;		/* guard ensure thread has exited before calling it quits */
 static int thread_finished = 1;
 
 static int enable_slot(struct hotplug_slot *slot);

@@ -114,7 +114,31 @@ struct lock_class {
 
 	const char			*name;
 	int				name_version;
+
+#ifdef CONFIG_LOCK_STAT
+	unsigned long			contention_point[4];
+#endif
 };
+
+#ifdef CONFIG_LOCK_STAT
+struct lock_time {
+	s64				min;
+	s64				max;
+	s64				total;
+	unsigned long			nr;
+};
+
+struct lock_class_stats {
+	unsigned long			contention_point[4];
+	struct lock_time		read_waittime;
+	struct lock_time		write_waittime;
+	struct lock_time		read_holdtime;
+	struct lock_time		write_holdtime;
+};
+
+struct lock_class_stats lock_stats(struct lock_class *class);
+void clear_lock_stats(struct lock_class *class);
+#endif
 
 /*
  * Map the lock object (the lock instance) to the lock-class object.
@@ -165,6 +189,10 @@ struct held_lock {
 	unsigned long			acquire_ip;
 	struct lockdep_map		*instance;
 
+#ifdef CONFIG_LOCK_STAT
+	u64 				waittime_stamp;
+	u64				holdtime_stamp;
+#endif
 	/*
 	 * The lock-stack is unified in that the lock chains of interrupt
 	 * contexts nest ontop of process context chains, but we 'separate'
@@ -284,6 +312,30 @@ struct lock_class_key { };
 #define lockdep_depth(tsk)	(0)
 
 #endif /* !LOCKDEP */
+
+#ifdef CONFIG_LOCK_STAT
+
+extern void lock_contended(struct lockdep_map *lock, unsigned long ip);
+extern void lock_acquired(struct lockdep_map *lock);
+
+#define LOCK_CONTENDED(_lock, try, lock)			\
+do {								\
+	if (!try(_lock)) {					\
+		lock_contended(&(_lock)->dep_map, _RET_IP_);	\
+		lock(_lock);					\
+		lock_acquired(&(_lock)->dep_map);		\
+	}							\
+} while (0)
+
+#else /* CONFIG_LOCK_STAT */
+
+#define lock_contended(lock, ip)	do { } while (0)
+#define lock_acquired(lock)		do { } while (0)
+
+#define LOCK_CONTENDED(_lock, try, lock) \
+	lock(_lock)
+
+#endif /* CONFIG_LOCK_STAT */
 
 #if defined(CONFIG_TRACE_IRQFLAGS) && defined(CONFIG_GENERIC_HARDIRQS)
 extern void early_init_irq_lock_class(void);

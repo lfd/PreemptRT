@@ -29,9 +29,9 @@
  */
 
 static int i8259A_auto_eoi = -1;
-DEFINE_SPINLOCK(i8259A_lock);
 /* some platforms call this... */
 void mask_and_ack_8259A(unsigned int);
+DEFINE_RAW_SPINLOCK(i8259A_lock);
 
 static struct irq_chip i8259A_chip = {
 	.name		= "XT-PIC",

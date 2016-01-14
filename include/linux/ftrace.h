@@ -3,7 +3,9 @@
 
 #ifdef CONFIG_FTRACE
 
+#include <linux/tracepoint.h>
 #include <linux/linkage.h>
+#include <linux/ktime.h>
 #include <linux/fs.h>
 
 extern int ftrace_enabled;
@@ -208,5 +210,34 @@ static inline void
 ftrace_init_module(unsigned long *start, unsigned long *end) { }
 #endif
 
+struct hrtimer;
+
+DEFINE_TRACE(event_irq,
+	TPPROTO(int irq, int user, unsigned long ip),
+		TPARGS(irq, user, ip));
+
+DEFINE_TRACE(event_fault,
+	TPPROTO(unsigned long ip, unsigned long error, unsigned long addr),
+		TPARGS(ip, error, addr));
+
+DEFINE_TRACE(event_timer_set,
+	TPPROTO(ktime_t *expires, struct hrtimer *timer),
+	     TPARGS(expires, timer));
+
+DEFINE_TRACE(event_timer_triggered,
+	TPPROTO(ktime_t *expires, struct hrtimer *timer),
+	     TPARGS(expires, timer));
+
+DEFINE_TRACE(event_timestamp,
+	TPPROTO(ktime_t *time),
+	     TPARGS(time));
+
+DEFINE_TRACE(event_task_activate,
+	TPPROTO(struct task_struct *p, int cpu),
+	     TPARGS(p, cpu));
+
+DEFINE_TRACE(event_task_deactivate,
+	TPPROTO(struct task_struct *p, int cpu),
+	     TPARGS(p, cpu));
 
 #endif /* _LINUX_FTRACE_H */

@@ -59,7 +59,7 @@ unsigned long max_pfn_mapped;
 
 static unsigned long dma_reserve __initdata;
 
-DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
+DEFINE_PER_CPU_LOCKED(struct mmu_gather, mmu_gathers);
 
 int direct_gbpages
 #ifdef CONFIG_DIRECT_GBPAGES

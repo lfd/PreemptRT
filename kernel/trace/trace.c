@@ -1092,6 +1092,22 @@ void tracing_event_timer_set(struct trace_array *tr,
 	entry->field.timer.timer	= timer;
 }
 
+void tracing_event_program_event(struct trace_array *tr,
+				 struct trace_array_cpu *data,
+				 unsigned long flags,
+				 unsigned long ip,
+				 ktime_t *expires, int64_t *delta)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_PROGRAM_EVENT;
+	entry->field.program.ip	= ip;
+	entry->field.program.expire	= *expires;
+	entry->field.program.delta	= *delta;
+}
+
 void tracing_event_timer_triggered(struct trace_array *tr,
 				   struct trace_array_cpu *data,
 				   unsigned long flags,
@@ -1883,6 +1899,11 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 		trace_seq_printf(s, " (%Ld)\n",
 			   entry->field.timestamp.now.tv64);
 		break;
+	case TRACE_PROGRAM_EVENT:
+		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%Ld)\n",
+			   entry->field.program.expire, entry->field.program.delta);
+		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
 		comm = trace_find_cmdline(entry->field.task.pid);
@@ -2074,6 +2095,11 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		seq_print_ip_sym(s, entry->field.timestamp.ip, sym_flags);
 		trace_seq_printf(s, " (%Ld)\n",
 			   entry->field.timestamp.now.tv64);
+		break;
+	case TRACE_PROGRAM_EVENT:
+		seq_print_ip_sym(s, entry->field.program.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%Ld)\n",
+			   entry->field.program.expire, entry->field.program.delta);
 		break;
 	case TRACE_TASK_ACT:
 		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);

@@ -31,7 +31,7 @@ LDFLAGS_vmlinux := --emit-relocs
 endif
 CHECKFLAGS	+= -D__i386__
 
-CFLAGS += -pipe -msoft-float
+CFLAGS += -pipe -msoft-float -freg-struct-return
 
 # prevent gcc from keeping the stack 16 byte aligned
 CFLAGS += $(call cc-option,-mpreferred-stack-boundary=2)
@@ -39,7 +39,7 @@ CFLAGS += $(call cc-option,-mpreferred-stack-boundary=2)
 # CPU-specific tuning. Anything which can be shared with UML should go here.
 include $(srctree)/arch/i386/Makefile.cpu
 
-cflags-$(CONFIG_REGPARM) += -mregparm=3 -freg-struct-return
+cflags-$(CONFIG_REGPARM) += -mregparm=3
 
 # temporary until string.h is fixed
 cflags-y += -ffreestanding

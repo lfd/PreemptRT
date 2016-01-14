@@ -13,6 +13,7 @@
 #include <linux/seq_file.h>
 #include <linux/module.h>
 #include <linux/delay.h>
+#include <linux/ftrace.h>
 #include <asm/uaccess.h>
 #include <asm/io_apic.h>
 #include <asm/idle.h>
@@ -168,6 +169,8 @@ asmlinkage unsigned int do_IRQ(struct pt_regs *regs)
 	exit_idle();
 	irq_enter();
 	irq = __get_cpu_var(vector_irq)[vector];
+
+	trace_event_irq(irq, user_mode(regs), regs->ip);
 
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 	stack_overflow_check(regs);

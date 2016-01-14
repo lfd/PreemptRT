@@ -440,6 +440,8 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 	int error = radix_tree_preload(gfp_mask & ~__GFP_HIGHMEM);
 
 	if (error == 0) {
+		SetPageNoNewRefs(page);
+		smp_wmb();
 		write_lock_irq(&mapping->tree_lock);
 		error = radix_tree_insert(&mapping->page_tree, offset, page);
 		if (!error) {
@@ -451,6 +453,8 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 			__inc_zone_page_state(page, NR_FILE_PAGES);
 		}
 		write_unlock_irq(&mapping->tree_lock);
+		smp_wmb();
+		ClearPageNoNewRefs(page);
 		radix_tree_preload_end();
 	}
 	return error;

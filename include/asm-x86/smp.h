@@ -204,5 +204,9 @@ extern void cpu_uninit(void);
 extern void smp_alloc_memory(void);
 extern void lock_ipi_call_lock(void);
 extern void unlock_ipi_call_lock(void);
+
+/* TODO: Put this in the Kconfig files. */
+#define HAVE_RESCHEDULE_ALLBUTSELF_CPUMASK 1
+
 #endif /* __ASSEMBLY__ */
 #endif

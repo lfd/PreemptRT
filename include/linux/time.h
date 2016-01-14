@@ -2,6 +2,7 @@
 #define _LINUX_TIME_H
 
 #include <linux/types.h>
+#include <linux/cache.h>
 
 #ifdef __KERNEL__
 # include <linux/seqlock.h>

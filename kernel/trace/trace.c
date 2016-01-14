@@ -254,8 +254,8 @@ static const char *trace_options[] = {
  * This is defined as a raw_spinlock_t in order to help
  * with performance when lockdep debugging is enabled.
  */
-static raw_spinlock_t ftrace_max_lock =
-	(raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
+static __raw_spinlock_t ftrace_max_lock =
+	(__raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
 
 /*
  * Copy the new maximum trace into the separate maximum-trace
@@ -3887,8 +3887,8 @@ __init static int tracer_alloc_buffers(void)
 		/* use the LRU flag to differentiate the two buffers */
 		ClearPageLRU(page);
 
-		data->lock = (raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
-		max_tr.data[i]->lock = (raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
+		data->lock = (__raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
+		max_tr.data[i]->lock = (__raw_spinlock_t)__RAW_SPIN_LOCK_UNLOCKED;
 
 /* Only allocate if we are actually using the max trace */
 #ifdef CONFIG_TRACER_MAX_TRACE

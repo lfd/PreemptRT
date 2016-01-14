@@ -117,6 +117,12 @@ asmlinkage unsigned int do_IRQ(struct pt_regs *regs)
 	irq_enter();
 	irq = __get_cpu_var(vector_irq)[vector];
 
+#ifdef CONFIG_EVENT_TRACE
+	if (irq == trace_user_trigger_irq)
+		user_trace_start();
+#endif
+	trace_special(regs->rip, irq, 0);
+
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 	stack_overflow_check(regs);
 #endif

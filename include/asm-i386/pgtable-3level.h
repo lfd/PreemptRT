@@ -33,13 +33,13 @@ static inline int pte_exec_kernel(pte_t pte)
  * not possible, use pte_get_and_clear to obtain the old pte
  * value and then use set_pte to update it.  -ben
  */
-static inline void native_set_pte(pte_t *ptep, pte_t pte)
+static fastcall inline void native_set_pte(pte_t *ptep, pte_t pte)
 {
 	ptep->pte_high = pte.pte_high;
 	smp_wmb();
 	ptep->pte_low = pte.pte_low;
 }
-static inline void native_set_pte_at(struct mm_struct *mm, unsigned long addr,
+static fastcall inline void native_set_pte_at(struct mm_struct *mm, unsigned long addr,
 				     pte_t *ptep , pte_t pte)
 {
 	native_set_pte(ptep, pte);
@@ -51,7 +51,7 @@ static inline void native_set_pte_at(struct mm_struct *mm, unsigned long addr,
  * we are justified in merely clearing the PTE present bit, followed
  * by a set.  The ordering here is important.
  */
-static inline void native_set_pte_present(struct mm_struct *mm, unsigned long addr,
+static fastcall inline void native_set_pte_present(struct mm_struct *mm, unsigned long addr,
 					  pte_t *ptep, pte_t pte)
 {
 	ptep->pte_low = 0;
@@ -61,15 +61,15 @@ static inline void native_set_pte_present(struct mm_struct *mm, unsigned long ad
 	ptep->pte_low = pte.pte_low;
 }
 
-static inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)
+static fastcall inline void native_set_pte_atomic(pte_t *ptep, pte_t pte)
 {
 	set_64bit((unsigned long long *)(ptep),native_pte_val(pte));
 }
-static inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
+static fastcall inline void native_set_pmd(pmd_t *pmdp, pmd_t pmd)
 {
 	set_64bit((unsigned long long *)(pmdp),native_pmd_val(pmd));
 }
-static inline void native_set_pud(pud_t *pudp, pud_t pud)
+static fastcall inline void native_set_pud(pud_t *pudp, pud_t pud)
 {
 	*pudp = pud;
 }
@@ -79,14 +79,14 @@ static inline void native_set_pud(pud_t *pudp, pud_t pud)
  * entry, so clear the bottom half first and enforce ordering with a compiler
  * barrier.
  */
-static inline void native_pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
+static fastcall inline void native_pte_clear(struct mm_struct *mm, unsigned long addr, pte_t *ptep)
 {
 	ptep->pte_low = 0;
 	smp_wmb();
 	ptep->pte_high = 0;
 }
 
-static inline void native_pmd_clear(pmd_t *pmd)
+static fastcall inline void native_pmd_clear(pmd_t *pmd)
 {
 	u32 *tmp = (u32 *)pmd;
 	*tmp = 0;
@@ -125,7 +125,7 @@ static inline void pud_clear (pud_t * pud) { }
 			pmd_index(address))
 
 #ifdef CONFIG_SMP
-static inline pte_t native_ptep_get_and_clear(pte_t *ptep)
+static fastcall inline pte_t native_ptep_get_and_clear(pte_t *ptep)
 {
 	pte_t res;
 

@@ -116,10 +116,13 @@ void ktime_get_ts(struct timespec *ts)
 {
 	struct timespec tomono;
 	unsigned long seq;
+	s64 nsecs;
 
 	do {
 		seq = read_seqbegin(&xtime_lock);
-		getnstimeofday(ts);
+		*ts = xtime;
+		nsecs = __get_nsec_offset();
+		timespec_add_ns(ts, nsecs);
 		tomono = wall_to_monotonic;
 
 	} while (read_seqretry(&xtime_lock, seq));
@@ -141,10 +144,14 @@ static void hrtimer_get_softirq_time(struct hrtimer_cpu_base *base)
 
 	do {
 		seq = read_seqbegin(&xtime_lock);
-#ifdef CONFIG_NO_HZ
-		getnstimeofday(&xts);
-#else
 		xts = xtime;
+#ifdef CONFIG_NO_HZ
+		{
+			s64 nsecs;
+
+			nsecs = __get_nsec_offset();
+			timespec_add_ns(&xts, nsecs);
+		}
 #endif
 		tom = wall_to_monotonic;
 	} while (read_seqretry(&xtime_lock, seq));

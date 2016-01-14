@@ -476,7 +476,8 @@ static int show_stat(struct seq_file *p, void *v)
 {
 	int i;
 	unsigned long jif;
-	cputime64_t user, nice, system, idle, iowait, irq, softirq, steal;
+	cputime64_t user_rt, user, nice, system_rt, system, idle,
+		    iowait, irq, softirq, steal;
 	cputime64_t guest;
 	u64 sum = 0;
 	struct timespec boottime;
@@ -486,7 +487,7 @@ static int show_stat(struct seq_file *p, void *v)
 	if (!per_irq_sum)
 		return -ENOMEM;
 
-	user = nice = system = idle = iowait =
+	user_rt = user = nice = system_rt = system = idle = iowait =
 		irq = softirq = steal = cputime64_zero;
 	guest = cputime64_zero;
 	getboottime(&boottime);
@@ -503,6 +504,8 @@ static int show_stat(struct seq_file *p, void *v)
 		irq = cputime64_add(irq, kstat_cpu(i).cpustat.irq);
 		softirq = cputime64_add(softirq, kstat_cpu(i).cpustat.softirq);
 		steal = cputime64_add(steal, kstat_cpu(i).cpustat.steal);
+		user_rt = cputime64_add(user_rt, kstat_cpu(i).cpustat.user_rt);
+		system_rt = cputime64_add(system_rt, kstat_cpu(i).cpustat.system_rt);
 		guest = cputime64_add(guest, kstat_cpu(i).cpustat.guest);
 		for (j = 0; j < NR_IRQS; j++) {
 			unsigned int temp = kstat_cpu(i).irqs[j];
@@ -511,7 +514,10 @@ static int show_stat(struct seq_file *p, void *v)
 		}
 	}
 
-	seq_printf(p, "cpu  %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
+	user = cputime64_add(user_rt, user);
+	system = cputime64_add(system_rt, system);
+
+	seq_printf(p, "cpu  %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
 		(unsigned long long)cputime64_to_clock_t(user),
 		(unsigned long long)cputime64_to_clock_t(nice),
 		(unsigned long long)cputime64_to_clock_t(system),
@@ -520,13 +526,17 @@ static int show_stat(struct seq_file *p, void *v)
 		(unsigned long long)cputime64_to_clock_t(irq),
 		(unsigned long long)cputime64_to_clock_t(softirq),
 		(unsigned long long)cputime64_to_clock_t(steal),
+		(unsigned long long)cputime64_to_clock_t(user_rt),
+		(unsigned long long)cputime64_to_clock_t(system_rt),
 		(unsigned long long)cputime64_to_clock_t(guest));
 	for_each_online_cpu(i) {
 
 		/* Copy values here to work around gcc-2.95.3, gcc-2.96 */
-		user = kstat_cpu(i).cpustat.user;
+		user_rt = kstat_cpu(i).cpustat.user_rt;
+		system_rt = kstat_cpu(i).cpustat.system_rt;
+		user = cputime64_add(user_rt, kstat_cpu(i).cpustat.user);
 		nice = kstat_cpu(i).cpustat.nice;
-		system = kstat_cpu(i).cpustat.system;
+ 		system = cputime64_add(system_rt, kstat_cpu(i).cpustat.system);
 		idle = kstat_cpu(i).cpustat.idle;
 		iowait = kstat_cpu(i).cpustat.iowait;
 		irq = kstat_cpu(i).cpustat.irq;
@@ -534,7 +544,7 @@ static int show_stat(struct seq_file *p, void *v)
 		steal = kstat_cpu(i).cpustat.steal;
 		guest = kstat_cpu(i).cpustat.guest;
 		seq_printf(p,
-			"cpu%d %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
+			"cpu%d %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu %llu\n",
 			i,
 			(unsigned long long)cputime64_to_clock_t(user),
 			(unsigned long long)cputime64_to_clock_t(nice),
@@ -544,6 +554,8 @@ static int show_stat(struct seq_file *p, void *v)
 			(unsigned long long)cputime64_to_clock_t(irq),
 			(unsigned long long)cputime64_to_clock_t(softirq),
 			(unsigned long long)cputime64_to_clock_t(steal),
+			(unsigned long long)cputime64_to_clock_t(user_rt),
+			(unsigned long long)cputime64_to_clock_t(system_rt),
 			(unsigned long long)cputime64_to_clock_t(guest));
 	}
 	seq_printf(p, "intr %llu", (unsigned long long)sum);

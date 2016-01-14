@@ -1204,7 +1204,7 @@ static int saa7134_resume(struct pci_dev *pci_dev)
 {
 
 	struct saa7134_dev *dev = pci_get_drvdata(pci_dev);
-	unsigned int flags;
+	unsigned long flags;
 
 	pci_restore_state(pci_dev);
 	pci_set_power_state(pci_dev, PCI_D0);

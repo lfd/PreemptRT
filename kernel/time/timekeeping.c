@@ -62,7 +62,7 @@ static struct clocksource *clock; /* pointer to current clocksource */
  * called. Returns the number of nanoseconds since the
  * last call to update_wall_time() (adjusted by NTP scaling)
  */
-static inline s64 __get_nsec_offset(void)
+s64 __get_nsec_offset(void)
 {
 	cycle_t cycle_now, cycle_delta;
 	s64 ns_offset;

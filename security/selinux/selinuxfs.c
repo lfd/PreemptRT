@@ -944,7 +944,8 @@ static const struct file_operations sel_commit_bools_ops = {
  * fs/proc/generic.c proc_kill_inodes */
 static void sel_remove_bools(struct dentry *de)
 {
-	struct list_head *p, *node;
+	struct list_head *node;
+	struct file *filp;
 	struct super_block *sb = de->d_sb;
 
 	spin_lock(&dcache_lock);
@@ -976,7 +977,6 @@ static void sel_remove_bools(struct dentry *de)
 		}
 		filp->f_op = NULL;
 	}
-	file_list_unlock();
 }
 
 #define BOOL_DIR_NAME "booleans"

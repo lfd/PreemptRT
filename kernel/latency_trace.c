@@ -190,7 +190,7 @@ static int report_latency(cycle_t delta)
 /*
  * Number of per-CPU trace entries:
  */
-#define MAX_TRACE (65536UL*16UL)
+#define MAX_TRACE (65536UL)
 
 #define CMDLINE_BYTES 16
 

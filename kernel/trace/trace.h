@@ -24,6 +24,7 @@ enum trace_type {
 	TRACE_TIMER_SET,
 	TRACE_TIMER_TRIG,
 	TRACE_TIMESTAMP,
+	TRACE_PROGRAM_EVENT,
 	TRACE_TASK_ACT,
 	TRACE_TASK_DEACT,
 	TRACE_SYSCALL,
@@ -80,6 +81,12 @@ struct timer_entry {
 	unsigned long		ip;
 	ktime_t			expire;
 	void			*timer;
+};
+
+struct program_entry {
+	unsigned long		ip;
+	ktime_t			expire;
+	int64_t			delta;
 };
 
 struct timestamp_entry {
@@ -156,6 +163,7 @@ struct trace_field {
 		struct fault_entry		fault;
 		struct timer_entry		timer;
 		struct timestamp_entry		timestamp;
+		struct program_entry		program;
 		struct task_entry		task;
 		struct wakeup_entry		wakeup;
 		struct syscall_entry		syscall;
@@ -354,6 +362,11 @@ void tracing_event_task_deactivate(struct trace_array *tr,
 				   unsigned long ip,
 				   struct task_struct *p,
 				   int cpu);
+void tracing_event_program_event(struct trace_array *tr,
+				 struct trace_array_cpu *data,
+				 unsigned long flags,
+				 unsigned long ip,
+				 ktime_t *expires, int64_t *delta);
 void tracing_event_wakeup(struct trace_array *tr,
 			  struct trace_array_cpu *data,
 			  unsigned long flags,

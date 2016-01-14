@@ -10,6 +10,11 @@
  * under  the terms of  the GNU General  Public License as published by the
  * Free Software Foundation;  either version 2 of the  License, or (at your
  * option) any later version.
+ *
+ * This implementation of High Res Timers uses two timers. One is the system
+ * timer. The second is used for the high res timers. The high res timers
+ * require the CPU to have count/compare registers. The mips_set_next_event()
+ * function schedules the next high res timer interrupt.
  */
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -23,6 +28,7 @@
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <linux/module.h>
+#include <linux/clockchips.h>
 
 #include <asm/bootinfo.h>
 #include <asm/cache.h>
@@ -47,7 +53,27 @@
 /*
  * forward reference
  */
-DEFINE_SPINLOCK(rtc_lock);
+DEFINE_RAW_SPINLOCK(rtc_lock);
+
+/* any missed timer interrupts */
+int missed_timer_count;
+
+#ifdef CONFIG_HIGH_RES_TIMERS
+static void mips_set_next_event(unsigned long evt);
+static void mips_set_mode(int mode, void *priv);
+
+static struct clock_event lapic_clockevent = {
+	.name = "mips clockevent interface",
+	.capabilities = CLOCK_CAP_NEXTEVT | CLOCK_CAP_PROFILE |
+			CLOCK_HAS_IRQHANDLER
+#ifdef CONFIG_SMP
+			| CLOCK_CAP_UPDATE
+#endif
+	,
+	.shift = 32,
+	.set_next_event = mips_set_next_event,
+};
+#endif
 
 /*
  * By default we provide the null RTC ops
@@ -56,6 +82,129 @@ static unsigned long null_rtc_get_time(void)
 {
 	return mktime(2000, 1, 1, 0, 0, 0);
 }
+#ifdef CONFIG_SMP
+/*
+ * We have to synchronize the master CPU with all the slave CPUs
+ */
+static atomic_t cpus_started;
+static atomic_t cpus_ready;
+static atomic_t cpus_count;
+/*
+ * Master processor inits
+ */
+static void sync_cpus_init(int v)
+{
+	atomic_set(&cpus_count, 0);
+	mb();
+	atomic_set(&cpus_started, v);
+	mb();
+	atomic_set(&cpus_ready, v);
+	mb();
+}
+
+/*
+ * Called by the master processor
+ */
+static void sync_cpus_master(int v)
+{
+	atomic_set(&cpus_count, 0);
+	mb();
+	atomic_set(&cpus_started, v);
+	mb();
+	/* Wait here till all other CPUs are now ready */
+	while (atomic_read(&cpus_count) != (num_online_cpus() -1) )
+		mb();
+	atomic_set(&cpus_ready, v);
+	mb();
+}
+/*
+ * Called by the slave processors
+ */
+static void sync_cpus_slave(int v)
+{
+        /* Check if the master has been through this */
+        while (atomic_read(&cpus_started) != v)
+                mb();
+        atomic_inc(&cpus_count);
+        mb();
+        while (atomic_read(&cpus_ready) != v)
+                mb();
+}
+/*
+ * Called by the slave CPUs when done syncing the count register
+ * with the master processor
+ */
+static void sync_cpus_slave_exit(int v)
+{
+	while (atomic_read(&cpus_started) != v)
+		mb();
+	atomic_inc(&cpus_count);
+	mb();
+}
+
+#define LOOPS	100
+static u32 c0_count[NR_CPUS];		/* Count register per CPU */
+static u32 c[NR_CPUS][LOOPS + 1];	/* Count register per CPU per loop for syncing */
+
+/*
+ * Slave processors execute this via IPI
+ */
+static void sync_c0_count_slave(void *info)
+{
+	int cpus = 1, loop, prev_count = 0, cpu = smp_processor_id();
+	unsigned long flags;
+	u32 diff_count; /* CPU count registers are 32-bit */
+	local_irq_save(flags);
+
+	for(loop = 0; loop <= LOOPS; loop++) {
+		/* Sync with the Master processor */
+		sync_cpus_slave(cpus++);
+		c[cpu][loop] = c0_count[cpu] = read_c0_count();
+		mb();
+		sync_cpus_slave(cpus++);
+		diff_count = c0_count[0] - c0_count[cpu];
+		diff_count += prev_count;
+		diff_count += read_c0_count();
+		write_c0_count(diff_count);
+		prev_count = (prev_count >> 1) +
+			((int)(c0_count[0] - c0_count[cpu]) >> 1);
+        }
+
+	/* Slave processor is done syncing count register with Master */
+	sync_cpus_slave_exit(cpus++);
+	printk("SMP: Slave processor %d done syncing count \n", cpu);
+	local_irq_restore(flags);
+}
+
+/*
+ * Master kicks off the syncing process
+ */
+void sync_c0_count_master(void)
+{
+	int cpus = 0, loop, cpu = smp_processor_id();
+	unsigned long flags;
+
+	printk("SMP: Starting to sync the c0 count register ... \n");
+	sync_cpus_init(cpus++);
+
+	/* Kick off the slave processors to also start the syncing process */
+	smp_call_function(sync_c0_count_slave, NULL, 0, 0);
+	local_irq_save(flags);
+
+	for (loop = 0; loop <= LOOPS; loop++) {
+		/* Wait for all the CPUs here */
+		sync_cpus_master(cpus++);
+		c[cpu][loop] = c0_count[cpu] = read_c0_count();
+		mb();
+		/* Do syncing once more */
+		sync_cpus_master(cpus++);
+	}
+	sync_cpus_master(cpus++);
+	local_irq_restore(flags);
+
+	printk("SMP: Syncing process completed accross CPUs ... \n");
+}
+#endif /* CONFIG_SMP */
 
 static int null_rtc_set_time(unsigned long sec)
 {
@@ -66,18 +215,29 @@ unsigned long (*rtc_mips_get_time)(void) = null_rtc_get_time;
 int (*rtc_mips_set_time)(unsigned long) = null_rtc_set_time;
 int (*rtc_mips_set_mmss)(unsigned long);
 
-
 /* how many counter cycles in a jiffy */
 static unsigned long cycles_per_jiffy __read_mostly;
 
+static unsigned long hrt_cycles_per_jiffy __read_mostly;
+
+
 /* expirelo is the count value for next CPU timer interrupt */
 static unsigned int expirelo;
-
 
 /*
  * Null timer ack for systems not needing one (e.g. i8254).
  */
 static void null_timer_ack(void) { /* nothing */ }
+
+#ifdef CONFIG_HIGH_RES_TIMERS
+/*
+ * Set the next event
+ */
+static void mips_set_next_event(unsigned long evt)
+{
+	write_c0_compare(read_c0_count() + evt);
+}
+#endif
 
 /*
  * Null high precision timer functions for systems lacking one.
@@ -95,13 +255,13 @@ static void c0_timer_ack(void)
 	unsigned int count;
 
 	/* Ack this timer interrupt and set the next one.  */
-	expirelo += cycles_per_jiffy;
+	expirelo += hrt_cycles_per_jiffy;
 	write_c0_compare(expirelo);
-
 	/* Check to see if we have missed any timer interrupts.  */
-	while (((count = read_c0_count()) - expirelo) < 0x7fffffff) {
-		/* missed_timer_count++; */
-		expirelo = count + cycles_per_jiffy;
+	count = read_c0_count();
+	if ((count - expirelo) < 0x7fffffff) {
+		/* missed_timer_count++;  */
+		expirelo = count + hrt_cycles_per_jiffy;
 		write_c0_compare(expirelo);
 	}
 }
@@ -160,7 +320,7 @@ irqreturn_t timer_interrupt(int irq, void *dev_id)
 
 	/*
 	 * If we have an externally synchronized Linux clock, then update
-	 * CMOS clock accordingly every ~11 minutes. rtc_mips_set_time() has to be
+	 * CMOS clock accordingly every ~11 minutes. rtc_set_time() has to be
 	 * called as close as possible to 500 ms before the new second starts.
 	 */
 	if (ntp_synced() &&
@@ -228,12 +388,31 @@ static inline int handle_perf_irq (int r2)
 		!r2;
 }
 
+#ifdef CONFIG_HIGH_RES_TIMERS
+void event_timer_handler(struct pt_regs *regs)
+{
+	c0_timer_ack();
+	if (lapic_clockevent.event_handler)
+		lapic_clockevent.event_handler(regs,NULL);
+}
+#endif
+
 asmlinkage void ll_timer_interrupt(int irq)
 {
 	int r2 = cpu_has_mips_r2;
 
 	irq_enter();
 	kstat_this_cpu.irqs[irq]++;
+
+
+#ifdef CONFIG_HIGH_RES_TIMERS
+	/*
+	 * Run the event handler
+	 */
+	if (!r2 || (read_c0_cause() & (1 << 26)))
+		if (lapic_clockevent.event_handler)
+			lapic_clockevent.event_handler(regs,NULL);
+#endif
 
 	if (handle_perf_irq(r2))
 		goto out;
@@ -267,7 +446,7 @@ asmlinkage void ll_local_timer_interrupt(int irq)
  *      b) (optional) calibrate and set the mips_hpt_frequency
  *	    (only needed if you intended to use cpu counter as timer interrupt
  *	     source)
- * 2) setup xtime based on rtc_mips_get_time().
+ * 2) setup xtime based on rtc_get_time().
  * 3) calculate a couple of cached variables for later usage
  * 4) plat_timer_setup() -
  *	a) (optional) over-write any choices made above by time_init().
@@ -358,6 +537,9 @@ static void __init init_mips_clocksource(void)
 
 void __init time_init(void)
 {
+#ifdef CONFIG_HIGH_RES_TIMERS
+	u64 temp;
+#endif
 	if (board_time_init)
 		board_time_init();
 
@@ -400,6 +582,12 @@ void __init time_init(void)
 		}
 		if (!mips_hpt_frequency)
 			mips_hpt_frequency = calibrate_hpt();
+
+#ifdef CONFIG_HIGH_RES_TIMERS
+		hrt_cycles_per_jiffy = ( (CONFIG_CPU_SPEED * 1000000) + HZ / 2) / HZ;
+#else
+		hrt_cycles_per_jiffy = cycles_per_jiffy;
+#endif
 
 		/* Report the high precision timer rate for a reference.  */
 		printk("Using %u.%03u MHz high precision timer.\n",

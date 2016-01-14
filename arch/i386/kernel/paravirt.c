@@ -273,6 +273,16 @@ int paravirt_disable_iospace(void)
 	return ret;
 }
 
+#ifdef CONFIG_HIGHPTE
+/*
+ * kmap_atomic() might be an inline or a macro:
+ */
+static void *kmap_atomic_func(struct page *page, enum km_type idx)
+{
+	return kmap_atomic(page, idx);
+}
+#endif
+
 struct paravirt_ops paravirt_ops = {
 	.name = "bare hardware",
 	.paravirt_enabled = 0,
@@ -361,7 +371,7 @@ struct paravirt_ops paravirt_ops = {
 	.pte_update_defer = paravirt_nop,
 
 #ifdef CONFIG_HIGHPTE
-	.kmap_atomic_pte = kmap_atomic,
+	.kmap_atomic_pte = kmap_atomic_func,
 #endif
 
 #ifdef CONFIG_X86_PAE

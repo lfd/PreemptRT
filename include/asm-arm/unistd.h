@@ -379,6 +379,10 @@
 #define __NR_timerfd			(__NR_SYSCALL_BASE+350)
 #define __NR_eventfd			(__NR_SYSCALL_BASE+351)
 
+#ifndef __ASSEMBLY__
+#define NR_syscalls			(__NR_set_mempolicy + 1 - __NR_SYSCALL_BASE)
+#endif
+
 /*
  * The following SWIs are ARM private.
  */

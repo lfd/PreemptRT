@@ -846,6 +846,21 @@ out_unlock_set:
 	return class;
 }
 
+#if defined(CONFIG_PROVE_LOCKING) || defined(CONFIG_TRACE_IRQFLAGS)
+
+#define RECURSION_LIMIT 40
+
+static int noinline print_infinite_recursion_bug(void)
+{
+	if (!debug_locks_off_graph_unlock())
+		return 0;
+
+	WARN_ON(1);
+
+	return 0;
+}
+#endif /* CONFIG_PROVE_LOCKING || CONFIG_TRACE_IRQFLAGS */
+
 #ifdef CONFIG_PROVE_LOCKING
 /*
  * Allocate a lockdep entry. (assumes the graph_lock held, returns
@@ -972,18 +987,6 @@ static noinline int print_circular_bug_tail(void)
 
 	printk("\nstack backtrace:\n");
 	dump_stack();
-
-	return 0;
-}
-
-#define RECURSION_LIMIT 40
-
-static int noinline print_infinite_recursion_bug(void)
-{
-	if (!debug_locks_off_graph_unlock())
-		return 0;
-
-	WARN_ON(1);
 
 	return 0;
 }
@@ -1180,6 +1183,7 @@ find_usage_backwards(struct lock_class *source, unsigned int depth)
 	return 1;
 }
 
+#ifdef CONFIG_PROVE_LOCKING
 static int
 print_bad_irq_dependency(struct task_struct *curr,
 			 struct held_lock *prev,
@@ -1240,6 +1244,7 @@ print_bad_irq_dependency(struct task_struct *curr,
 
 	return 0;
 }
+#endif /* CONFIG_PROVE_LOCKING */
 
 static int
 check_usage(struct task_struct *curr, struct held_lock *prev,

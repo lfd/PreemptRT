@@ -111,10 +111,15 @@ static int loadavg_rt_read_proc(char *page, char **start, off_t off,
 	extern unsigned long rt_nr_running(void);
 	int a, b, c;
 	int len;
+	unsigned long seq;
 
-	a = avenrun_rt[0] + (FIXED_1/200);
-	b = avenrun_rt[1] + (FIXED_1/200);
-	c = avenrun_rt[2] + (FIXED_1/200);
+	do {
+		seq = read_seqbegin(&xtime_lock);
+		a = avenrun_rt[0] + (FIXED_1/200);
+		b = avenrun_rt[1] + (FIXED_1/200);
+		c = avenrun_rt[2] + (FIXED_1/200);
+	} while (read_seqretry(&xtime_lock, seq));
+
 	len = sprintf(page,"%d.%02d %d.%02d %d.%02d %ld/%d %d\n",
 		LOAD_INT(a), LOAD_FRAC(a),
 		LOAD_INT(b), LOAD_FRAC(b),

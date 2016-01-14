@@ -304,6 +304,12 @@ extern void hrtick_resched(void);
 
 extern void sched_show_task(struct task_struct *p);
 
+#ifdef CONFIG_GENERIC_HARDIRQS
+extern int debug_direct_keyboard;
+#else
+# define debug_direct_keyboard 0
+#endif
+
 #ifdef CONFIG_DETECT_SOFTLOCKUP
 extern void softlockup_tick(void);
 extern void spawn_softlockup_task(void);

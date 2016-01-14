@@ -209,6 +209,8 @@ out:
 notrace void
 ftrace_wake_up_task(struct task_struct *wakee, struct task_struct *curr)
 {
+	trace_event_wakeup(wakee, curr);
+
 	if (likely(!tracer_enabled))
 		return;
 
@@ -218,6 +220,8 @@ ftrace_wake_up_task(struct task_struct *wakee, struct task_struct *curr)
 notrace void
 ftrace_wake_up_new_task(struct task_struct *wakee, struct task_struct *curr)
 {
+	trace_event_wakeup(wakee, curr);
+
 	if (likely(!tracer_enabled))
 		return;
 

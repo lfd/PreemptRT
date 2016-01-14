@@ -116,7 +116,7 @@ static void default_idle(void)
 	 */
 	smp_mb();
 	local_irq_disable();
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		/* Enables interrupts one instruction before HLT.
 		   x86 special cases this so there is no race. */
 		safe_halt();
@@ -202,7 +202,7 @@ void cpu_idle (void)
 	current_thread_info()->status |= TS_POLLING;
 	/* endless idle loop with no priority at all */
 	while (1) {
-		while (!need_resched()) {
+		while (!need_resched() && !need_resched_delayed()) {
 			void (*idle)(void);
 
 			if (__get_cpu_var(cpu_idle_state))
@@ -231,12 +231,14 @@ void cpu_idle (void)
 			__exit_idle();
 		}
 
-		trace_preempt_exit_idle();
 		tick_nohz_restart_sched_tick();
-		preempt_enable_no_resched();
-		schedule();
+		local_irq_disable();
+		trace_preempt_exit_idle();
+		__preempt_enable_no_resched();
+		__schedule();
 		preempt_disable();
 		trace_preempt_enter_idle();
+		local_irq_enable();
 	}
 }
 
@@ -252,10 +254,10 @@ void cpu_idle (void)
  */
 void mwait_idle_with_hints(unsigned long eax, unsigned long ecx)
 {
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
-		if (!need_resched())
+		if (!need_resched() && !need_resched_delayed())
 			__mwait(eax, ecx);
 	}
 }
@@ -263,10 +265,10 @@ void mwait_idle_with_hints(unsigned long eax, unsigned long ecx)
 /* Default MONITOR/MWAIT with no hints, used for default C1 state */
 static void mwait_idle(void)
 {
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
-		if (!need_resched()) {
+		if (!need_resched() && !need_resched_delayed()) {
 			trace_hardirqs_on();
 			__sti_mwait(0, 0);
 		} else
@@ -385,7 +387,7 @@ void exit_thread(void)
 	struct thread_struct *t = &me->thread;
 
 	if (me->thread.io_bitmap_ptr) { 
-		struct tss_struct *tss = &per_cpu(init_tss, get_cpu());
+		struct tss_struct *tss;
 
 		kfree(t->io_bitmap_ptr);
 		t->io_bitmap_ptr = NULL;
@@ -393,6 +395,7 @@ void exit_thread(void)
 		/*
 		 * Careful, clear this in the TSS too:
 		 */
+		tss = &per_cpu(init_tss, get_cpu());
 		memset(tss->io_bitmap, 0xff, t->io_bitmap_max);
 		t->io_bitmap_max = 0;
 		put_cpu();

@@ -22,6 +22,34 @@ struct ftrace_ops {
 	struct ftrace_ops *next;
 };
 
+extern int function_trace_stop;
+
+/**
+ * ftrace_stop - stop function tracer.
+ *
+ * A quick way to stop the function tracer. Note this an on off switch,
+ * it is not something that is recursive like preempt_disable.
+ * This does not disable the calling of mcount, it only stops the
+ * calling of functions from mcount.
+ */
+static inline void ftrace_stop(void)
+{
+	function_trace_stop = 1;
+}
+
+/**
+ * ftrace_start - start the function tracer.
+ *
+ * This function is the inverse of ftrace_stop. This does not enable
+ * the function tracing if the function tracer is disabled. This only
+ * sets the function tracer flag to contiune calling the functions
+ * from mcount.
+ */
+static inline void ftrace_start(void)
+{
+	function_trace_stop = 0;
+}
+
 /*
  * The ftrace_ops must be a static and should also
  * be read_mostly.  These functions do modify read_mostly variables

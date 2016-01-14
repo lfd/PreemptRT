@@ -333,6 +333,8 @@
 #define __NR_timerfd_settime	325
 #define __NR_timerfd_gettime	326
 
+#define NR_syscalls 327
+
 #ifdef __KERNEL__
 
 #define __ARCH_WANT_IPC_PARSE_VERSION

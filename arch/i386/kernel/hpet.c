@@ -9,6 +9,7 @@
 #include <linux/pm.h>
 
 #include <asm/fixmap.h>
+#include <asm/i8253.h>
 #include <asm/hpet.h>
 #include <asm/i8253.h>
 #include <asm/io.h>

@@ -369,12 +369,10 @@ static inline void remove_wait_queue_locked(wait_queue_head_t *q,
  * They are racy.  DO NOT use them, use the wait_event* interfaces above.  
  * We plan to remove these interfaces during 2.7.
  */
-extern void FASTCALL(sleep_on(wait_queue_head_t *q));
-extern long FASTCALL(sleep_on_timeout(wait_queue_head_t *q,
-				      signed long timeout));
-extern void FASTCALL(interruptible_sleep_on(wait_queue_head_t *q));
-extern long FASTCALL(interruptible_sleep_on_timeout(wait_queue_head_t *q,
-						    signed long timeout));
+extern void sleep_on(wait_queue_head_t *q);
+extern long sleep_on_timeout(wait_queue_head_t *q, long timeout);
+extern void interruptible_sleep_on(wait_queue_head_t *q);
+extern long interruptible_sleep_on_timeout(wait_queue_head_t *q, long timeout);
 
 /*
  * Waitqueues which are removed from the waitqueue_head at wakeup time

@@ -199,12 +199,12 @@ __dequeue_entity(struct cfs_rq *cfs_rq, struct sched_entity *se)
 	se->on_rq = 0;
 }
 
-static inline struct rb_node * first_fair(struct cfs_rq *cfs_rq)
+static inline struct rb_node *first_fair(struct cfs_rq *cfs_rq)
 {
 	return cfs_rq->rb_leftmost;
 }
 
-static struct sched_entity * __pick_next_entity(struct cfs_rq *cfs_rq)
+static struct sched_entity *__pick_next_entity(struct cfs_rq *cfs_rq)
 {
 	return rb_entry(first_fair(cfs_rq), struct sched_entity, run_node);
 }
@@ -356,6 +356,28 @@ update_stats_wait_start(struct cfs_rq *cfs_rq, struct sched_entity *se, u64 now)
 }
 
 /*
+ * We calculate fair deltas here, so protect against the random effects
+ * of a multiplication overflow by capping it to the runtime limit:
+ */
+#if BITS_PER_LONG == 32
+static inline unsigned long
+calc_weighted(unsigned long delta, unsigned long weight, int shift)
+{
+	u64 tmp = (u64)delta * weight >> shift;
+
+	if (unlikely(tmp > sysctl_sched_runtime_limit*2))
+		return sysctl_sched_runtime_limit*2;
+	return tmp;
+}
+#else
+static inline unsigned long
+calc_weighted(unsigned long delta, unsigned long weight, int shift)
+{
+	return delta * weight >> shift;
+}
+#endif
+
+/*
  * Task is being enqueued - update stats:
  */
 static void
@@ -412,7 +434,8 @@ __update_stats_wait_end(struct cfs_rq *cfs_rq, struct sched_entity *se, u64 now)
 #endif
 
 	if (unlikely(se->load.weight != NICE_0_LOAD))
-		delta_fair = (u64)delta_fair * se->load.weight >> NICE_0_SHIFT;
+		delta_fair = calc_weighted(delta_fair, se->load.weight,
+							NICE_0_SHIFT);
 
 	add_wait_runtime(cfs_rq, se, delta_fair);
 }
@@ -493,7 +516,8 @@ __enqueue_sleeper(struct cfs_rq *cfs_rq, struct sched_entity *se, u64 now)
 						load + se->load.weight);
 
 	if (unlikely(se->load.weight != NICE_0_LOAD))
-		delta_fair = (u64)delta_fair * se->load.weight >> NICE_0_SHIFT;
+		delta_fair = calc_weighted(delta_fair, se->load.weight,
+							NICE_0_SHIFT);
 
 	prev_runtime = se->wait_runtime;
 	__add_wait_runtime(cfs_rq, se, delta_fair);
@@ -846,7 +870,7 @@ static void check_preempt_curr_fair(struct rq *rq, struct task_struct *p)
 		__check_preempt_curr_fair(cfs_rq, &p->se, &curr->se, gran);
 }
 
-static struct task_struct * pick_next_task_fair(struct rq *rq, u64 now)
+static struct task_struct *pick_next_task_fair(struct rq *rq, u64 now)
 {
 	struct cfs_rq *cfs_rq = &rq->cfs;
 	struct sched_entity *se;

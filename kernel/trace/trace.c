@@ -3029,6 +3029,38 @@ static struct file_operations tracing_entries_fops = {
 	.write		= tracing_entries_write,
 };
 
+void user_trace_start(void)
+{
+	struct trace_array *tr = &global_trace;
+
+	mutex_lock(&trace_types_lock);
+	if (tr->ctrl)
+		goto out;
+
+	tr->ctrl = 1;
+	if (current_trace && current_trace->ctrl_update)
+		current_trace->ctrl_update(tr);
+ out:
+	mutex_unlock(&trace_types_lock);
+}
+EXPORT_SYMBOL_GPL(user_trace_start);
+
+void user_trace_stop(void)
+{
+	struct trace_array *tr = &global_trace;
+
+	mutex_lock(&trace_types_lock);
+	if (!tr->ctrl)
+		goto out;
+
+	tr->ctrl = 0;
+	if (current_trace && current_trace->ctrl_update)
+		current_trace->ctrl_update(tr);
+ out:
+	mutex_unlock(&trace_types_lock);
+}
+EXPORT_SYMBOL_GPL(user_trace_stop);
+
 #ifdef CONFIG_DYNAMIC_FTRACE
 
 static ssize_t

@@ -807,7 +807,9 @@ static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 	struct sigpending *pending;
 	struct sigqueue *q;
 
+#ifdef CONFIG_SMP
 	assert_spin_locked(&t->sighand->siglock);
+#endif
 	if (!prepare_signal(sig, t))
 		return 0;
 
@@ -1562,6 +1564,7 @@ static void ptrace_stop(int exit_code, int clear_code, siginfo_t *info)
 	if (!unlikely(killed) && may_ptrace_stop()) {
 		do_notify_parent_cldstop(current, CLD_TRAPPED);
 		read_unlock(&tasklist_lock);
+		current->flags &= ~PF_NOSCHED;
 		schedule();
 	} else {
 		/*
@@ -1630,6 +1633,7 @@ finish_stop(int stop_count)
 	}
 
 	do {
+		current->flags &= ~PF_NOSCHED;
 		schedule();
 	} while (try_to_freeze());
 	/*

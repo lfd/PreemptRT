@@ -68,6 +68,7 @@ static struct super_block *alloc_super(struct file_system_type *type)
 		INIT_LIST_HEAD(&s->s_dirty);
 		INIT_LIST_HEAD(&s->s_io);
 		INIT_LOCK_LIST_HEAD(&s->s_files);
+		init_qrcu_struct(&s->s_qrcu);
 		INIT_LIST_HEAD(&s->s_instances);
 		INIT_HLIST_HEAD(&s->s_anon);
 		INIT_LIST_HEAD(&s->s_inodes);
@@ -568,12 +569,15 @@ out:
 static void mark_files_ro(struct super_block *sb)
 {
 	struct file *f;
+	int idx;
 
+	idx = qrcu_read_lock(&sb->s_qrcu);
 	filevec_add_drain_all();
 	lock_list_for_each_entry(f, &sb->s_files, f_u.fu_llist) {
 		if (S_ISREG(f->f_path.dentry->d_inode->i_mode) && file_count(f))
 			f->f_mode &= ~FMODE_WRITE;
 	}
+	qrcu_read_unlock(&sb->s_qrcu, idx);
 }
 
 /**

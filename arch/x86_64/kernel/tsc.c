@@ -249,13 +249,13 @@ __setup("notsc", notsc_setup);
 
 
 /* clock source code: */
-static cycle_t read_tsc(void)
+static notrace cycle_t read_tsc(void)
 {
 	cycle_t ret = (cycle_t)get_cycles_sync();
 	return ret;
 }
 
-static cycle_t __vsyscall_fn vread_tsc(void)
+static notrace cycle_t __vsyscall_fn vread_tsc(void)
 {
 	cycle_t ret = (cycle_t)get_cycles_sync();
 	return ret;

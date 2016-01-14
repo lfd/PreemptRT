@@ -2758,6 +2758,9 @@ lock_set_subclass(struct lockdep_map *lock,
 {
 	unsigned long flags;
 
+	if (unlikely(!lock_stat && !prove_locking))
+		return;
+
 	if (unlikely(current->lockdep_recursion))
 		return;
 

@@ -1102,6 +1102,8 @@ int do_sysinfo(struct sysinfo *info)
 
 	do {
 		struct timespec tp;
+		s64 nsecs;
+
 		seq = read_seqbegin(&xtime_lock);
 
 		/*
@@ -1111,7 +1113,10 @@ int do_sysinfo(struct sysinfo *info)
 		 * too.
 		 */
 
-		getnstimeofday(&tp);
+		tp = xtime;
+		nsecs = __get_nsec_offset();
+		timespec_add_ns(&tp, nsecs);
+
 		tp.tv_sec += wall_to_monotonic.tv_sec;
 		tp.tv_nsec += wall_to_monotonic.tv_nsec;
 		if (tp.tv_nsec - NSEC_PER_SEC >= 0) {

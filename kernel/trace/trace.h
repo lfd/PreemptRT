@@ -23,6 +23,8 @@ enum trace_type {
 	TRACE_TIMESTAMP,
 	TRACE_TASK,
 	TRACE_WAKEUP,
+	TRACE_SYSCALL,
+	TRACE_SYSRET,
 
 	__TRACE_LAST_TYPE
 };
@@ -105,6 +107,19 @@ struct wakeup_entry {
 	unsigned		curr_prio;
 };
 
+struct syscall_entry {
+	unsigned long		ip;
+	unsigned long		nr;
+	unsigned long		p1;
+	unsigned long		p2;
+	unsigned long		p3;
+};
+
+struct sysret_entry {
+	unsigned long		ip;
+	unsigned long		ret;
+};
+
 /*
  * The trace entry - the most basic unit of tracing. This is what
  * is printed in the end as a single line in the trace output, such as:
@@ -131,6 +146,8 @@ struct trace_entry {
 		struct timestamp_entry		timestamp;
 		struct task_entry		task;
 		struct wakeup_entry		wakeup;
+		struct syscall_entry		syscall;
+		struct sysret_entry		sysret;
 	};
 };
 
@@ -307,11 +324,30 @@ void trace_function(struct trace_array *tr,
 		    unsigned long ip,
 		    unsigned long parent_ip,
 		    unsigned long flags);
+void tracing_event_syscall(struct trace_array *tr,
+			   struct trace_array_cpu *data,
+			   unsigned long flags,
+			   unsigned long ip,
+			   unsigned long nr,
+			   unsigned long p1,
+			   unsigned long p2,
+			   unsigned long p3);
+void tracing_event_sysret(struct trace_array *tr,
+			  struct trace_array_cpu *data,
+			  unsigned long flags,
+			  unsigned long ip,
+			  unsigned long ret);
 
-void tracing_start_function_trace(void);
-void tracing_stop_function_trace(void);
 int register_tracer(struct tracer *type);
 void unregister_tracer(struct tracer *type);
+
+#ifdef CONFIG_FTRACE
+void tracing_start_function_trace(void);
+void tracing_stop_function_trace(void);
+#else
+# define tracing_start_function_trace()	do { } while (0)
+# define tracing_stop_function_trace()	do { } while (0)
+#endif
 
 extern unsigned long nsecs_to_usecs(unsigned long nsecs);
 

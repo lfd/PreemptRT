@@ -31,6 +31,9 @@
 
 #include <linux/stacktrace.h>
 
+#include <asm/asm-offsets.h>
+#include <asm/unistd.h>
+
 #include "trace.h"
 
 unsigned long __read_mostly	tracing_max_latency = (cycle_t)ULONG_MAX;
@@ -1114,6 +1117,42 @@ void tracing_event_wakeup(struct trace_array *tr,
 	entry->wakeup.curr_prio	= curr_prio;
 }
 
+void tracing_event_syscall(struct trace_array *tr,
+			   struct trace_array_cpu *data,
+			   unsigned long flags,
+			   unsigned long ip,
+			   unsigned long nr,
+			   unsigned long p1,
+			   unsigned long p2,
+			   unsigned long p3)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_SYSCALL;
+	entry->syscall.ip		= ip;
+	entry->syscall.nr		= nr;
+	entry->syscall.p1		= p1;
+	entry->syscall.p2		= p2;
+	entry->syscall.p3		= p3;
+}
+
+void tracing_event_sysret(struct trace_array *tr,
+			  struct trace_array_cpu *data,
+			  unsigned long flags,
+			  unsigned long ip,
+			  unsigned long ret)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_SYSRET;
+	entry->sysret.ip		= ip;
+	entry->sysret.ret		= ret;
+}
+
 enum trace_file_type {
 	TRACE_FILE_LAT_FMT	= 1,
 };
@@ -1363,6 +1402,13 @@ seq_print_ip_sym(struct trace_seq *s, unsigned long ip, unsigned long sym_flags)
 	return ret;
 }
 
+extern unsigned long sys_call_table[NR_syscalls];
+
+#if defined(CONFIG_COMPAT) && defined(CONFIG_X86)
+extern unsigned long ia32_sys_call_table[], ia32_syscall_end[];
+# define IA32_NR_syscalls (ia32_syscall_end - ia32_sys_call_table)
+#endif
+
 static void print_lat_help_header(struct seq_file *m)
 {
 	seq_puts(m, "#                _------=> CPU#            \n");
@@ -1517,6 +1563,7 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 	unsigned long abs_usecs;
 	unsigned long rel_usecs;
 	char *comm;
+	unsigned long nr;
 	int S, T;
 	int i;
 	unsigned state;
@@ -1622,6 +1669,34 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 			   comm, entry->wakeup.pid,
 			   entry->wakeup.prio, entry->wakeup.curr_prio);
 		break;
+	case TRACE_SYSCALL:
+		seq_print_ip_sym(s, entry->syscall.ip, sym_flags);
+		nr = entry->syscall.nr;
+		trace_seq_putc(s, ' ');
+#if defined(CONFIG_COMPAT) && defined(CONFIG_X86)
+		if (nr & 0x80000000) {
+			nr &= ~0x80000000;
+			if (nr < IA32_NR_syscalls)
+				seq_print_ip_sym(s, ia32_sys_call_table[nr], 0);
+			else
+				trace_seq_printf(s, "<badsys(%lu)>", nr);
+		} else
+#endif
+			if (nr < NR_syscalls)
+				seq_print_ip_sym(s, sys_call_table[nr], 0);
+			else
+				trace_seq_printf(s, "<badsys(%lu)>", nr);
+
+		trace_seq_printf(s, " (%lx %lx %lx)\n",
+			   entry->syscall.p1,
+			   entry->syscall.p2,
+			   entry->syscall.p3);
+		break;
+	case TRACE_SYSRET:
+		seq_print_ip_sym(s, entry->sysret.ip, sym_flags);
+		trace_seq_printf(s, " < (%ld)\n",
+			   entry->sysret.ret);
+		break;
 	default:
 		trace_seq_printf(s, "Unknown type %d\n", entry->type);
 	}
@@ -1637,6 +1712,7 @@ static int print_trace_fmt(struct trace_iterator *iter)
 	unsigned long long t;
 	unsigned long secs;
 	char *comm;
+	long nr;
 	int ret;
 	int S, T;
 	int i;
@@ -1762,6 +1838,34 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		trace_seq_printf(s, " %s %d %d %d\n",
 			   comm, entry->wakeup.pid,
 			   entry->wakeup.prio, entry->wakeup.curr_prio);
+		break;
+	case TRACE_SYSCALL:
+		seq_print_ip_sym(s, entry->syscall.ip, sym_flags);
+		nr = entry->syscall.nr;
+		trace_seq_putc(s, ' ');
+#if defined(CONFIG_COMPAT) && defined(CONFIG_X86)
+		if (nr & 0x80000000) {
+			nr &= ~0x80000000;
+			if (nr < IA32_NR_syscalls)
+				seq_print_ip_sym(s, ia32_sys_call_table[nr], 0);
+			else
+				trace_seq_printf(s, "<badsys(%lu)>", nr);
+		} else
+#endif
+			if (nr < NR_syscalls)
+				seq_print_ip_sym(s, sys_call_table[nr], 0);
+			else
+				trace_seq_printf(s, "<badsys(%lu)>", nr);
+
+		trace_seq_printf(s, " (%lx %lx %lx)\n",
+			   entry->syscall.p1,
+			   entry->syscall.p2,
+			   entry->syscall.p3);
+		break;
+	case TRACE_SYSRET:
+		seq_print_ip_sym(s, entry->sysret.ip, sym_flags);
+		trace_seq_printf(s, "< (%ld)\n",
+			   entry->sysret.ret);
 		break;
 	default:
 		trace_seq_printf(s, "Unknown type %d\n", entry->type);

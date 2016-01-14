@@ -41,7 +41,12 @@
 #include <linux/percpu.h>
 #include <linux/cpumask.h>
 #include <linux/seqlock.h>
+
+#ifdef CONFIG_CLASSIC_RCU
 #include <linux/rcuclassic.h>
+#else
+#include <linux/rcupreempt.h>
+#endif
 
 /**
  * struct rcu_head - callback structure for use with RCU

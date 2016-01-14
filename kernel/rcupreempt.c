@@ -349,6 +349,8 @@ void __rcu_read_unlock(void)
 
 		ACCESS_ONCE(RCU_DATA_ME()->rcu_flipctr[idx])--;
 		local_irq_restore(flags);
+
+		__rcu_preempt_unboost();
 	}
 }
 EXPORT_SYMBOL_GPL(__rcu_read_unlock);

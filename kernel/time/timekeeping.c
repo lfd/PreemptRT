@@ -254,8 +254,10 @@ static void change_clocksource(void)
 
 	tick_clock_notify();
 
+#ifndef CONFIG_PREEMPT_RT
 	printk(KERN_INFO "Time: %s clocksource has been installed.\n",
 	       clock->name);
+#endif
 }
 #else
 static inline void change_clocksource(void) { }

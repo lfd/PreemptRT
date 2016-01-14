@@ -43,7 +43,7 @@ probe_sched_switch(struct rq *__rq, struct task_struct *prev,
 	data = ctx_trace->data[cpu];
 
 	if (likely(!atomic_read(&data->disabled)))
-		tracing_sched_switch_trace(ctx_trace, data, prev, next, flags, pc);
+		tracing_sched_switch_trace(ctx_trace, prev, next, flags, pc);
 
 	local_irq_restore(flags);
 }
@@ -66,7 +66,7 @@ probe_sched_wakeup(struct rq *__rq, struct task_struct *wakee, int success)
 	data = ctx_trace->data[cpu];
 
 	if (likely(!atomic_read(&data->disabled)))
-		tracing_sched_wakeup_trace(ctx_trace, data, wakee, current,
+		tracing_sched_wakeup_trace(ctx_trace, wakee, current,
 					   flags, pc);
 
 	local_irq_restore(flags);
@@ -93,7 +93,7 @@ static int tracing_sched_register(void)
 	ret = register_trace_sched_switch(probe_sched_switch);
 	if (ret) {
 		pr_info("sched trace: Couldn't activate tracepoint"
-			" probe to kernel_sched_schedule\n");
+			" probe to kernel_sched_switch\n");
 		goto fail_deprobe_wake_new;
 	}
 
@@ -185,12 +185,6 @@ void tracing_sched_switch_assign_trace(struct trace_array *tr)
 	ctx_trace = tr;
 }
 
-static void start_sched_trace(struct trace_array *tr)
-{
-	tracing_reset_online_cpus(tr);
-	tracing_start_sched_switch_record();
-}
-
 static void stop_sched_trace(struct trace_array *tr)
 {
 	tracing_stop_sched_switch_record();
@@ -199,7 +193,7 @@ static void stop_sched_trace(struct trace_array *tr)
 static int sched_switch_trace_init(struct trace_array *tr)
 {
 	ctx_trace = tr;
-	start_sched_trace(tr);
+	tracing_start_sched_switch_record();
 	return 0;
 }
 
@@ -227,6 +221,7 @@ static struct tracer sched_switch_trace __read_mostly =
 	.reset		= sched_switch_trace_reset,
 	.start		= sched_switch_trace_start,
 	.stop		= sched_switch_trace_stop,
+	.wait_pipe	= poll_wait_pipe,
 #ifdef CONFIG_FTRACE_SELFTEST
 	.selftest    = trace_selftest_startup_sched_switch,
 #endif

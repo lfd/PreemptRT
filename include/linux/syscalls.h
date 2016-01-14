@@ -55,6 +55,7 @@ struct compat_timeval;
 struct robust_list_head;
 struct getcpu_cache;
 struct old_linux_dirent;
+struct perf_counter_hw_event;
 
 #include <linux/types.h>
 #include <linux/aio_abi.h>
@@ -694,4 +695,11 @@ asmlinkage long sys_pipe(int __user *);
 
 int kernel_execve(const char *filename, char *const argv[], char *const envp[]);
 
+
+asmlinkage int sys_perf_counter_open(
+
+	struct perf_counter_hw_event	*hw_event_uptr		__user,
+	pid_t				pid,
+	int				cpu,
+	int				group_fd);
 #endif

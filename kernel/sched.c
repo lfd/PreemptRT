@@ -2207,7 +2207,7 @@ static inline void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	 * If we pushed an RT task off the runqueue,
 	 * then kick other CPUs, they might run it:
 	 */
-	if (unlikely(rt_task(current) && prev->se.on_rq && rt_task(prev))) {
+	if (unlikely(rt_task(current) && rq->rt_nr_running > 1)) {
 		schedstat_inc(rq, rto_schedule);
 		smp_send_reschedule_allbutself_cpumask(current->cpus_allowed);
 	}

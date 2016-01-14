@@ -251,6 +251,22 @@ static struct sysrq_key_op sysrq_showregs_op = {
 	.enable_mask	= SYSRQ_ENABLE_DUMP,
 };
 
+#if defined(__i386__)
+
+static void sysrq_handle_showallregs(int key, struct tty_struct *tty)
+{
+	nmi_show_all_regs();
+}
+
+static struct sysrq_key_op sysrq_showallregs_op = {
+	.handler	= sysrq_handle_showallregs,
+	.help_msg	= "showalLcpupc",
+	.action_msg	= "Show Regs On All CPUs",
+};
+#else
+#define sysrq_showallregs_op (*(struct sysrq_key_op *)0)
+#endif
+
 static void sysrq_handle_showstate(int key, struct tty_struct *tty)
 {
 	show_state();
@@ -404,7 +420,7 @@ static struct sysrq_key_op *sysrq_key_table[36] = {
 	NULL,				/* x */
 	/* y: May be registered on sparc64 for global register dump */
 	NULL,				/* y */
-	NULL				/* z */
+	&sysrq_showallregs_op,		/* l */
 };
 
 /* key2index calculation, -1 on invalid index */

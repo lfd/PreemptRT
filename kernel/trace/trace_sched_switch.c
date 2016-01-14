@@ -16,7 +16,6 @@
 
 static struct trace_array	*ctx_trace;
 static int __read_mostly	tracer_enabled;
-int __read_mostly		tracing_sched_switch_enabled;
 
 static void notrace
 ctx_switch_func(struct task_struct *prev, struct task_struct *next)
@@ -108,18 +107,13 @@ static struct tracer sched_switch_trace __read_mostly =
 	.init		= sched_switch_trace_init,
 	.reset		= sched_switch_trace_reset,
 	.ctrl_update	= sched_switch_trace_ctrl_update,
+#ifdef CONFIG_FTRACE_SELFTEST
+	.selftest    = trace_selftest_startup_sched_switch,
+#endif
 };
 
 __init static int init_sched_switch_trace(void)
 {
-	int ret;
-
-	ret = register_tracer(&sched_switch_trace);
-	if (ret)
-		return ret;
-
-	tracing_sched_switch_enabled = 1;
-
-	return ret;
+	return register_tracer(&sched_switch_trace);
 }
 device_initcall(init_sched_switch_trace);

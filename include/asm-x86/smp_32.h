@@ -161,5 +161,7 @@ static inline int hard_smp_processor_id(void)
 
 #endif /* CONFIG_X86_LOCAL_APIC */
 
+#define HAVE_RESCHEDULE_ALLBUTSELF_CPUMASK 1
+
 #endif /* !ASSEMBLY */
 #endif

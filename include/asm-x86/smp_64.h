@@ -97,5 +97,7 @@ static inline int hard_smp_processor_id(void)
 	return GET_APIC_ID(*(u32 *)(APIC_BASE + APIC_ID));
 }
 
+#define HAVE_RESCHEDULE_ALLBUTSELF_CPUMASK 1
+
 #endif
 

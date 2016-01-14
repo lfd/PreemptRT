@@ -46,7 +46,7 @@ ret_fast_syscall:
 fast_work_pending:
 	str	r0, [sp, #S_R0+S_OFF]!		@ returned r0
 work_pending:
-	tst	r1, #_TIF_NEED_RESCHED
+	tst	r1, #_TIF_NEED_RESCHED | _TIF_NEED_RESCHED_DELAYED
 	bne	work_resched
 	tst	r1, #_TIF_NOTIFY_RESUME | _TIF_SIGPENDING
 	beq	no_work_pending
@@ -56,7 +56,8 @@ work_pending:
 	b	ret_slow_syscall		@ Check work again
 
 work_resched:
-	bl	schedule
+	bl	__schedule
+
 /*
  * "slow" syscall return path.  "why" tells us if this was a real syscall.
  */
@@ -396,6 +397,7 @@ ENTRY(sys_oabi_call_table)
 #include "calls.S"
 #undef ABI
 #undef OBSOLETE
+#endif
 
 #ifdef CONFIG_FRAME_POINTER
 
@@ -445,7 +447,7 @@ mcount:
 	ldr	ip, =mcount_enabled	@ leave early, if disabled
 	ldr	ip, [ip]
 	cmp	ip, #0
-	moveq	pc,lr
+	moveq	pc, lr
 
 	mov	ip,  sp
 	stmdb   sp!, {r0 - r3, fp, ip, lr, pc}	@ create stack frame
@@ -501,8 +503,6 @@ arm_return_addr:
 	ldr	r0, [r0, #-4]   @ get target return address
 1:
 	mov	pc, lr
-
-#endif
 
 #endif
 

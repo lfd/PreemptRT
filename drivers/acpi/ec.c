@@ -479,7 +479,19 @@ static u32 acpi_ec_gpe_handler(void *data)
 	atomic_inc(&ec->event_count);
 
 	if (acpi_ec_mode == EC_INTR) {
+#if 0
 		wake_up(&ec->wait);
+#else
+		// hack ...
+		if (waitqueue_active(&ec->wait)) {
+			struct task_struct *task;
+
+			task = list_entry(ec->wait.task_list.next,
+					  wait_queue_t, task_list)->private;
+			if (task)
+				wake_up_process(task);
+		}
+#endif
 	}
 
 	value = acpi_ec_read_status(ec);

@@ -17,6 +17,7 @@
 #include <asm/tlbflush.h>
 #include <asm/apic.h>
 #include <asm/iommu.h>
+#include <asm/hpet.h>
 
 /*
  * Power off function, if any
@@ -112,6 +113,9 @@ void machine_shutdown(void)
 
 	disable_IO_APIC();
 
+#ifdef CONFIG_HPET_TIMER
+	hpet_disable();
+#endif
 	local_irq_restore(flags);
 
 	pci_iommu_shutdown();

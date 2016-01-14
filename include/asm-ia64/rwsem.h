@@ -29,7 +29,7 @@
 /*
  * the semaphore definition
  */
-struct rw_semaphore {
+struct compat_rw_semaphore {
 	signed long		count;
 	spinlock_t		wait_lock;
 	struct list_head	wait_list;
@@ -46,16 +46,16 @@ struct rw_semaphore {
 	{ RWSEM_UNLOCKED_VALUE, SPIN_LOCK_UNLOCKED, \
 	  LIST_HEAD_INIT((name).wait_list) }
 
-#define DECLARE_RWSEM(name) \
-	struct rw_semaphore name = __RWSEM_INITIALIZER(name)
+#define COMPAT_DECLARE_RWSEM(name) \
+	struct compat_rw_semaphore name = __RWSEM_INITIALIZER(name)
 
-extern struct rw_semaphore *rwsem_down_read_failed(struct rw_semaphore *sem);
-extern struct rw_semaphore *rwsem_down_write_failed(struct rw_semaphore *sem);
-extern struct rw_semaphore *rwsem_wake(struct rw_semaphore *sem);
-extern struct rw_semaphore *rwsem_downgrade_wake(struct rw_semaphore *sem);
+extern struct compat_rw_semaphore *rwsem_down_read_failed(struct compat_rw_semaphore *sem);
+extern struct compat_rw_semaphore *rwsem_down_write_failed(struct compat_rw_semaphore *sem);
+extern struct compat_rw_semaphore *rwsem_wake(struct compat_rw_semaphore *sem);
+extern struct compat_rw_semaphore *rwsem_downgrade_wake(struct compat_rw_semaphore *sem);
 
 static inline void
-init_rwsem (struct rw_semaphore *sem)
+compat_init_rwsem (struct compat_rw_semaphore *sem)
 {
 	sem->count = RWSEM_UNLOCKED_VALUE;
 	spin_lock_init(&sem->wait_lock);
@@ -66,7 +66,7 @@ init_rwsem (struct rw_semaphore *sem)
  * lock for reading
  */
 static inline void
-__down_read (struct rw_semaphore *sem)
+__down_read (struct compat_rw_semaphore *sem)
 {
 	long result = ia64_fetchadd8_acq((unsigned long *)&sem->count, 1);
 
@@ -78,7 +78,7 @@ __down_read (struct rw_semaphore *sem)
  * lock for writing
  */
 static inline void
-__down_write (struct rw_semaphore *sem)
+__down_write (struct compat_rw_semaphore *sem)
 {
 	long old, new;
 
@@ -95,7 +95,7 @@ __down_write (struct rw_semaphore *sem)
  * unlock after reading
  */
 static inline void
-__up_read (struct rw_semaphore *sem)
+__up_read (struct compat_rw_semaphore *sem)
 {
 	long result = ia64_fetchadd8_rel((unsigned long *)&sem->count, -1);
 
@@ -107,7 +107,7 @@ __up_read (struct rw_semaphore *sem)
  * unlock after writing
  */
 static inline void
-__up_write (struct rw_semaphore *sem)
+__up_write (struct compat_rw_semaphore *sem)
 {
 	long old, new;
 
@@ -124,7 +124,7 @@ __up_write (struct rw_semaphore *sem)
  * trylock for reading -- returns 1 if successful, 0 if contention
  */
 static inline int
-__down_read_trylock (struct rw_semaphore *sem)
+__down_read_trylock (struct compat_rw_semaphore *sem)
 {
 	long tmp;
 	while ((tmp = sem->count) >= 0) {
@@ -139,7 +139,7 @@ __down_read_trylock (struct rw_semaphore *sem)
  * trylock for writing -- returns 1 if successful, 0 if contention
  */
 static inline int
-__down_write_trylock (struct rw_semaphore *sem)
+__down_write_trylock (struct compat_rw_semaphore *sem)
 {
 	long tmp = cmpxchg_acq(&sem->count, RWSEM_UNLOCKED_VALUE,
 			      RWSEM_ACTIVE_WRITE_BIAS);
@@ -150,7 +150,7 @@ __down_write_trylock (struct rw_semaphore *sem)
  * downgrade write lock to read lock
  */
 static inline void
-__downgrade_write (struct rw_semaphore *sem)
+__downgrade_write (struct compat_rw_semaphore *sem)
 {
 	long old, new;
 
@@ -170,7 +170,7 @@ __downgrade_write (struct rw_semaphore *sem)
 #define rwsem_atomic_add(delta, sem)	atomic64_add(delta, (atomic64_t *)(&(sem)->count))
 #define rwsem_atomic_update(delta, sem)	atomic64_add_return(delta, (atomic64_t *)(&(sem)->count))
 
-static inline int rwsem_is_locked(struct rw_semaphore *sem)
+static inline int compat_rwsem_is_locked(struct compat_rw_semaphore *sem)
 {
 	return (sem->count != 0);
 }

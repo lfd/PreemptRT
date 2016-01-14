@@ -491,10 +491,15 @@ endif
 
 include $(srctree)/arch/$(ARCH)/Makefile
 
-ifdef CONFIG_FRAME_POINTER
-CFLAGS		+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+
+ifdef CONFIG_MCOUNT
+CFLAGS                += -pg -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
-CFLAGS		+= -fomit-frame-pointer
+  ifdef CONFIG_FRAME_POINTER
+    CFLAGS		+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+  else
+    CFLAGS		+= -fomit-frame-pointer
+  endif
 endif
 
 ifdef CONFIG_DEBUG_INFO

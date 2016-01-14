@@ -190,7 +190,11 @@ static inline void disk_stat_set_all(struct gendisk *gendiskp, int value)	{
 }		
 
 #define __part_stat_add(part, field, addnd)				\
-	(per_cpu_ptr(part->dkstats, smp_processor_id())->field += addnd)
+do {									\
+	preempt_disable();						\
+	(per_cpu_ptr(part->dkstats, smp_processor_id())->field += addnd); \
+	preempt_enable();						\
+} while (0)
 
 #define __all_stat_add(gendiskp, part, field, addnd, sector)	\
 ({								\

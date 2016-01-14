@@ -635,7 +635,7 @@ rt_spin_lock_fastlock(struct rt_mutex *lock,
 		void  (*slowfn)(struct rt_mutex *lock))
 {
 	/* Temporary HACK! */
-	if (!current->in_printk)
+	if (likely(!current->in_printk))
 		might_sleep();
 	else if (in_atomic() || irqs_disabled())
 		/* don't grab locks for printk in atomic */
@@ -652,7 +652,7 @@ rt_spin_lock_fastunlock(struct rt_mutex *lock,
 			void  (*slowfn)(struct rt_mutex *lock))
 {
 	/* Temporary HACK! */
-	if (current->in_printk && (in_atomic() || irqs_disabled()))
+	if (unlikely(rt_mutex_owner(lock) != current) && current->in_printk)
 		/* don't grab locks for printk in atomic */
 		return;
 

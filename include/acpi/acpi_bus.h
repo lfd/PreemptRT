@@ -368,6 +368,8 @@ acpi_handle acpi_get_pci_rootbridge_handle(unsigned int, unsigned int);
 
 int acpi_pm_device_sleep_state(struct device *, int, int *);
 
+int acpi_pm_device_sleep_state(struct device *, int, int *);
+
 #endif				/* CONFIG_ACPI */
 
 #endif /*__ACPI_BUS_H__*/

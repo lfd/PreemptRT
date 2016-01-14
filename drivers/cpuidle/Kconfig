@@ -1,0 +1,39 @@
+menu "CPU idle PM support"
+
+config CPU_IDLE
+	bool "CPU idle PM support"
+	help
+	  CPU idle is a generic framework for supporting software-controlled
+	  idle processor power management.  It includes modular cross-platform
+	  governors that can be swapped during runtime.
+
+	  If you're using a mobile platform that supports CPU idle PM (e.g.
+	  an ACPI-capable notebook), you should say Y here.
+
+if CPU_IDLE
+
+comment "Governors"
+
+config CPU_IDLE_GOV_LADDER
+	tristate "'ladder' governor"
+	depends on CPU_IDLE
+	default y
+	help
+	  This cpuidle governor promotes and demotes through the supported idle
+	  states using residency time and bus master activity as metrics.  This
+	  algorithm was originally introduced in the old ACPI processor driver.
+
+config CPU_IDLE_GOV_MENU
+	tristate "'menu' governor"
+	depends on CPU_IDLE && NO_HZ
+	default y
+	help
+	  This cpuidle governor evaluates all available states and chooses the
+	  deepest state that meets all of the following constraints: BM activity,
+	  expected time until next timer interrupt, and last break event time
+	  delta.  It is designed to minimize power consumption.  Currently
+	  dynticks is required.
+
+endif	# CPU_IDLE
+
+endmenu

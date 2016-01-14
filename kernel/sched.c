@@ -654,7 +654,8 @@ static __read_mostly int scheduler_running;
  * part of the period that we allow rt tasks to run in us.
  * default: 0.95s
  */
-int sysctl_sched_rt_runtime = 950000;
+/* int sysctl_sched_rt_runtime = 950000; */
+int sysctl_sched_rt_runtime = -1;
 
 static inline u64 global_rt_period(void)
 {
@@ -7655,8 +7656,7 @@ void __init sched_init(void)
 
 #endif
 #ifdef CONFIG_RT_GROUP_SCHED
-		init_task_group.rt_runtime =
-			sysctl_sched_rt_runtime * NSEC_PER_USEC;
+		init_task_group.rt_runtime = global_rt_runtime();
 		INIT_LIST_HEAD(&rq->leaf_rt_rq_list);
 		init_tg_rt_entry(rq, &init_task_group,
 				&per_cpu(init_rt_rq, i),

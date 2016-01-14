@@ -71,7 +71,7 @@ int p9_idpool_get(struct p9_idpool *p)
 {
 	int i = 0;
 	int error;
-	unsigned int flags;
+	unsigned long flags;
 
 retry:
 	if (idr_pre_get(&p->pool, GFP_KERNEL) == 0)
@@ -102,7 +102,7 @@ EXPORT_SYMBOL(p9_idpool_get);
 
 void p9_idpool_put(int id, struct p9_idpool *p)
 {
-	unsigned int flags;
+	unsigned long flags;
 	spin_lock_irqsave(&p->lock, flags);
 	idr_remove(&p->pool, id);
 	spin_unlock_irqrestore(&p->lock, flags);

@@ -52,7 +52,7 @@ EXPORT_SYMBOL(dma_ops);
 
 static unsigned long dma_reserve __initdata;
 
-DEFINE_PER_CPU(struct mmu_gather, mmu_gathers);
+DEFINE_PER_CPU_LOCKED(struct mmu_gather, mmu_gathers);
 
 /*
  * NOTE: pagetable_init alloc all the fixmap pagetables contiguous on the

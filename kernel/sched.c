@@ -869,7 +869,7 @@ static DEFINE_PER_CPU(unsigned long long, prev_cpu_time);
  * enough to synchronize slowly diverging time sources and thus
  * it's good enough for tracing:
  */
-static DEFINE_SPINLOCK(time_sync_lock);
+static DEFINE_RAW_SPINLOCK(time_sync_lock);
 static unsigned long long prev_global_time;
 
 static unsigned long long __sync_cpu_clock(unsigned long long time, int cpu)

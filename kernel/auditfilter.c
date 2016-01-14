@@ -1210,7 +1210,7 @@ static inline int audit_add_rule(struct audit_entry *entry,
 	struct audit_entry *e;
 	struct audit_field *inode_f = entry->rule.inode_f;
 	struct audit_watch *watch = entry->rule.watch;
-	struct nameidata *ndp, *ndw;
+	struct nameidata *ndp = NULL, *ndw = NULL /* shut up gcc */;
 	int h, err, putnd_needed = 0;
 #ifdef CONFIG_AUDITSYSCALL
 	int dont_count = 0;

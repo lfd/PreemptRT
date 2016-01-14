@@ -241,9 +241,16 @@ static void vmcs_set_bits(unsigned long field, u32 mask)
 static void vmx_vcpu_load(struct kvm_vcpu *vcpu)
 {
 	u64 phys_addr = __pa(vcpu->vmcs);
-	int cpu;
+	int cpu = raw_smp_processor_id();
+	cpumask_t this_mask = cpumask_of_cpu(cpu);
 
-	cpu = get_cpu();
+	/*
+	 * Keep the context preemptible, but do not migrate
+	 * away to another CPU. TODO: make sure this persists.
+	 * Save/restore original mask.
+	 */
+	if (unlikely(!cpus_equal(current->cpus_allowed, this_mask)))
+		set_cpus_allowed(current, cpumask_of_cpu(cpu));
 
 	if (vcpu->cpu != cpu)
 		vcpu_clear(vcpu);
@@ -281,7 +288,6 @@ static void vmx_vcpu_load(struct kvm_vcpu *vcpu)
 static void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 {
 	kvm_put_guest_fpu(vcpu);
-	put_cpu();
 }
 
 static void vmx_vcpu_decache(struct kvm_vcpu *vcpu)
@@ -1862,6 +1868,7 @@ again:
 	}
 #endif
 
+	preempt_disable();
 	asm (
 		/* Store host registers */
 		"pushf \n\t"
@@ -2002,6 +2009,8 @@ again:
 
 		reload_tss();
 	}
+	preempt_enable();
+
 	++vcpu->stat.exits;
 
 #ifdef CONFIG_X86_64

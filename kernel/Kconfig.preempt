@@ -90,13 +90,12 @@ config PREEMPT_RCU
 
 endchoice
 
-config RCU_STATS
-	bool "/proc stats for preemptible RCU read-side critical sections"
-	depends on PREEMPT_RCU
+config RCU_TRACE
+	bool "Enable tracing for RCU - currently stats in /proc"
 	default y
 	help
-	  This option provides /proc stats to provide debugging info for
-	  the preemptible realtime RCU implementation.
+	  This option provides tracing in RCU which presents /proc
+          stats for debugging RCU implementation.
 
-	  Say Y here if you want to see RCU stats in /proc
+	  Say Y here if you want to enable RCU tracing
 	  Say N if you are unsure.

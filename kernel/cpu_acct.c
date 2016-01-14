@@ -22,7 +22,7 @@
 
 struct cpuacct {
 	struct cgroup_subsys_state css;
-	spinlock_t lock;
+	raw_spinlock_t lock;
 	/* total time used by this class */
 	cputime64_t time;
 

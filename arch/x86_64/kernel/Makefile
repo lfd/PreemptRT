@@ -9,7 +9,7 @@ obj-y	:= process.o signal.o entry.o traps.o irq.o \
 		x8664_ksyms.o i387.o syscall.o vsyscall.o \
 		setup64.o bootflag.o e820.o reboot.o quirks.o i8237.o \
 		pci-dma.o pci-nommu.o alternative.o hpet.o tsc.o bugs.o \
-		perfctr-watchdog.o
+		perfctr-watchdog.o i8253.o
 
 obj-$(CONFIG_STACKTRACE)	+= stacktrace.o
 obj-$(CONFIG_X86_MCE)		+= mce.o therm_throt.o
@@ -48,6 +48,8 @@ obj-y				+= pcspeaker.o
 
 CFLAGS_vsyscall.o		:= $(PROFILING) -g0
 
+i8253-y				+= ../../i386/kernel/i8253.o
+hpet-y				+= ../../i386/kernel/hpet.o
 therm_throt-y                   += ../../i386/kernel/cpu/mcheck/therm_throt.o
 bootflag-y			+= ../../i386/kernel/bootflag.o
 legacy_serial-y			+= ../../i386/kernel/legacy_serial.o

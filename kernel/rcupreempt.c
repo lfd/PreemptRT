@@ -79,7 +79,7 @@
  */
 #define GP_STAGES    2
 struct rcu_data {
-	spinlock_t	lock;		/* Protect rcu_data fields. */
+	raw_spinlock_t	lock;		/* Protect rcu_data fields. */
 	long		completed;	/* Number of last completed batch. */
 	int		waitlistcount;
 	struct tasklet_struct rcu_tasklet;
@@ -132,7 +132,7 @@ enum rcu_try_flip_states {
 };
 
 struct rcu_ctrlblk {
-	spinlock_t	fliplock;	/* Protect state-machine transitions. */
+	raw_spinlock_t	fliplock;	/* Protect state-machine transitions. */
 	long		completed;	/* Number of last completed batch. */
 	enum rcu_try_flip_states rcu_try_flip_state; /* The current state of
 							the rcu state machine */
@@ -140,7 +140,7 @@ struct rcu_ctrlblk {
 
 static DEFINE_PER_CPU(struct rcu_data, rcu_data);
 static struct rcu_ctrlblk rcu_ctrlblk = {
-	.fliplock = __SPIN_LOCK_UNLOCKED(rcu_ctrlblk.fliplock),
+	.fliplock = RAW_SPIN_LOCK_UNLOCKED(rcu_ctrlblk.fliplock),
 	.completed = 0,
 	.rcu_try_flip_state = rcu_try_flip_idle_state,
 };

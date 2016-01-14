@@ -64,9 +64,11 @@ void __noreturn cpu_idle(void)
 				(*cpu_wait)();
 		}
 		tick_nohz_restart_sched_tick();
-		preempt_enable_no_resched();
-		schedule();
+		local_irq_disable();
+		__preempt_enable_no_resched();
+		__schedule();
 		preempt_disable();
+		local_irq_enable();
 	}
 }
 

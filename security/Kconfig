@@ -80,6 +80,15 @@ config SECURITY_CAPABILITIES
 	  This enables the "default" Linux capabilities functionality.
 	  If you are unsure how to answer this question, answer Y.
 
+config REALTIME_CAPABILITIES
+	tristate "Real-Time LSM (Obsolete)"
+	depends on SECURITY && EXPERIMENTAL
+	help
+	  This is an obsolete LSM - use newer PAM and rt-limites
+	  to manage your real-time apps.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_ROOTPLUG
 	tristate "Root Plug Support"
 	depends on USB && SECURITY

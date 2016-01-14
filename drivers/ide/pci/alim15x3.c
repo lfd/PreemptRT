@@ -326,7 +326,7 @@ static u8 ali15x3_tune_pio (ide_drive_t *drive, u8 pio)
 		if (r_clc >= 16)
 			r_clc = 0;
 	}
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 	
 	/* 
 	 * PIO mode => ATA FIFO on, ATAPI FIFO off
@@ -348,7 +348,7 @@ static u8 ali15x3_tune_pio (ide_drive_t *drive, u8 pio)
 	
 	pci_write_config_byte(dev, port, s_clc);
 	pci_write_config_byte(dev, port+drive->select.b.unit+2, (a_clc << 4) | r_clc);
-	local_irq_restore(flags);
+	local_irq_restore_nort(flags);
 
 	/*
 	 * setup   active  rec
@@ -519,7 +519,7 @@ static unsigned int __devinit init_chipset_ali15x3 (struct pci_dev *dev, const c
 	}
 #endif  /* defined(DISPLAY_ALI_TIMINGS) && defined(CONFIG_IDE_PROC_FS) */
 
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 
 	if (m5229_revision < 0xC2) {
 		/*
@@ -580,7 +580,7 @@ static unsigned int __devinit init_chipset_ali15x3 (struct pci_dev *dev, const c
 out:
 	pci_dev_put(north);
 	pci_dev_put(isa_dev);
-	local_irq_restore(flags);
+	local_irq_restore_nort(flags);
 	return 0;
 }
 
@@ -630,7 +630,7 @@ static u8 __devinit ata66_ali15x3(ide_hwif_t *hwif)
 	unsigned long flags;
 	u8 cbl = ATA_CBL_PATA40, tmpbyte;
 
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 
 	if (m5229_revision >= 0xC2) {
 		/*
@@ -679,7 +679,7 @@ static u8 __devinit ata66_ali15x3(ide_hwif_t *hwif)
 
 	pci_write_config_byte(dev, 0x53, tmpbyte);
 
-	local_irq_restore(flags);
+	local_irq_restore_nort(flags);
 
 	return cbl;
 }

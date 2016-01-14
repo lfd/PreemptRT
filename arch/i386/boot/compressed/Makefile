@@ -9,6 +9,7 @@ targets		:= vmlinux vmlinux.bin vmlinux.bin.gz head.o misc.o piggy.o \
 EXTRA_AFLAGS	:= -traditional
 
 LDFLAGS_vmlinux := -T
+CFLAGS := -m32 -D__KERNEL__ -Iinclude -O2  -fno-strict-aliasing
 CFLAGS_misc.o += -fPIC
 hostprogs-y	:= relocs
 

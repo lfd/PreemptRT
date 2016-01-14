@@ -777,6 +777,7 @@ config BOOT_IOREMAP
 #
 config REGPARM
 	bool
+	depends on !MCOUNT
 	default y
 
 config SECCOMP

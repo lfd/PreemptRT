@@ -488,6 +488,7 @@ bad_area_nosemaphore:
 		nr = (address - idt_descr.address) >> 3;
 
 		if (nr == 6) {
+		stop_trace();
 			do_invalid_op(regs, 0);
 			return;
 		}

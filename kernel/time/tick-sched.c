@@ -307,6 +307,7 @@ ktime_t tick_nohz_get_sleep_length(void)
 
        return ts->sleep_length;
 }
+EXPORT_SYMBOL_GPL(tick_nohz_get_sleep_length);
 
 /**
  * tick_nohz_get_idle_jiffies - returns the current idle jiffie count
@@ -317,6 +318,7 @@ unsigned long tick_nohz_get_idle_jiffies(void)
 
        return ts->idle_jiffies;
 }
+EXPORT_SYMBOL_GPL(tick_nohz_get_idle_jiffies);
 
 /**
  * nohz_restart_sched_tick - restart the idle tick from the idle task

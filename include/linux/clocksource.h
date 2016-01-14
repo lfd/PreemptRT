@@ -54,8 +54,12 @@ extern unsigned long preempt_mark_thresh;
  * @flags:		flags describing special properties
  * @vread:		vsyscall based read
  * @resume:		resume function for the clocksource, if necessary
+ * @cycle_last:		Used internally by timekeeping core, please ignore.
+ * @cycle_accumulated:	Used internally by timekeeping core, please ignore.
  * @cycle_interval:	Used internally by timekeeping core, please ignore.
  * @xtime_interval:	Used internally by timekeeping core, please ignore.
+ * @xtime_nsec:		Used internally by timekeeping core, please ignore.
+ * @error:		Used internally by timekeeping core, please ignore.
  */
 struct clocksource {
 	/*
@@ -73,7 +77,7 @@ struct clocksource {
 	void (*resume)(void);
 
 	/* timekeeping specific data, ignore */
-	cycle_t cycle_interval;
+	cycle_t cycle_accumulated, cycle_interval;
 	u64	xtime_interval;
 	/*
 	 * Second part is written at each timer interrupt
@@ -166,11 +170,43 @@ static inline cycle_t clocksource_read(struct clocksource *cs)
 }
 
 /**
+ * clocksource_get_cycles: - Access the clocksource's accumulated cycle value
+ * @cs:		pointer to clocksource being read
+ * @now:	current cycle value
+ *
+ * Uses the clocksource to return the current cycle_t value.
+ * NOTE!!!: This is different from clocksource_read, because it
+ * returns the accumulated cycle value! Must hold xtime lock!
+ */
+static inline cycle_t clocksource_get_cycles(struct clocksource *cs, cycle_t now)
+{
+	cycle_t offset = (now - cs->cycle_last) & cs->mask;
+	offset += cs->cycle_accumulated;
+	return offset;
+}
+
+/**
+ * clocksource_accumulate: - Accumulates clocksource cycles
+ * @cs:		pointer to clocksource being read
+ * @now:	current cycle value
+ *
+ * Used to avoids clocksource hardware overflow by periodically
+ * accumulating the current cycle delta. Must hold xtime write lock!
+ */
+static inline void clocksource_accumulate(struct clocksource *cs, cycle_t now)
+{
+	cycle_t offset = (now - cs->cycle_last) & cs->mask;
+	cs->cycle_last = now;
+	cs->cycle_accumulated += offset;
+}
+
+/**
  * cyc2ns - converts clocksource cycles to nanoseconds
  * @cs:		Pointer to clocksource
  * @cycles:	Cycles
  *
  * Uses the clocksource and ntp ajdustment to convert cycle_ts to nanoseconds.
+ * Must hold xtime lock!
  *
  * XXX - This could use some mult_lxl_ll() asm optimization
  */
@@ -200,7 +236,7 @@ static inline cycle_t ns2cyc(struct clocksource *cs, u64 nsecs)
  * @length_nsec: Desired interval length in nanoseconds.
  *
  * Calculates a fixed cycle/nsec interval for a given clocksource/adjustment
- * pair and interval request.
+ * pair and interval request. Must hold xtime_lock!
  *
  * Unless you're the timekeeping code, you should not be using this!
  */

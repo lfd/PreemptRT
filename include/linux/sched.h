@@ -2386,6 +2386,8 @@ static inline void migration_init(void)
 #define TASK_SIZE_OF(tsk)	TASK_SIZE
 #endif
 
+extern int task_is_current(struct task_struct *task);
+
 #define TASK_STATE_TO_CHAR_STR "RMSDTtZX"
 
 #endif /* __KERNEL__ */

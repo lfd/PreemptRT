@@ -68,21 +68,16 @@ static int configured = 0;
 static void write_msg(struct console *con, const char *msg, unsigned int len)
 {
 	int frag, left;
-	unsigned long flags;
 
 	if (!np.dev)
 		return;
 
-	local_irq_save(flags);
-
-	for(left = len; left; ) {
+	for (left = len; left; ) {
 		frag = min(left, MAX_PRINT_CHUNK);
 		netpoll_send_udp(&np, msg, frag);
 		msg += frag;
 		left -= frag;
 	}
-
-	local_irq_restore(flags);
 }
 
 static struct console netconsole = {

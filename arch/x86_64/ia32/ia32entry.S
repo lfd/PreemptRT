@@ -120,7 +120,9 @@ sysenter_do_call:
 	cmpl	$(IA32_NR_syscalls-1),%eax
 	ja	ia32_badsys
 	IA32_ARG_FIXUP 1
+	TRACE_SYS_IA32_CALL
 	call	*ia32_sys_call_table(,%rax,8)
+	TRACE_SYS_RET
 	movq	%rax,RAX-ARGOFFSET(%rsp)
 	GET_THREAD_INFO(%r10)
 	cli
@@ -229,7 +231,9 @@ cstar_do_call:
 	cmpl $IA32_NR_syscalls-1,%eax
 	ja  ia32_badsys
 	IA32_ARG_FIXUP 1
+	TRACE_SYS_IA32_CALL
 	call *ia32_sys_call_table(,%rax,8)
+	TRACE_SYS_RET
 	movq %rax,RAX-ARGOFFSET(%rsp)
 	GET_THREAD_INFO(%r10)
 	cli
@@ -323,8 +327,10 @@ ia32_do_syscall:
 	cmpl $(IA32_NR_syscalls-1),%eax
 	ja  ia32_badsys
 	IA32_ARG_FIXUP
+	TRACE_SYS_IA32_CALL
 	call *ia32_sys_call_table(,%rax,8) # xxx: rip relative
 ia32_sysret:
+	TRACE_SYS_RET
 	movq %rax,RAX-ARGOFFSET(%rsp)
 	jmp int_ret_from_sys_call 
 
@@ -394,7 +400,7 @@ END(ia32_ptregs_common)
 
 	.section .rodata,"a"
 	.align 8
-ia32_sys_call_table:
+ENTRY(ia32_sys_call_table)
 	.quad sys_restart_syscall
 	.quad sys_exit
 	.quad stub32_fork
@@ -719,4 +725,7 @@ ia32_sys_call_table:
 	.quad compat_sys_signalfd
 	.quad compat_sys_timerfd
 	.quad sys_eventfd
+#ifdef CONFIG_EVENT_TRACE
+ .globl ia32_syscall_end
+#endif
 ia32_syscall_end:

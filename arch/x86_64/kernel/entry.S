@@ -53,6 +53,47 @@
 
 	.code64
 
+#ifdef CONFIG_EVENT_TRACE
+
+ENTRY(mcount)
+	cmpl $0, mcount_enabled
+	jz out
+
+	push %rbp
+	mov %rsp,%rbp
+
+	push %r11
+	push %r10
+	push %r9
+	push %r8
+	push %rdi
+	push %rsi
+	push %rdx
+	push %rcx
+	push %rax
+
+	mov 0x0(%rbp),%rax
+	mov 0x8(%rbp),%rdi
+	mov 0x8(%rax),%rsi
+
+	call   __trace
+
+	pop %rax
+	pop %rcx
+	pop %rdx
+	pop %rsi
+	pop %rdi
+	pop %r8
+	pop %r9
+	pop %r10
+	pop %r11
+
+	pop %rbp
+out:
+	ret
+
+#endif
+
 #ifndef CONFIG_PREEMPT
 #define retint_kernel retint_restore_args
 #endif	
@@ -234,7 +275,9 @@ ENTRY(system_call)
 	cmpq $__NR_syscall_max,%rax
 	ja badsys
 	movq %r10,%rcx
+	TRACE_SYS_CALL
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative
+	TRACE_SYS_RET
 	movq %rax,RAX-ARGOFFSET(%rsp)
 /*
  * Syscall return path ending with SYSRET (fast path)
@@ -316,7 +359,9 @@ tracesys:
 	cmova %rcx,%rax
 	ja  1f
 	movq %r10,%rcx	/* fixup for C */
+	TRACE_SYS_CALL
 	call *sys_call_table(,%rax,8)
+	TRACE_SYS_RET
 1:	movq %rax,RAX-ARGOFFSET(%rsp)
 	/* Use IRET because user could have changed frame */
 		

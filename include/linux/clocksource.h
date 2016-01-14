@@ -92,7 +92,6 @@ struct clocksource {
 #endif
 
 	/* timekeeping specific data, ignore */
-	cycle_t cycle_interval;
 	u64	xtime_interval;
 	/*
 	 * Second part is written at each timer interrupt
@@ -101,6 +100,7 @@ struct clocksource {
 	 */
 	struct {
 		cycle_t cycle_last, cycle_accumulated, cycle_monotonic;
+		cycle_t cycle_interval;
 	} ____cacheline_aligned_in_smp;
 
 	u64 xtime_nsec;

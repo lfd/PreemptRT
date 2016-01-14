@@ -1335,7 +1335,7 @@ look_up_lock_class(struct lockdep_map *lock, unsigned int subclass)
 	 */
 	list_for_each_entry(class, hash_head, hash_entry) {
 		if (class->key == key) {
-			WARN_ON(class->name != lock->name);
+			WARN_ON_ONCE(class->name != lock->name);
 			return class;
 		}
 	}

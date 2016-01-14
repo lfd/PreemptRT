@@ -66,6 +66,8 @@
 
 #include <asm/tlb.h>
 
+#include "sched_cpupri.h"
+
 /*
  * Scheduler clock - returns current time in nanosec units.
  * This is default implementation.
@@ -245,6 +247,9 @@ struct root_domain {
 	 */
 	cpumask_t rto_mask;
 	atomic_t rto_count;
+#ifdef CONFIG_SMP
+	struct cpupri cpupri;
+#endif
 };
 
 static struct root_domain def_root_domain;
@@ -5670,6 +5675,9 @@ static void init_rootdomain(struct root_domain *rd, const cpumask_t *map)
 
 	rd->span = *map;
 	cpus_and(rd->online, rd->span, cpu_online_map);
+
+	cpupri_init(&rd->cpupri);
+
 }
 
 static void init_defrootdomain(void)

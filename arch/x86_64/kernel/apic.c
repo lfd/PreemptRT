@@ -467,7 +467,6 @@ void __cpuinit setup_local_APIC (void)
 			oldvalue, value);
 	}
 
-	nmi_watchdog_default();
 	setup_apic_nmi_watchdog(NULL);
 	apic_pm_activate();
 }

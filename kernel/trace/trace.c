@@ -62,7 +62,7 @@ ns2usecs(cycle_t nsec)
 
 cycle_t ftrace_now(int cpu)
 {
-	return cpu_clock(cpu);
+	return sched_clock();
 }
 
 /*

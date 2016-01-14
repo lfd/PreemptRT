@@ -44,6 +44,8 @@
 #include <linux/seq_file.h>
 #include <linux/err.h>
 
+#include <linux/ftrace.h>
+
 #include <asm/uaccess.h>
 
 /**
@@ -735,6 +737,7 @@ static void enqueue_hrtimer(struct hrtimer *timer,
 	struct hrtimer *entry;
 	int leftmost = 1;
 
+	ftrace_event_timer(&timer->expires, timer);
 	/*
 	 * Find the right place in the rbtree:
 	 */
@@ -1169,6 +1172,7 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 
  retry:
 	now = ktime_get();
+	ftrace_event_timestamp(&now);
 
 	expires_next.tv64 = KTIME_MAX;
 
@@ -1206,6 +1210,8 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 				raise = 1;
 				continue;
 			}
+
+			ftrace_event_timer(&timer->expires, timer);
 
 			__run_hrtimer(timer);
 		}

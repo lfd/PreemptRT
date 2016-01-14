@@ -160,19 +160,33 @@ void cpuidle_unregister_driver(struct cpuidle_driver *drv)
 
 EXPORT_SYMBOL_GPL(cpuidle_unregister_driver);
 
+static void __cpuidle_force_redetect(struct cpuidle_device *dev)
+{
+	cpuidle_remove_driver_sysfs(dev);
+	cpuidle_curr_driver->redetect(dev);
+	cpuidle_add_driver_sysfs(dev);
+}
+
 /**
  * cpuidle_force_redetect - redetects the idle states of a CPU
  *
  * @dev: the CPU to redetect
+ * @drv: the target driver
  *
  * Generally, the driver will call this when the supported states set has
  * changed. (e.g. as the result of an ACPI transition to battery power)
  */
-int cpuidle_force_redetect(struct cpuidle_device *dev)
+int cpuidle_force_redetect(struct cpuidle_device *dev,
+		struct cpuidle_driver *drv)
 {
 	int uninstalled = 0;
 
 	mutex_lock(&cpuidle_lock);
+
+	if (drv != cpuidle_curr_driver) {
+		mutex_unlock(&cpuidle_lock);
+		return 0;
+	}
 
 	if (!(dev->status & CPUIDLE_STATUS_DRIVER_ATTACHED) ||
 	    !cpuidle_curr_driver->redetect) {
@@ -185,9 +199,7 @@ int cpuidle_force_redetect(struct cpuidle_device *dev)
 		cpuidle_uninstall_idle_handler();
 	}
 
-	cpuidle_remove_driver_sysfs(dev);
-	cpuidle_curr_driver->redetect(dev);
-	cpuidle_add_driver_sysfs(dev);
+	__cpuidle_force_redetect(dev);
 
 	if (cpuidle_device_can_idle(dev)) {
 		cpuidle_rescan_device(dev);
@@ -204,6 +216,42 @@ int cpuidle_force_redetect(struct cpuidle_device *dev)
 }
 
 EXPORT_SYMBOL_GPL(cpuidle_force_redetect);
+
+/**
+ * cpuidle_force_redetect_devices - redetects the idle states of all CPUs
+ *
+ * @drv: the target driver
+ *
+ * Generally, the driver will call this when the supported states set has
+ * changed. (e.g. as the result of an ACPI transition to battery power)
+ */
+int cpuidle_force_redetect_devices(struct cpuidle_driver *drv)
+{
+	struct cpuidle_device *dev;
+	int ret = 0;
+
+	mutex_lock(&cpuidle_lock);
+
+	if (drv != cpuidle_curr_driver)
+		goto out;
+
+	if (!cpuidle_curr_driver->redetect) {
+		ret = -EIO;
+		goto out;
+	}
+
+	cpuidle_uninstall_idle_handler();
+
+	list_for_each_entry(dev, &cpuidle_detected_devices, device_list)
+		__cpuidle_force_redetect(dev);
+
+	cpuidle_install_idle_handler();
+out:
+	mutex_unlock(&cpuidle_lock);
+	return ret;
+}
+
+EXPORT_SYMBOL_GPL(cpuidle_force_redetect_devices);
 
 /**
  * cpuidle_get_bm_activity - determines if BM activity has occured

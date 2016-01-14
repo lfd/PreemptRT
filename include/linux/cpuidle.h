@@ -137,14 +137,17 @@ struct cpuidle_driver {
 
 extern int cpuidle_register_driver(struct cpuidle_driver *drv);
 extern void cpuidle_unregister_driver(struct cpuidle_driver *drv);
-extern int cpuidle_force_redetect(struct cpuidle_device *dev);
+extern int cpuidle_force_redetect(struct cpuidle_device *dev, struct cpuidle_driver *drv);
+extern int cpuidle_force_redetect_devices(struct cpuidle_driver *drv);
 
 #else
 
 static inline int cpuidle_register_driver(struct cpuidle_driver *drv)
 {return 0;}
 static inline void cpuidle_unregister_driver(struct cpuidle_driver *drv) { }
-static inline int cpuidle_force_redetect(struct cpuidle_device *dev)
+static inline int cpuidle_force_redetect(struct cpuidle_device *dev, struct cpuidle_driver *drv)
+{return 0;}
+static inline int cpuidle_force_redetect_devices(struct cpuidle_driver *drv)
 {return 0;}
 
 #endif

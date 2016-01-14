@@ -1018,6 +1018,12 @@ struct task_struct {
 	unsigned int time_slice;
 	struct sched_class *sched_class;
 
+#ifdef CONFIG_PREEMPT_RCU
+        int rcu_read_lock_nesting;
+        atomic_t *rcu_flipctr1;
+        atomic_t *rcu_flipctr2;
+#endif
+
 #if defined(CONFIG_SCHEDSTATS) || defined(CONFIG_TASK_DELAY_ACCT)
 	struct sched_info sched_info;
 #endif

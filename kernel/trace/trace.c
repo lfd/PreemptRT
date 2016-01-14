@@ -81,6 +81,12 @@ enum trace_type {
 
 	TRACE_FN,
 	TRACE_CTX,
+	TRACE_IRQ,
+	TRACE_FAULT,
+	TRACE_TIMER,
+	TRACE_TIMESTAMP,
+	TRACE_TASK,
+	TRACE_WAKEUP,
 
 	__TRACE_LAST_TYPE
 };
@@ -547,6 +553,110 @@ tracing_sched_switch_trace(struct trace_array *tr,
 	entry->ctx.next_prio	= next->prio;
 }
 
+void tracing_event_irq(struct trace_array *tr,
+		       struct trace_array_cpu *data,
+		       unsigned long flags,
+		       unsigned long ip,
+		       int irq, int usermode,
+		       unsigned long retip)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_IRQ;
+	entry->irq.ip		= ip;
+	entry->irq.irq		= irq;
+	entry->irq.ret_ip	= retip;
+	entry->irq.usermode	= usermode;
+}
+
+void tracing_event_fault(struct trace_array *tr,
+			 struct trace_array_cpu *data,
+			 unsigned long flags,
+			 unsigned long ip,
+			 unsigned long retip,
+			 unsigned long error_code,
+			 unsigned long address)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_FAULT;
+	entry->fault.ip		= ip;
+	entry->fault.ret_ip	= retip;
+	entry->fault.errorcode	= error_code;
+	entry->fault.address	= address;
+}
+
+void tracing_event_timer(struct trace_array *tr,
+			 struct trace_array_cpu *data,
+			 unsigned long flags,
+			 unsigned long ip,
+			 void *p1, void *p2)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_TIMER;
+	entry->timer.ip		= ip;
+	entry->timer.p1		= p1;
+	entry->timer.p2		= p2;
+}
+
+void tracing_event_timestamp(struct trace_array *tr,
+			     struct trace_array_cpu *data,
+			     unsigned long flags,
+			     unsigned long ip,
+			     ktime_t *now)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_TIMESTAMP;
+	entry->timestamp.ip		= ip;
+	entry->timestamp.now		= *now;
+}
+
+void tracing_event_task(struct trace_array *tr,
+			struct trace_array_cpu *data,
+			unsigned long flags,
+			unsigned long ip,
+			pid_t pid, int prio,
+			unsigned long running)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_TASK;
+	entry->task.ip		= ip;
+	entry->task.pid		= pid;
+	entry->task.prio	= prio;
+	entry->task.running	= running;
+}
+
+void tracing_event_wakeup(struct trace_array *tr,
+			  struct trace_array_cpu *data,
+			  unsigned long flags,
+			  unsigned long ip,
+			  pid_t pid, int prio,
+			  int curr_prio)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type		= TRACE_TASK;
+	entry->wakeup.ip		= ip;
+	entry->wakeup.pid		= pid;
+	entry->wakeup.prio	= prio;
+	entry->wakeup.curr_prio	= curr_prio;
+}
+
 enum trace_file_type {
 	TRACE_FILE_LAT_FMT	= 1,
 };
@@ -968,6 +1078,50 @@ print_lat_fmt(struct seq_file *m, struct trace_iterator *iter,
 			   entry->ctx.next_prio,
 			   comm);
 		break;
+	case TRACE_IRQ:
+		seq_print_ip_sym(m, entry->irq.ip, sym_flags);
+		if (entry->irq.irq >= 0)
+			seq_printf(m, " %d ", entry->irq.irq);
+		if (entry->irq.usermode)
+			seq_puts(m, " (usermode)\n ");
+		else {
+			seq_puts(m, " (");
+			seq_print_ip_sym(m, entry->irq.ret_ip, sym_flags);
+			seq_puts(m, ")\n");
+		}
+		break;
+	case TRACE_FAULT:
+		seq_print_ip_sym(m, entry->fault.ip, sym_flags);
+		seq_printf(m, " %lx ", entry->fault.errorcode);
+		seq_puts(m, " (");
+		seq_print_ip_sym(m, entry->fault.ret_ip, sym_flags);
+		seq_puts(m, ")");
+		seq_printf(m, " [%lx]\n", entry->fault.address);
+		break;
+	case TRACE_TIMER:
+		seq_print_ip_sym(m, entry->timer.ip, sym_flags);
+		seq_printf(m, " (%p) (%p)\n",
+			   entry->timer.p1, entry->timer.p2);
+		break;
+	case TRACE_TIMESTAMP:
+		seq_print_ip_sym(m, entry->timestamp.ip, sym_flags);
+		seq_printf(m, " (%Ld)\n",
+			   entry->timestamp.now.tv64);
+		break;
+	case TRACE_TASK:
+		seq_print_ip_sym(m, entry->task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->task.pid);
+		seq_printf(m, " %s %d %d %ld\n",
+			   comm, entry->task.pid,
+			   entry->task.prio, entry->task.running);
+		break;
+	case TRACE_WAKEUP:
+		seq_print_ip_sym(m, entry->task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->task.pid);
+		seq_printf(m, " %s %d %d %d\n",
+			   comm, entry->wakeup.pid,
+			   entry->wakeup.prio, entry->wakeup.curr_prio);
+		break;
 	default:
 		seq_printf(m, "Unknown type %d\n", entry->type);
 	}
@@ -1044,6 +1198,52 @@ print_trace_fmt(struct seq_file *m, struct trace_iterator *iter)
 			   entry->ctx.next_pid,
 			   entry->ctx.next_prio);
 		break;
+	case TRACE_IRQ:
+		seq_print_ip_sym(m, entry->irq.ip, sym_flags);
+		if (entry->irq.irq >= 0)
+			seq_printf(m, " %d ", entry->irq.irq);
+		if (entry->irq.usermode)
+			seq_puts(m, " (usermode)\n ");
+		else {
+			seq_puts(m, " (");
+			seq_print_ip_sym(m, entry->irq.ret_ip, sym_flags);
+			seq_puts(m, ")\n");
+		}
+		break;
+	case TRACE_FAULT:
+		seq_print_ip_sym(m, entry->fault.ip, sym_flags);
+		seq_printf(m, " %lx ", entry->fault.errorcode);
+		seq_puts(m, " (");
+		seq_print_ip_sym(m, entry->fault.ret_ip, sym_flags);
+		seq_puts(m, ")");
+		seq_printf(m, " [%lx]\n", entry->fault.address);
+		break;
+	case TRACE_TIMER:
+		seq_print_ip_sym(m, entry->timer.ip, sym_flags);
+		seq_printf(m, " (%p) (%p)\n",
+			   entry->timer.p1, entry->timer.p2);
+		break;
+	case TRACE_TIMESTAMP:
+		seq_print_ip_sym(m, entry->timestamp.ip, sym_flags);
+		seq_printf(m, " (%Ld)\n",
+			   entry->timestamp.now.tv64);
+		break;
+	case TRACE_TASK:
+		seq_print_ip_sym(m, entry->task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->task.pid);
+		seq_printf(m, " %s %d %d %ld\n",
+			   comm, entry->task.pid,
+			   entry->task.prio, entry->task.running);
+		break;
+	case TRACE_WAKEUP:
+		seq_print_ip_sym(m, entry->task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->task.pid);
+		seq_printf(m, " %s %d %d %d\n",
+			   comm, entry->wakeup.pid,
+			   entry->wakeup.prio, entry->wakeup.curr_prio);
+		break;
+	default:
+		seq_printf(m, "Unknown type %d\n", entry->type);
 	}
 }
 

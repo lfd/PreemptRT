@@ -25,6 +25,45 @@ struct ctx_switch_entry {
 	unsigned char		next_prio;
 };
 
+struct irq_entry {
+	unsigned long		ip;
+	unsigned long		ret_ip;
+	unsigned		irq;
+	unsigned		usermode;
+};
+
+struct fault_entry {
+	unsigned long		ip;
+	unsigned long		ret_ip;
+	unsigned long		errorcode;
+	unsigned long		address;
+};
+
+struct timer_entry {
+	unsigned long		ip;
+	void			*p1;
+	void			*p2;
+};
+
+struct timestamp_entry {
+	unsigned long		ip;
+	ktime_t			now;
+};
+
+struct task_entry {
+	unsigned long		ip;
+	pid_t			pid;
+	unsigned		prio;
+	unsigned long		running;
+};
+
+struct wakeup_entry {
+	unsigned long		ip;
+	pid_t			pid;
+	unsigned		prio;
+	unsigned		curr_prio;
+};
+
 /*
  * The trace entry - the most basic unit of tracing. This is what
  * is printed in the end as a single line in the trace output, such as:
@@ -42,6 +81,12 @@ struct trace_entry {
 	union {
 		struct ftrace_entry		fn;
 		struct ctx_switch_entry		ctx;
+		struct irq_entry		irq;
+		struct fault_entry		fault;
+		struct timer_entry		timer;
+		struct timestamp_entry		timestamp;
+		struct task_entry		task;
+		struct wakeup_entry		wakeup;
 	};
 };
 
@@ -145,6 +190,41 @@ void tracing_sched_switch_trace(struct trace_array *tr,
 				struct task_struct *next,
 				unsigned long flags);
 void tracing_record_cmdline(struct task_struct *tsk);
+void tracing_event_irq(struct trace_array *tr,
+		       struct trace_array_cpu *data,
+		       unsigned long flags,
+		       unsigned long ip,
+		       int irq, int usermode,
+		       unsigned long retip);
+void tracing_event_fault(struct trace_array *tr,
+			 struct trace_array_cpu *data,
+			 unsigned long flags,
+			 unsigned long ip,
+			 unsigned long retip,
+			 unsigned long error_code,
+			 unsigned long address);
+void tracing_event_timer(struct trace_array *tr,
+			 struct trace_array_cpu *data,
+			 unsigned long flags,
+			 unsigned long ip,
+			 void *p1, void *p2);
+void tracing_event_timestamp(struct trace_array *tr,
+			     struct trace_array_cpu *data,
+			     unsigned long flags,
+			     unsigned long ip,
+			     ktime_t *now);
+void tracing_event_task(struct trace_array *tr,
+			struct trace_array_cpu *data,
+			unsigned long flags,
+			unsigned long ip,
+			pid_t pid, int prio,
+			unsigned long running);
+void tracing_event_wakeup(struct trace_array *tr,
+			  struct trace_array_cpu *data,
+			  unsigned long flags,
+			  unsigned long ip,
+			  pid_t pid, int prio,
+			  int curr_prio);
 
 void tracing_start_function_trace(void);
 void tracing_stop_function_trace(void);
@@ -224,5 +304,23 @@ extern int trace_selftest_startup_sched_switch(struct tracer *trace,
 #endif /* CONFIG_FTRACE_STARTUP_TEST */
 
 extern void *head_page(struct trace_array_cpu *data);
+
+#ifdef CONFIG_EVENT_TRACER
+extern void trace_event_sched_switch(struct task_struct *prev,
+				     struct task_struct *next);
+extern void trace_event_wakeup(struct task_struct *wakee,
+			       struct task_struct *curr);
+extern void trace_start_events(void);
+extern void trace_stop_events(void);
+extern void trace_event_register(struct trace_array *tr);
+extern void trace_event_unregister(struct trace_array *tr);
+#else
+# define trace_event_sched_switch(prev, next)	do { } while (0)
+# define trace_event_wakeup(wakee, curr)	do { } while (0)
+# define trace_start_events()			do { } while (0)
+# define trace_stop_events()			do { } while (0)
+# define trace_event_register(tr)		do { } while (0)
+# define trace_event_unregister(tr)		do { } while (0)
+#endif
 
 #endif /* _LINUX_KERNEL_TRACE_H */

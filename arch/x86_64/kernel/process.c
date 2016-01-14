@@ -230,10 +230,12 @@ void cpu_idle (void)
 			__exit_idle();
 		}
 
+		trace_preempt_exit_idle();
 		tick_nohz_restart_sched_tick();
 		preempt_enable_no_resched();
 		schedule();
 		preempt_disable();
+		trace_preempt_enter_idle();
 	}
 }
 
@@ -263,9 +265,10 @@ static void mwait_idle(void)
 	if (!need_resched()) {
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
-		if (!need_resched())
+		if (!need_resched()) {
+			trace_hardirqs_on();
 			__sti_mwait(0, 0);
-		else
+		} else
 			local_irq_enable();
 	} else {
 		local_irq_enable();

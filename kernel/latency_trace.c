@@ -90,7 +90,8 @@ static inline int DEBUG_WARN_ON(int cond)
 
 #ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
 # ifdef CONFIG_CRITICAL_PREEMPT_TIMING
-#  define irqs_off_preempt_count() preempt_count()
+   static DEFINE_PER_CPU(int, trace_cpu_idle);
+#  define irqs_off_preempt_count() (!__get_cpu_var(trace_cpu_idle) && preempt_count())
 # else
 #  define irqs_off_preempt_count() 0
 # endif
@@ -2153,6 +2154,20 @@ void notrace unmask_preempt_count(unsigned int mask)
 }
 EXPORT_SYMBOL(unmask_preempt_count);
 
+#ifdef CONFIG_CRITICAL_PREEMPT_TIMING
+
+/* Some archs do their cpu_idle with preemption on. Don't measure it */
+void notrace trace_preempt_enter_idle(void)
+{
+	__get_cpu_var(trace_cpu_idle) = 1;
+}
+
+void notrace trace_preempt_exit_idle(void)
+{
+	__get_cpu_var(trace_cpu_idle) = 0;
+}
+
+#endif /* CONFIG_CRITICAL_PREEMPT_TIMING */
 
 #endif
 

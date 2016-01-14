@@ -328,8 +328,23 @@ static void __call_console_drivers(unsigned long start, unsigned long end)
 	for (con = console_drivers; con; con = con->next) {
 		if ((con->flags & CON_ENABLED) && con->write &&
 				(cpu_online(smp_processor_id()) ||
-				(con->flags & CON_ANYTIME)))
+				(con->flags & CON_ANYTIME))) {
+			/*
+			 * Disable tracing of printk details - it just
+			 * clobbers the trace output with lots of
+			 * repetitive lines (especially if console is
+			 * on a serial line):
+			 */
+#ifdef CONFIG_EVENT_TRACE
+			int trace_save = trace_enabled;
+
+			trace_enabled = 0;
 			con->write(con, &LOG_BUF(start), end - start);
+			trace_enabled = trace_save;
+#else
+			con->write(con, &LOG_BUF(start), end - start);
+#endif
+		}
 	}
 	touch_critical_timing();
 }

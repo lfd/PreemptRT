@@ -28,7 +28,15 @@ config GENERIC_TIME
 	bool
 	default y
 
-config GENERIC_CLOCKEVENTS_MIGR
+config GENERIC_CLOCKEVENTS
+	bool
+	default y
+
+config GENERIC_CLOCKEVENTS_BROADCAST
+	bool
+	default y
+
+config NONIRQ_WAKEUP
 	bool
 	default y
 

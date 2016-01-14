@@ -66,6 +66,7 @@ static void set_cyc2ns_scale(unsigned long cpu_khz, int cpu)
 unsigned long long native_sched_clock(void)
 {
 	unsigned long a = 0;
+	unsigned long long ret;
 
 	/* Could do CPU core sync here. Opteron can execute rdtsc speculatively,
 	 * which means it is not completely exact and may not be monotonous
@@ -73,8 +74,10 @@ unsigned long long native_sched_clock(void)
 	 * scheduling purposes.
 	 */
 
+	preempt_disable_notrace();
 	rdtscll(a);
-	return cycles_2_ns(a);
+	ret = cycles_2_ns(a);
+	preempt_enable_notrace();
 }
 
 /* We need to define a real function for sched_clock, to override the

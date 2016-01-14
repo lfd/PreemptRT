@@ -115,7 +115,7 @@ asmlinkage void __exception notrace asm_do_IRQ(unsigned int irq, struct pt_regs 
 	struct pt_regs *old_regs = set_irq_regs(regs);
 	struct irq_desc *desc = irq_desc + irq;
 
-	ftrace_event_irq(irq, user_mode(regs), instruction_pointer(regs));
+	trace_event_irq(irq, user_mode(regs), instruction_pointer(regs));
 
 	/*
 	 * Some hardware gives randomly wrong interrupts.  Rather

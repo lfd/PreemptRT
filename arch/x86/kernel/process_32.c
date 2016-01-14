@@ -189,7 +189,6 @@ void cpu_idle(void)
 		while (!need_resched() && !need_resched_delayed()) {
 			void (*idle)(void);
 
-			check_pgt_cache();
 			rmb();
 			idle = pm_idle;
 

@@ -992,9 +992,22 @@ unsigned long get_next_timer_interrupt(unsigned long now)
 	struct tvec_base *base = __get_cpu_var(tvec_bases);
 	unsigned long expires;
 
+#ifdef CONFIG_PREEMPT_RT
+	/*
+	 * On PREEMPT_RT we cannot sleep here. If the trylock does not
+	 * succeed then we return the worst-case 'expires in 1 tick'
+	 * value:
+	 */
+	if (spin_trylock(&base->lock)) {
+		expires = __next_timer_interrupt(base);
+		spin_unlock(&base->lock);
+	} else
+		expires = now + 1;
+#else
 	spin_lock(&base->lock);
 	expires = __next_timer_interrupt(base);
 	spin_unlock(&base->lock);
+#endif
 
 	if (time_before_eq(expires, now))
 		return now;
@@ -1049,8 +1062,29 @@ void update_process_times(int user_tick)
  */
 static unsigned long count_active_tasks(void)
 {
+	/*
+	 * On PREEMPT_RT, we are running in the timer softirq thread,
+	 * so consider 1 less running tasks:
+	 */
+#ifdef CONFIG_PREEMPT_RT
+	return (nr_active() - 1) * FIXED_1;
+#else
 	return nr_active() * FIXED_1;
+#endif
 }
+
+#ifdef CONFIG_PREEMPT_RT
+/*
+ * Nr of active tasks - counted in fixed-point numbers
+ */
+static unsigned long count_active_rt_tasks(void)
+{
+	extern unsigned long rt_nr_running(void);
+	extern unsigned long rt_nr_uninterruptible(void);
+
+	return (rt_nr_running() + rt_nr_uninterruptible()) * FIXED_1;
+}
+#endif
 
 /*
  * Hmm.. Changed this, as the GNU make sources (load.c) seems to
@@ -1063,6 +1097,8 @@ static unsigned long count_active_tasks(void)
 unsigned long avenrun[3];
 
 EXPORT_SYMBOL(avenrun);
+
+unsigned long avenrun_rt[3];
 
 /*
  * calc_load - given tick count, update the avenrun load estimates.
@@ -1082,6 +1118,12 @@ static inline void calc_load(unsigned long ticks)
 			CALC_LOAD(avenrun[2], EXP_15, active_tasks);
 			count += LOAD_FREQ;
 		} while (count < 0);
+#ifdef CONFIG_PREEMPT_RT
+		active_tasks = count_active_rt_tasks();
+		CALC_LOAD(avenrun_rt[0], EXP_1, active_tasks);
+		CALC_LOAD(avenrun_rt[1], EXP_5, active_tasks);
+		CALC_LOAD(avenrun_rt[2], EXP_15, active_tasks);
+#endif
 	}
 }
 
@@ -1508,7 +1550,7 @@ static void __cpuinit migrate_timers(int cpu)
 	old_base = per_cpu(tvec_bases, cpu);
 	new_base = get_cpu_var(tvec_bases);
 
-	local_irq_disable();
+	local_irq_disable_nort();
 	spin_lock(&new_base->lock);
 	spin_lock_nested(&old_base->lock, SINGLE_DEPTH_NESTING);
 
@@ -1525,7 +1567,7 @@ static void __cpuinit migrate_timers(int cpu)
 
 	spin_unlock(&old_base->lock);
 	spin_unlock(&new_base->lock);
-	local_irq_enable();
+	local_irq_enable_nort();
 	put_cpu_var(tvec_bases);
 }
 #endif /* CONFIG_HOTPLUG_CPU */

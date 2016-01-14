@@ -35,6 +35,7 @@
 
 #include <linux/compat.h>
 #include <linux/syscalls.h>
+#include <linux/rt_lock.h>
 #include <linux/kprobes.h>
 #include <linux/user_namespace.h>
 
@@ -158,9 +159,9 @@ static int notifier_chain_unregister(struct notifier_block **nl,
  *			last notifier function called.
  */
 
-static int __kprobes notifier_call_chain(struct notifier_block **nl,
-					unsigned long val, void *v,
-					int nr_to_call,	int *nr_calls)
+static int __kprobes notrace notifier_call_chain(struct notifier_block **nl,
+						 unsigned long val, void *v,
+						 int nr_to_call, int *nr_calls)
 {
 	int ret = NOTIFY_DONE;
 	struct notifier_block *nb, *next_nb;
@@ -496,7 +497,7 @@ int srcu_notifier_chain_register(struct srcu_notifier_head *nh,
 	 * not yet working and interrupts must remain disabled.  At
 	 * such times we must not call mutex_lock().
 	 */
-	if (unlikely(system_state == SYSTEM_BOOTING))
+	if (unlikely(system_state < SYSTEM_RUNNING))
 		return notifier_chain_register(&nh->head, n);
 
 	mutex_lock(&nh->mutex);

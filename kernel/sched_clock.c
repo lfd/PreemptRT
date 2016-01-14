@@ -144,17 +144,14 @@ u64 sched_clock_cpu(int cpu)
 	if (unlikely(!sched_clock_running))
 		return 0ULL;
 
-	/*
-	 * Normally this is not called in NMI context - but if it is,
-	 * trying to do any locking here is totally lethal.
 	if (unlikely(in_nmi()))
 		return scd->clock;
-	 */
 
 	WARN_ON_ONCE(!irqs_disabled());
 	now = sched_clock();
 
-	if (cpu != raw_smp_processor_id()) {
+#if 0
+	if (cpu != smp_processor_id()) {
 		/*
 		 * in order to update a remote cpu's clock based on our
 		 * unstable raw time rebase it against:
@@ -180,6 +177,14 @@ u64 sched_clock_cpu(int cpu)
 	clock = scd->clock;
 
 	__raw_spin_unlock(&scd->lock);
+#else
+	if (cpu == smp_processor_id() && __raw_spin_trylock(&scd->lock)) {
+		__update_sched_clock(scd, now);
+		clock = scd->clock;
+		__raw_spin_unlock(&scd->lock);
+	} else
+		clock = scd->clock;
+#endif
 
 	return clock;
 }

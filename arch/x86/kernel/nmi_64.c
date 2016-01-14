@@ -51,7 +51,7 @@ static unsigned int nmi_hz = 1000;
 static DEFINE_PER_CPU(short, wd_enabled);
 
 /* Run after command line and cpu_init init, but before all other checks */
-void nmi_watchdog_default(void)
+static void nmi_watchdog_default(void)
 {
 	if (nmi_watchdog != NMI_DEFAULT)
 		return;

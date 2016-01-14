@@ -74,13 +74,10 @@ void ring_buffer_free(struct ring_buffer *buffer);
 
 int ring_buffer_resize(struct ring_buffer *buffer, unsigned long size);
 
-struct ring_buffer_event *
-ring_buffer_lock_reserve(struct ring_buffer *buffer,
-			 unsigned long length,
-			 unsigned long *flags);
+struct ring_buffer_event *ring_buffer_lock_reserve(struct ring_buffer *buffer,
+						   unsigned long length);
 int ring_buffer_unlock_commit(struct ring_buffer *buffer,
-			      struct ring_buffer_event *event,
-			      unsigned long flags);
+			      struct ring_buffer_event *event);
 int ring_buffer_write(struct ring_buffer *buffer,
 		      unsigned long length, void *data);
 
@@ -124,9 +121,18 @@ unsigned long ring_buffer_overrun_cpu(struct ring_buffer *buffer, int cpu);
 u64 ring_buffer_time_stamp(int cpu);
 void ring_buffer_normalize_time_stamp(int cpu, u64 *ts);
 
+/*
+ * The below functions are fine to use outside the tracing facility.
+ */
+#ifdef CONFIG_RING_BUFFER
 void tracing_on(void);
 void tracing_off(void);
 void tracing_off_permanent(void);
+#else
+static inline void tracing_on(void) { }
+static inline void tracing_off(void) { }
+static inline void tracing_off_permanent(void) { }
+#endif
 
 void *ring_buffer_alloc_read_page(struct ring_buffer *buffer);
 void ring_buffer_free_read_page(struct ring_buffer *buffer, void *data);

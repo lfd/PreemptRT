@@ -41,6 +41,21 @@ extern unsigned int apic_verbosity;
 extern int local_apic_timer_c2_ok;
 
 extern int disable_apic;
+
+#ifdef CONFIG_SMP
+extern void __inquire_remote_apic(int apicid);
+#else /* CONFIG_SMP */
+static inline void __inquire_remote_apic(int apicid)
+{
+}
+#endif /* CONFIG_SMP */
+
+static inline void default_inquire_remote_apic(int apicid)
+{
+	if (apic_verbosity >= APIC_DEBUG)
+		__inquire_remote_apic(apicid);
+}
+
 /*
  * Basic functions accessing APICs.
  */
@@ -195,5 +210,23 @@ static inline void init_apic_mappings(void) { }
 static inline void disable_local_APIC(void) { }
 
 #endif /* !CONFIG_X86_LOCAL_APIC */
+
+#ifdef CONFIG_X86_64
+#define	SET_APIC_ID(x)		(apic->set_apic_id(x))
+#else
+
+#ifdef CONFIG_X86_LOCAL_APIC
+static inline unsigned default_get_apic_id(unsigned long x)
+{
+	unsigned int ver = GET_APIC_VERSION(apic_read(APIC_LVR));
+
+	if (APIC_XAPIC(ver))
+		return (x >> 24) & 0xFF;
+	else
+		return (x >> 24) & 0x0F;
+}
+#endif
+
+#endif
 
 #endif /* _ASM_X86_APIC_H */

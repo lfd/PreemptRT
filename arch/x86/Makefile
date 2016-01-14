@@ -73,11 +73,16 @@ else
 
         stackp := $(CONFIG_SHELL) $(srctree)/scripts/gcc-x86_64-has-stack-protector.sh
         stackp-$(CONFIG_CC_STACKPROTECTOR) := $(shell $(stackp) \
-                "$(CC)" -fstack-protector )
+                "$(CC)" "-fstack-protector -DGCC_HAS_SP" )
         stackp-$(CONFIG_CC_STACKPROTECTOR_ALL) += $(shell $(stackp) \
                 "$(CC)" -fstack-protector-all )
 
         KBUILD_CFLAGS += $(stackp-y)
+endif
+
+# Don't unroll struct assignments with kmemcheck enabled
+ifeq ($(CONFIG_KMEMCHECK),y)
+	KBUILD_CFLAGS += $(call cc-option,-fno-builtin-memcpy)
 endif
 
 # Stackpointer is addressed different for 32 bit and 64 bit x86
@@ -101,29 +106,6 @@ KBUILD_CFLAGS += -Wno-sign-compare
 KBUILD_CFLAGS += -fno-asynchronous-unwind-tables
 # prevent gcc from generating any FP code by mistake
 KBUILD_CFLAGS += $(call cc-option,-mno-sse -mno-mmx -mno-sse2 -mno-3dnow,)
-
-###
-# Sub architecture support
-# fcore-y is linked before mcore-y files.
-
-# Default subarch .c files
-mcore-y  := arch/x86/mach-default/
-
-# Voyager subarch support
-mflags-$(CONFIG_X86_VOYAGER)	:= -Iarch/x86/include/asm/mach-voyager
-mcore-$(CONFIG_X86_VOYAGER)	:= arch/x86/mach-voyager/
-
-# generic subarchitecture
-mflags-$(CONFIG_X86_GENERICARCH):= -Iarch/x86/include/asm/mach-generic
-fcore-$(CONFIG_X86_GENERICARCH)	+= arch/x86/mach-generic/
-mcore-$(CONFIG_X86_GENERICARCH)	:= arch/x86/mach-default/
-
-# default subarch .h files
-mflags-y += -Iarch/x86/include/asm/mach-default
-
-# 64 bit does not support subarch support - clear sub arch variables
-fcore-$(CONFIG_X86_64)  :=
-mcore-$(CONFIG_X86_64)  :=
 
 KBUILD_CFLAGS += $(mflags-y)
 KBUILD_AFLAGS += $(mflags-y)
@@ -149,9 +131,6 @@ core-$(CONFIG_LGUEST_GUEST) += arch/x86/lguest/
 
 core-y += arch/x86/kernel/
 core-y += arch/x86/mm/
-
-# Remaining sub architecture files
-core-y += $(mcore-y)
 
 core-y += arch/x86/crypto/
 core-y += arch/x86/vdso/

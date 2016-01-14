@@ -126,6 +126,10 @@ extern int ftrace_update_ftrace_func(ftrace_func_t func);
 extern void ftrace_caller(void);
 extern void ftrace_call(void);
 extern void mcount_call(void);
+
+#ifndef FTRACE_ADDR
+#define FTRACE_ADDR ((unsigned long)ftrace_caller)
+#endif
 #ifdef CONFIG_FUNCTION_GRAPH_TRACER
 extern void ftrace_graph_caller(void);
 extern int ftrace_enable_ftrace_graph_caller(void);
@@ -136,7 +140,7 @@ static inline int ftrace_disable_ftrace_graph_caller(void) { return 0; }
 #endif
 
 /**
- * ftrace_make_nop - convert code into top
+ * ftrace_make_nop - convert code into nop
  * @mod: module structure if called by module load initialization
  * @rec: the mcount call site record
  * @addr: the address that the call site should be calling
@@ -298,6 +302,9 @@ ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3);
 extern int
 __ftrace_printk(unsigned long ip, const char *fmt, ...)
 	__attribute__ ((format (printf, 2, 3)));
+# define ftrace_vprintk(fmt, ap) __ftrace_printk(_THIS_IP_, fmt, ap)
+extern int
+__ftrace_vprintk(unsigned long ip, const char *fmt, va_list ap);
 extern void ftrace_dump(void);
 #else
 static inline void
@@ -310,6 +317,11 @@ static inline void tracing_stop(void) { }
 static inline void ftrace_off_permanent(void) { }
 static inline int
 ftrace_printk(const char *fmt, ...)
+{
+	return 0;
+}
+static inline int
+ftrace_vprintk(const char *fmt, va_list ap)
 {
 	return 0;
 }
@@ -326,36 +338,6 @@ static inline void
 ftrace_init_module(struct module *mod,
 		   unsigned long *start, unsigned long *end) { }
 #endif
-
-enum {
-	POWER_NONE = 0,
-	POWER_CSTATE = 1,
-	POWER_PSTATE = 2,
-};
-
-struct power_trace {
-#ifdef CONFIG_POWER_TRACER
-	ktime_t			stamp;
-	ktime_t			end;
-	int			type;
-	int			state;
-#endif
-};
-
-#ifdef CONFIG_POWER_TRACER
-extern void trace_power_start(struct power_trace *it, unsigned int type,
-					unsigned int state);
-extern void trace_power_mark(struct power_trace *it, unsigned int type,
-					unsigned int state);
-extern void trace_power_end(struct power_trace *it);
-#else
-static inline void trace_power_start(struct power_trace *it, unsigned int type,
-					unsigned int state) { }
-static inline void trace_power_mark(struct power_trace *it, unsigned int type,
-					unsigned int state) { }
-static inline void trace_power_end(struct power_trace *it) { }
-#endif
-
 
 /*
  * Structure that defines an entry function trace.
@@ -491,5 +473,18 @@ static inline int test_tsk_trace_graph(struct task_struct *tsk)
 }
 
 #endif /* CONFIG_TRACING */
+
+
+#ifdef CONFIG_HW_BRANCH_TRACER
+
+void trace_hw_branch(u64 from, u64 to);
+void trace_hw_branch_oops(void);
+
+#else /* CONFIG_HW_BRANCH_TRACER */
+
+static inline void trace_hw_branch(u64 from, u64 to) {}
+static inline void trace_hw_branch_oops(void) {}
+
+#endif /* CONFIG_HW_BRANCH_TRACER */
 
 #endif /* _LINUX_FTRACE_H */

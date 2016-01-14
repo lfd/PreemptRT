@@ -499,7 +499,19 @@ static u32 acpi_ec_gpe_handler(void *data)
 	}
 	clear_bit(EC_FLAGS_WAIT_GPE, &ec->flags);
 	if (test_bit(EC_FLAGS_GPE_MODE, &ec->flags))
+#if 0
 		wake_up(&ec->wait);
+#else
+		// hack ...
+		if (waitqueue_active(&ec->wait)) {
+			struct task_struct *task;
+
+			task = list_entry(ec->wait.task_list.next,
+					  wait_queue_t, task_list)->private;
+			if (task)
+				wake_up_process(task);
+		}
+#endif
 
 	if (state & ACPI_EC_FLAG_SCI) {
 		if (!test_and_set_bit(EC_FLAGS_QUERY_PENDING, &ec->flags))

@@ -16,6 +16,11 @@ config OPROFILE
 config HAVE_OPROFILE
 	def_bool n
 
+config PROFILE_NMI
+	bool
+	depends on OPROFILE
+	default y
+
 config KPROBES
 	bool "Kprobes"
 	depends on KALLSYMS && MODULES

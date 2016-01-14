@@ -79,6 +79,8 @@ unsigned int do_IRQ(struct pt_regs *regs)
 	u32 *isp;
 #endif
 
+	irq_show_regs_callback(smp_processor_id(), regs);
+
 	if (unlikely((unsigned)irq >= NR_IRQS)) {
 		printk(KERN_EMERG "%s: cannot handle IRQ %d\n",
 					__func__, irq);
@@ -96,7 +98,7 @@ unsigned int do_IRQ(struct pt_regs *regs)
 		__asm__ __volatile__("andl %%esp,%0" :
 					"=r" (sp) : "0" (THREAD_SIZE - 1));
 		if (unlikely(sp < (sizeof(struct thread_info) + STACK_WARN))) {
-			printk("do_IRQ: stack overflow: %ld\n",
+			printk("BUG: do_IRQ: stack overflow: %ld\n",
 				sp - sizeof(struct thread_info));
 			dump_stack();
 		}

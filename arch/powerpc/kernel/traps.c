@@ -112,7 +112,7 @@ int die(const char *str, struct pt_regs *regs, long err)
 	if (debugger(regs))
 		return 1;
 
-	ftrace_stop();
+	ftrace_halt();
 
 	oops_enter();
 

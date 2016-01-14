@@ -42,9 +42,14 @@
 #include <linux/cpumask.h>
 #include <linux/seqlock.h>
 
-#define rcu_qsctr_inc(cpu)
-#define rcu_bh_qsctr_inc(cpu)
-#define call_rcu_bh(head, rcu) call_rcu(head, rcu)
+#define rcu_qsctr_inc(cpu)	do { } while (0)
+#define rcu_bh_qsctr_inc(cpu)	do { } while (0)
+/*
+ * Someone might want to pass call_rcu_bh as a function pointer.
+ * So this needs to just be a rename and not a macro function.
+ *  (no parentheses)
+ */
+#define call_rcu_bh		 call_rcu
 
 extern void __rcu_read_lock(void);
 extern void __rcu_read_unlock(void);

@@ -8,6 +8,7 @@
 #include <linux/timer.h>
 #include <linux/linkage.h>
 #include <linux/bitops.h>
+#include <linux/plist.h>
 #include <asm/atomic.h>
 
 struct workqueue_struct;
@@ -26,7 +27,7 @@ struct work_struct {
 #define WORK_STRUCT_PENDING 0		/* T if work item pending execution */
 #define WORK_STRUCT_FLAG_MASK (3UL)
 #define WORK_STRUCT_WQ_DATA_MASK (~WORK_STRUCT_FLAG_MASK)
-	struct list_head entry;
+	struct plist_node entry;
 	work_func_t func;
 };
 
@@ -43,7 +44,7 @@ struct execute_work {
 
 #define __WORK_INITIALIZER(n, f) {				\
 	.data = WORK_DATA_INIT(),				\
-	.entry	= { &(n).entry, &(n).entry },			\
+	.entry	= PLIST_NODE_INIT(n.entry, MAX_PRIO),		\
 	.func = (f),						\
 	}
 
@@ -79,7 +80,7 @@ struct execute_work {
 #define INIT_WORK(_work, _func)						\
 	do {								\
 		(_work)->data = (atomic_long_t) WORK_DATA_INIT();	\
-		INIT_LIST_HEAD(&(_work)->entry);			\
+		plist_node_init(&(_work)->entry, -1);			\
 		PREPARE_WORK((_work), (_func));				\
 	} while (0)
 

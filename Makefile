@@ -503,10 +503,15 @@ endif
 
 include $(srctree)/arch/$(SRCARCH)/Makefile
 
-ifdef CONFIG_FRAME_POINTER
-KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+
+ifdef CONFIG_MCOUNT
+KBUILD_CFLAGS	+= -pg -fno-omit-frame-pointer -fno-optimize-sibling-calls
 else
-KBUILD_CFLAGS	+= -fomit-frame-pointer
+  ifdef CONFIG_FRAME_POINTER
+    KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+  else
+    KBUILD_CFLAGS	+= -fomit-frame-pointer
+  endif
 endif
 
 ifdef CONFIG_DEBUG_INFO

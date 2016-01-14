@@ -23,7 +23,7 @@
 #endif
 
 /* simple loop based delay: */
-static void delay_loop(unsigned long loops)
+static notrace void delay_loop(unsigned long loops)
 {
 	int d0;
 
@@ -38,7 +38,7 @@ static void delay_loop(unsigned long loops)
 }
 
 /* TSC based delay: */
-static void delay_tsc(unsigned long loops)
+static notrace void delay_tsc(unsigned long loops)
 {
 	unsigned long bclock, now;
 
@@ -69,7 +69,7 @@ int read_current_timer(unsigned long *timer_val)
 	return -1;
 }
 
-void __delay(unsigned long loops)
+void notrace __delay(unsigned long loops)
 {
 	delay_fn(loops);
 }

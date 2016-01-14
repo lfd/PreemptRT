@@ -194,6 +194,7 @@ extern int schedule_work(struct work_struct *work);
 extern int schedule_delayed_work(struct delayed_work *work, unsigned long delay);
 extern int schedule_delayed_work_on(int cpu, struct delayed_work *work,
 					unsigned long delay);
+extern int schedule_on_each_cpu_wq(struct workqueue_struct *wq, work_func_t func);
 extern int schedule_on_each_cpu(work_func_t func);
 extern int current_is_keventd(void);
 extern int keventd_up(void);

@@ -1267,10 +1267,12 @@ void tracing_start_function_trace(void)
 	register_ftrace_function(&trace_ops);
 	if (tracer_enabled)
 		ftrace_function_enabled = 1;
+	tracing_record_cmdline(current);
 }
 
 void tracing_stop_function_trace(void)
 {
+	tracing_record_cmdline(current);
 	ftrace_function_enabled = 0;
 	unregister_ftrace_function(&trace_ops);
 }

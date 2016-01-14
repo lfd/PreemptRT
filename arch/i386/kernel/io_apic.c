@@ -1919,7 +1919,7 @@ int __init timer_irq_works(void)
 	 * might have cached one ExtINT interrupt.  Finally, at
 	 * least one tick may be lost due to delays.
 	 */
-	if (jiffies - t1 > 4)
+	if (jiffies - t1 > 4 && jiffies - t1 < 16)
 		return 1;
 
 	return 0;

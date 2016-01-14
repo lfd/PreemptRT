@@ -32,6 +32,8 @@
 unsigned long __read_mostly	tracing_max_latency = (cycle_t)ULONG_MAX;
 unsigned long __read_mostly	tracing_thresh;
 
+static int tracing_disabled = 1;
+
 static long notrace
 ns2usecs(cycle_t nsec)
 {
@@ -68,6 +70,11 @@ static int __init set_nr_entries(char *str)
 	return 1;
 }
 __setup("trace_entries=", set_nr_entries);
+
+unsigned long nsecs_to_usecs(unsigned long nsecs)
+{
+	return nsecs / 1000;
+}
 
 enum trace_type {
 	__TRACE_FIRST_TYPE = 0,
@@ -113,7 +120,7 @@ static DEFINE_SPINLOCK(ftrace_max_lock);
  * structure. (this way the maximum trace is permanently saved,
  * for later retrieval via /debugfs/tracing/latency_trace)
  */
-static void notrace
+static notrace void
 __update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 {
 	struct trace_array_cpu *data = tr->data[cpu];
@@ -135,12 +142,59 @@ __update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 	tracing_record_cmdline(current);
 }
 
+void check_pages(struct trace_array_cpu *data)
+{
+	struct page *page, *tmp;
+
+	BUG_ON(data->trace_pages.next->prev != &data->trace_pages);
+	BUG_ON(data->trace_pages.prev->next != &data->trace_pages);
+
+	list_for_each_entry_safe(page, tmp, &data->trace_pages, lru) {
+		BUG_ON(page->lru.next->prev != &page->lru);
+		BUG_ON(page->lru.prev->next != &page->lru);
+	}
+}
+
+void *head_page(struct trace_array_cpu *data)
+{
+	struct page *page;
+
+	check_pages(data);
+	if (list_empty(&data->trace_pages))
+		return NULL;
+
+	page = list_entry(data->trace_pages.next, struct page, lru);
+	BUG_ON(&page->lru == &data->trace_pages);
+
+	return page_address(page);
+}
+
+notrace static void
+flip_trace(struct trace_array_cpu *tr1, struct trace_array_cpu *tr2)
+{
+	struct list_head flip_pages;
+
+	INIT_LIST_HEAD(&flip_pages);
+
+	tr1->trace_current = NULL;
+	memcpy(&tr1->trace_current_idx, &tr2->trace_current_idx,
+		sizeof(struct trace_array_cpu) -
+		offsetof(struct trace_array_cpu, trace_current_idx));
+
+	check_pages(tr1);
+	check_pages(tr2);
+	list_splice_init(&tr1->trace_pages, &flip_pages);
+	list_splice_init(&tr2->trace_pages, &tr1->trace_pages);
+	list_splice_init(&flip_pages, &tr2->trace_pages);
+	BUG_ON(!list_empty(&flip_pages));
+	check_pages(tr1);
+	check_pages(tr2);
+}
+
 notrace void
 update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 {
 	struct trace_array_cpu *data;
-	void *save_trace;
-	struct list_head save_pages;
 	int i;
 
 	WARN_ON_ONCE(!irqs_disabled());
@@ -148,11 +202,7 @@ update_max_tr(struct trace_array *tr, struct task_struct *tsk, int cpu)
 	/* clear out all the previous traces */
 	for_each_possible_cpu(i) {
 		data = tr->data[i];
-		save_trace = max_tr.data[i]->trace;
-		save_pages = max_tr.data[i]->trace_pages;
-		memcpy(max_tr.data[i], data, sizeof(*data));
-		data->trace = save_trace;
-		data->trace_pages = save_pages;
+		flip_trace(max_tr.data[i], data);
 		tracing_reset(data);
 	}
 
@@ -170,8 +220,6 @@ notrace void
 update_max_tr_single(struct trace_array *tr, struct task_struct *tsk, int cpu)
 {
 	struct trace_array_cpu *data = tr->data[cpu];
-	void *save_trace;
-	struct list_head save_pages;
 	int i;
 
 	WARN_ON_ONCE(!irqs_disabled());
@@ -179,11 +227,8 @@ update_max_tr_single(struct trace_array *tr, struct task_struct *tsk, int cpu)
 	for_each_possible_cpu(i)
 		tracing_reset(max_tr.data[i]);
 
-	save_trace = max_tr.data[cpu]->trace;
-	save_pages = max_tr.data[cpu]->trace_pages;
-	memcpy(max_tr.data[cpu], data, sizeof(*data));
-	data->trace = save_trace;
-	data->trace_pages = save_pages;
+	flip_trace(max_tr.data[cpu], data);
+
 	tracing_reset(data);
 
 	__update_max_tr(tr, tsk, cpu);
@@ -212,11 +257,48 @@ int register_tracer(struct tracer *type)
 		}
 	}
 
+#ifdef CONFIG_FTRACE_STARTUP_TEST
+	if (type->selftest) {
+		struct tracer *saved_tracer = current_trace;
+		struct trace_array_cpu *data;
+		struct trace_array *tr = &global_trace;
+		int saved_ctrl = tr->ctrl;
+		int i;
+		/*
+		 * Run a selftest on this tracer.
+		 * Here we reset the trace buffer, and set the current
+		 * tracer to be this tracer. The tracer can then run some
+		 * internal tracing to verify that everything is in order.
+		 * If we fail, we do not register this tracer.
+		 */
+		for_each_possible_cpu(i) {
+			data = tr->data[i];
+			if (!head_page(data))
+				continue;
+			tracing_reset(data);
+		}
+		current_trace = type;
+		tr->ctrl = 0;
+		/* the test is responsible for initializing and enabling */
+		pr_info("Testing tracer %s: ", type->name);
+		ret = type->selftest(type, tr);
+		/* the test is responsible for resetting too */
+		current_trace = saved_tracer;
+		tr->ctrl = saved_ctrl;
+		if (ret) {
+			printk(KERN_CONT "FAILED!\n");
+			goto out;
+		}
+		printk(KERN_CONT "PASSED\n");
+	}
+#endif
+
 	type->next = trace_types;
 	trace_types = type;
 	len = strlen(type->name);
 	if (len > max_tracer_type_len)
 		max_tracer_type_len = len;
+
  out:
 	mutex_unlock(&trace_types_lock);
 
@@ -251,15 +333,16 @@ void unregister_tracer(struct tracer *type)
 	mutex_unlock(&trace_types_lock);
 }
 
-void notrace tracing_reset(struct trace_array_cpu *data)
+notrace void tracing_reset(struct trace_array_cpu *data)
 {
 	data->trace_idx = 0;
-	data->trace_current = data->trace;
+	data->trace_current = head_page(data);
 	data->trace_current_idx = 0;
+	data->time_offset = 0;
 }
 
 #ifdef CONFIG_FTRACE
-static void notrace
+static notrace void
 function_trace_call(unsigned long ip, unsigned long parent_ip)
 {
 	struct trace_array *tr = &global_trace;
@@ -316,7 +399,7 @@ static void trace_init_cmdlines(void)
 
 notrace void trace_stop_cmdline_recording(void);
 
-static void notrace trace_save_cmdline(struct task_struct *tsk)
+static notrace void trace_save_cmdline(struct task_struct *tsk)
 {
 	unsigned map;
 	unsigned idx;
@@ -381,26 +464,31 @@ notrace void tracing_record_cmdline(struct task_struct *tsk)
 }
 
 static inline notrace struct trace_entry *
-tracing_get_trace_entry(struct trace_array *tr,
-			struct trace_array_cpu *data)
+tracing_get_trace_entry(struct trace_array *tr, struct trace_array_cpu *data)
 {
 	unsigned long idx, idx_next;
 	struct trace_entry *entry;
-	struct page *page;
 	struct list_head *next;
+	struct page *page;
 
 	data->trace_idx++;
 	idx = data->trace_current_idx;
 	idx_next = idx + 1;
 
+	BUG_ON(idx * TRACE_ENTRY_SIZE >= PAGE_SIZE);
+
 	entry = data->trace_current + idx * TRACE_ENTRY_SIZE;
 
 	if (unlikely(idx_next >= ENTRIES_PER_PAGE)) {
 		page = virt_to_page(data->trace_current);
-		if (unlikely(&page->lru == data->trace_pages.prev))
-			next = data->trace_pages.next;
-		else
-			next = page->lru.next;
+		/*
+		 * Roundrobin - but skip the head (which is not a real page):
+		 */
+		next = page->lru.next;
+		if (unlikely(next == &data->trace_pages))
+			next = next->next;
+		BUG_ON(next == &data->trace_pages);
+
 		page = list_entry(next, struct page, lru);
 		data->trace_current = page_address(page);
 		idx_next = 0;
@@ -412,18 +500,17 @@ tracing_get_trace_entry(struct trace_array *tr,
 }
 
 static inline notrace void
-tracing_generic_entry_update(struct trace_entry *entry,
-			     unsigned long flags)
+tracing_generic_entry_update(struct trace_entry *entry, unsigned long flags)
 {
 	struct task_struct *tsk = current;
 	unsigned long pc;
 
 	pc = preempt_count();
 
-	entry->idx	= atomic_inc_return(&tracer_counter);
-	entry->preempt_count = pc & 0xff;
-	entry->pid	 = tsk->pid;
-	entry->t	 = now(raw_smp_processor_id());
+	entry->idx		= atomic_inc_return(&tracer_counter);
+	entry->preempt_count	= pc & 0xff;
+	entry->pid		= tsk->pid;
+	entry->t		= now(raw_smp_processor_id());
 	entry->flags = (irqs_disabled_flags(flags) ? TRACE_FLAG_IRQS_OFF : 0) |
 		((pc & HARDIRQ_MASK) ? TRACE_FLAG_HARDIRQ : 0) |
 		((pc & SOFTIRQ_MASK) ? TRACE_FLAG_SOFTIRQ : 0) |
@@ -432,16 +519,15 @@ tracing_generic_entry_update(struct trace_entry *entry,
 
 notrace void
 ftrace(struct trace_array *tr, struct trace_array_cpu *data,
-		       unsigned long ip, unsigned long parent_ip,
-		       unsigned long flags)
+       unsigned long ip, unsigned long parent_ip, unsigned long flags)
 {
 	struct trace_entry *entry;
 
-	entry = tracing_get_trace_entry(tr, data);
+	entry			= tracing_get_trace_entry(tr, data);
 	tracing_generic_entry_update(entry, flags);
-	entry->type	    = TRACE_FN;
-	entry->fn.ip	    = ip;
-	entry->fn.parent_ip = parent_ip;
+	entry->type		= TRACE_FN;
+	entry->fn.ip		= ip;
+	entry->fn.parent_ip	= parent_ip;
 }
 
 notrace void
@@ -452,7 +538,7 @@ tracing_sched_switch_trace(struct trace_array *tr,
 {
 	struct trace_entry *entry;
 
-	entry = tracing_get_trace_entry(tr, data);
+	entry			= tracing_get_trace_entry(tr, data);
 	tracing_generic_entry_update(entry, flags);
 	entry->type		= TRACE_CTX;
 	entry->ctx.prev_pid	= prev->pid;
@@ -496,6 +582,8 @@ trace_entry_idx(struct trace_array *tr, struct trace_array_cpu *data,
 	}
 
 	page = list_entry(iter->next_page[cpu], struct page, lru);
+	BUG_ON(&data->trace_pages == &page->lru);
+
 	array = page_address(page);
 
 	return &array[iter->next_page_idx[cpu]];
@@ -510,7 +598,7 @@ find_next_entry(struct trace_iterator *iter, int *ent_cpu)
 	int cpu;
 
 	for_each_possible_cpu(cpu) {
-		if (!tr->data[cpu]->trace)
+		if (!head_page(tr->data[cpu]))
 			continue;
 		ent = trace_entry_idx(tr, tr->data[cpu], iter, cpu);
 		if (ent &&
@@ -537,6 +625,7 @@ static void *find_next_entry_inc(struct trace_iterator *iter)
 		iter->idx++;
 		iter->next_idx[next_cpu]++;
 		iter->next_page_idx[next_cpu]++;
+
 		if (iter->next_page_idx[next_cpu] >= ENTRIES_PER_PAGE) {
 			struct trace_array_cpu *data = iter->tr->data[next_cpu];
 
@@ -548,19 +637,21 @@ static void *find_next_entry_inc(struct trace_iterator *iter)
 					data->trace_pages.next;
 		}
 	}
+	iter->prev_ent = iter->ent;
+	iter->prev_cpu = iter->cpu;
+
 	iter->ent = next;
 	iter->cpu = next_cpu;
 
 	return next ? iter : NULL;
 }
 
-static void notrace *
-s_next(struct seq_file *m, void *v, loff_t *pos)
+static notrace void *s_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct trace_iterator *iter = m->private;
-	void *ent;
 	void *last_ent = iter->ent;
 	int i = (int)*pos;
+	void *ent;
 
 	(*pos)++;
 
@@ -606,6 +697,8 @@ static void *s_start(struct seq_file *m, loff_t *pos)
 		iter->ent = NULL;
 		iter->cpu = 0;
 		iter->idx = -1;
+		iter->prev_ent = NULL;
+		iter->prev_cpu = -1;
 
 		for_each_possible_cpu(i) {
 			iter->next_idx[i] = 0;
@@ -665,7 +758,7 @@ seq_print_sym_offset(struct seq_file *m, const char *fmt, unsigned long address)
 # define IP_FMT "%016lx"
 #endif
 
-static void notrace
+static notrace void
 seq_print_ip_sym(struct seq_file *m, unsigned long ip, unsigned long sym_flags)
 {
 	if (!ip) {
@@ -682,7 +775,7 @@ seq_print_ip_sym(struct seq_file *m, unsigned long ip, unsigned long sym_flags)
 		seq_printf(m, " <" IP_FMT ">", ip);
 }
 
-static void notrace print_lat_help_header(struct seq_file *m)
+static notrace void print_lat_help_header(struct seq_file *m)
 {
 	seq_puts(m, "#                _------=> CPU#            \n");
 	seq_puts(m, "#               / _-----=> irqs-off        \n");
@@ -695,14 +788,14 @@ static void notrace print_lat_help_header(struct seq_file *m)
 	seq_puts(m, "#     \\   /    |||||   \\   |   /           \n");
 }
 
-static void notrace print_func_help_header(struct seq_file *m)
+static notrace void print_func_help_header(struct seq_file *m)
 {
 	seq_puts(m, "#           TASK-PID   CPU#    TIMESTAMP  FUNCTION\n");
 	seq_puts(m, "#              | |      |          |         |\n");
 }
 
 
-static void notrace
+static notrace void
 print_trace_header(struct seq_file *m, struct trace_iterator *iter)
 {
 	unsigned long sym_flags = (trace_flags & TRACE_ITER_SYM_MASK);
@@ -718,7 +811,7 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
 		name = type->name;
 
 	for_each_possible_cpu(cpu) {
-		if (tr->data[cpu]->trace) {
+		if (head_page(tr->data[cpu])) {
 			total += tr->data[cpu]->trace_idx;
 			if (tr->data[cpu]->trace_idx > tr->entries)
 				entries += tr->entries;
@@ -733,7 +826,7 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
 		 "---------------------------------\n");
 	seq_printf(m, " latency: %lu us, #%lu/%lu, CPU#%d |"
 		   " (M:%s VP:%d, KP:%d, SP:%d HP:%d",
-		   data->saved_latency,
+		   nsecs_to_usecs(data->saved_latency),
 		   entries,
 		   total,
 		   tr->cpu,
@@ -771,12 +864,7 @@ print_trace_header(struct seq_file *m, struct trace_iterator *iter)
 	seq_puts(m, "\n");
 }
 
-unsigned long nsecs_to_usecs(unsigned long nsecs)
-{
-	return nsecs / 1000;
-}
-
-static void notrace
+static notrace void
 lat_print_generic(struct seq_file *m, struct trace_entry *entry, int cpu)
 {
 	int hardirq, softirq;
@@ -813,7 +901,7 @@ lat_print_generic(struct seq_file *m, struct trace_entry *entry, int cpu)
 
 unsigned long preempt_mark_thresh = 100;
 
-static void notrace
+static notrace void
 lat_print_timestamp(struct seq_file *m, unsigned long long abs_usecs,
 		    unsigned long rel_usecs)
 {
@@ -828,7 +916,7 @@ lat_print_timestamp(struct seq_file *m, unsigned long long abs_usecs,
 
 static const char state_to_char[] = TASK_STATE_TO_CHAR_STR;
 
-static void notrace
+static notrace void
 print_lat_fmt(struct seq_file *m, struct trace_iterator *iter,
 	      unsigned int trace_idx, int cpu)
 {
@@ -884,20 +972,50 @@ print_lat_fmt(struct seq_file *m, struct trace_iterator *iter,
 	}
 }
 
-static void notrace
+static notrace void sync_time_offset(struct trace_iterator *iter)
+{
+	struct trace_array_cpu *prev_array, *array;
+	struct trace_entry *prev_entry, *entry;
+	cycle_t prev_t, t;
+
+	entry = iter->ent;
+	prev_entry = iter->prev_ent;
+	if (!prev_entry)
+		return;
+
+	prev_array = iter->tr->data[iter->prev_cpu];
+	array = iter->tr->data[iter->cpu];
+
+	prev_t = prev_entry->t + prev_array->time_offset;
+	t = entry->t + array->time_offset;
+
+	/*
+	 * If time goes backwards we increase the offset of
+	 * the current array, to not have observable time warps.
+	 * This will quickly synchronize the time offsets of
+	 * multiple CPUs:
+	 */
+	if (t < prev_t)
+		array->time_offset += prev_t - t;
+}
+
+static notrace void
 print_trace_fmt(struct seq_file *m, struct trace_iterator *iter)
 {
 	unsigned long sym_flags = (trace_flags & TRACE_ITER_SYM_MASK);
-	struct trace_entry *entry = iter->ent;
+	struct trace_entry *entry;
 	unsigned long usec_rem;
 	unsigned long long t;
 	unsigned long secs;
 	char *comm;
 	int S;
 
+	sync_time_offset(iter);
+	entry = iter->ent;
+
 	comm = trace_find_cmdline(iter->ent->pid);
 
-	t = ns2usecs(entry->t);
+	t = ns2usecs(entry->t + iter->tr->data[iter->cpu]->time_offset);
 	usec_rem = do_div(t, 1000000ULL);
 	secs = (unsigned long)t;
 
@@ -913,6 +1031,7 @@ print_trace_fmt(struct seq_file *m, struct trace_iterator *iter)
 			seq_printf(m, " <-");
 			seq_print_ip_sym(m, entry->fn.parent_ip, sym_flags);
 		}
+		seq_printf(m, "\n");
 		break;
 	case TRACE_CTX:
 		S = entry->ctx.prev_state < sizeof(state_to_char) ?
@@ -925,7 +1044,6 @@ print_trace_fmt(struct seq_file *m, struct trace_iterator *iter)
 			   entry->ctx.next_prio);
 		break;
 	}
-	seq_printf(m, "\n");
 }
 
 static int trace_empty(struct trace_iterator *iter)
@@ -936,8 +1054,7 @@ static int trace_empty(struct trace_iterator *iter)
 	for_each_possible_cpu(cpu) {
 		data = iter->tr->data[cpu];
 
-		if (data->trace &&
-		    data->trace_idx)
+		if (head_page(data) && data->trace_idx)
 			return 0;
 	}
 	return 1;
@@ -985,6 +1102,11 @@ __tracing_open(struct inode *inode, struct file *file, int *ret)
 {
 	struct trace_iterator *iter;
 
+	if (tracing_disabled) {
+		*ret = -ENODEV;
+		return NULL;
+	}
+
 	iter = kzalloc(sizeof(*iter), GFP_KERNEL);
 	if (!iter) {
 		*ret = -ENOMEM;
@@ -1023,6 +1145,9 @@ __tracing_open(struct inode *inode, struct file *file, int *ret)
 
 int tracing_open_generic(struct inode *inode, struct file *filp)
 {
+	if (tracing_disabled)
+		return -ENODEV;
+
 	filp->private_data = inode->i_private;
 	return 0;
 }
@@ -1069,7 +1194,7 @@ static int tracing_lt_open(struct inode *inode, struct file *file)
 }
 
 
-static void notrace *
+static notrace void *
 t_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	struct tracer *t = m->private;
@@ -1127,6 +1252,9 @@ static struct seq_operations show_traces_seq_ops = {
 static int show_traces_open(struct inode *inode, struct file *file)
 {
 	int ret;
+
+	if (tracing_disabled)
+		return -ENODEV;
 
 	ret = seq_open(file, &show_traces_seq_ops);
 	if (!ret) {
@@ -1240,6 +1368,39 @@ static struct file_operations tracing_iter_fops = {
 	.write = tracing_iter_ctrl_write,
 };
 
+static const char readme_msg[] =
+	"tracing mini-HOWTO:\n\n"
+	"# mkdir /debug\n"
+	"# mount -t debugfs nodev /debug\n\n"
+	"# cat /debug/tracing/available_tracers\n"
+	"wakeup preemptirqsoff preemptoff irqsoff ftrace sched_switch none\n\n"
+	"# cat /debug/tracing/current_tracer\n"
+	"none\n"
+	"# echo sched_switch > /debug/tracing/current_tracer\n"
+	"# cat /debug/tracing/current_tracer\n"
+	"sched_switch\n"
+	"# cat /debug/tracing/iter_ctrl\n"
+	"noprint-parent nosym-offset nosym-addr noverbose\n"
+	"# echo print-parent > /debug/tracing/iter_ctrl\n"
+	"# echo 1 > /debug/tracing/tracing_enabled\n"
+	"# cat /debug/tracing/trace > /tmp/trace.txt\n"
+	"echo 0 > /debug/tracing/tracing_enabled\n"
+;
+
+static ssize_t
+tracing_readme_read(struct file *filp, char __user *ubuf,
+		       size_t cnt, loff_t *ppos)
+{
+	return simple_read_from_buffer(ubuf, cnt, ppos,
+					readme_msg, strlen(readme_msg));
+}
+
+static struct file_operations tracing_readme_fops = {
+	.open = tracing_open_generic,
+	.read = tracing_readme_read,
+};
+
+
 static ssize_t
 tracing_ctrl_read(struct file *filp, char __user *ubuf,
 		  size_t cnt, loff_t *ppos)
@@ -1249,8 +1410,7 @@ tracing_ctrl_read(struct file *filp, char __user *ubuf,
 	int r;
 
 	r = sprintf(buf, "%ld\n", tr->ctrl);
-	return simple_read_from_buffer(ubuf, cnt, ppos,
-				       buf, r);
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
 }
 
 static ssize_t
@@ -1452,6 +1612,11 @@ struct dentry *tracing_init_dentry(void)
 	return d_tracer;
 }
 
+#ifdef CONFIG_FTRACE_SELFTEST
+/* Let selftest have access to static functions in this file */
+#include "trace_selftest.c"
+#endif
+
 static __init void tracer_init_debugfs(void)
 {
 	struct dentry *d_tracer;
@@ -1501,6 +1666,11 @@ static __init void tracer_init_debugfs(void)
 	if (!entry)
 		pr_warning("Could not create debugfs "
 			   "'tracing_threash' entry\n");
+	entry = debugfs_create_file("README", 0644, d_tracer,
+				    NULL, &tracing_readme_fops);
+	if (!entry)
+		pr_warning("Could not create debugfs 'README' entry\n");
+
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 	entry = debugfs_create_file("dyn_ftrace_total_info", 0444, d_tracer,
@@ -1521,9 +1691,9 @@ static struct tracer no_tracer __read_mostly =
 static int trace_alloc_page(void)
 {
 	struct trace_array_cpu *data;
-	void *array;
 	struct page *page, *tmp;
 	LIST_HEAD(pages);
+	void *array;
 	int i;
 
 	/* first allocate a page for each CPU */
@@ -1555,14 +1725,14 @@ static int trace_alloc_page(void)
 	for_each_possible_cpu(i) {
 		data = global_trace.data[i];
 		page = list_entry(pages.next, struct page, lru);
-		list_del(&page->lru);
+		list_del_init(&page->lru);
 		list_add_tail(&page->lru, &data->trace_pages);
 		ClearPageLRU(page);
 
 #ifdef CONFIG_TRACER_MAX_TRACE
 		data = max_tr.data[i];
 		page = list_entry(pages.next, struct page, lru);
-		list_del(&page->lru);
+		list_del_init(&page->lru);
 		list_add_tail(&page->lru, &data->trace_pages);
 		SetPageLRU(page);
 #endif
@@ -1573,7 +1743,7 @@ static int trace_alloc_page(void)
 
  free_pages:
 	list_for_each_entry_safe(page, tmp, &pages, lru) {
-		list_del(&page->lru);
+		list_del_init(&page->lru);
 		__free_page(page);
 	}
 	return -ENOMEM;
@@ -1585,6 +1755,7 @@ __init static int tracer_alloc_buffers(void)
 	void *array;
 	struct page *page;
 	int pages = 0;
+	int ret = -ENOMEM;
 	int i;
 
 	/* Allocate the first page for all buffers */
@@ -1598,7 +1769,6 @@ __init static int tracer_alloc_buffers(void)
 			       "for trace buffer!\n");
 			goto free_buffers;
 		}
-		data->trace = array;
 
 		/* set the array to the list */
 		INIT_LIST_HEAD(&data->trace_pages);
@@ -1615,7 +1785,6 @@ __init static int tracer_alloc_buffers(void)
 			       "for trace buffer!\n");
 			goto free_buffers;
 		}
-		max_tr.data[i]->trace = array;
 
 		INIT_LIST_HEAD(&max_tr.data[i]->trace_pages);
 		page = virt_to_page(array);
@@ -1650,6 +1819,9 @@ __init static int tracer_alloc_buffers(void)
 	register_tracer(&no_tracer);
 	current_trace = &no_tracer;
 
+	/* All seems OK, enable tracing */
+	tracing_disabled = 0;
+
 	return 0;
 
  free_buffers:
@@ -1657,28 +1829,26 @@ __init static int tracer_alloc_buffers(void)
 		struct page *page, *tmp;
 		struct trace_array_cpu *data = global_trace.data[i];
 
-		if (data && data->trace) {
+		if (data) {
 			list_for_each_entry_safe(page, tmp,
 						 &data->trace_pages, lru) {
-				list_del(&page->lru);
+				list_del_init(&page->lru);
 				__free_page(page);
 			}
-			data->trace = NULL;
 		}
 
 #ifdef CONFIG_TRACER_MAX_TRACE
 		data = max_tr.data[i];
-		if (data && data->trace) {
+		if (data) {
 			list_for_each_entry_safe(page, tmp,
 						 &data->trace_pages, lru) {
-				list_del(&page->lru);
+				list_del_init(&page->lru);
 				__free_page(page);
 			}
-			data->trace = NULL;
 		}
 #endif
 	}
-	return -ENOMEM;
+	return ret;
 }
 
-device_initcall(tracer_alloc_buffers);
+fs_initcall(tracer_alloc_buffers);

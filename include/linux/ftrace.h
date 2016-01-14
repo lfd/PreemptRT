@@ -54,6 +54,9 @@ struct dyn_ftrace {
 	unsigned long	  flags;
 };
 
+int ftrace_force_update(void);
+void ftrace_set_filter(unsigned char *buf, int len, int reset);
+
 /* defined in arch */
 extern int ftrace_ip_converted(unsigned long ip);
 extern unsigned char *ftrace_nop_replace(void);
@@ -66,7 +69,17 @@ extern int ftrace_update_ftrace_func(ftrace_func_t func);
 extern void ftrace_caller(void);
 extern void ftrace_call(void);
 extern void mcount_call(void);
+#else
+# define ftrace_force_update() ({ 0; })
+# define ftrace_set_filter(buf, len, reset) do { } while (0)
 #endif
+
+static inline void tracer_disable(void)
+{
+#ifdef CONFIG_FTRACE
+	ftrace_enabled = 0;
+#endif
+}
 
 #ifdef CONFIG_FRAME_POINTER
 /* TODO: need to fix this for ARM */

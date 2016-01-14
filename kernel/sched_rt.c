@@ -3,22 +3,34 @@
  * policies)
  */
 
-static cpumask_t rt_overload_mask;
-static inline int rt_overloaded(struct task_struct *p)
+/* Is this defined somewhere? */
+#define CACHE_ALIGN_SPACE(sz)  (L1_CACHE_ALIGN(sz) - (sz))
+
+static struct {
+	cpumask_t rt_overload;
+	char space[CACHE_ALIGN_SPACE(sizeof(cpumask_t))];
+} rt_overload_masks[MAX_NUMNODES] __cacheline_aligned_in_smp;
+
+static inline cpumask_t *rt_overload_mask(int cpu)
 {
-	return !cpus_empty(rt_overload_mask);
+	return &rt_overload_masks[cpu_to_node(cpu)].rt_overload;
 }
-static inline cpumask_t *rt_overload(struct task_struct *p)
+
+static inline int rt_overloaded(struct rq *rq)
 {
-	return &rt_overload_mask;
+	return !cpus_empty(*rt_overload_mask(rq->cpu));
 }
-static inline void rt_set_overload(struct task_struct *p, int cpu)
+static inline cpumask_t *rt_overload(struct rq *rq)
 {
-	cpu_set(cpu, rt_overload_mask);
+	return rt_overload_mask(rq->cpu);
 }
-static inline void rt_clear_overload(struct task_struct *p, int cpu)
+static inline void rt_set_overload(struct rq *rq)
 {
-	cpu_clear(cpu, rt_overload_mask);
+	cpu_set(rq->cpu, *rt_overload_mask(rq->cpu));
+}
+static inline void rt_clear_overload(struct rq *rq)
+{
+	cpu_clear(rq->cpu, *rt_overload_mask(rq->cpu));
 }
 
 /*
@@ -51,7 +63,7 @@ static inline void inc_rt_tasks(struct task_struct *p, struct rq *rq)
 	if (p->prio < rq->rt.highest_prio)
 		rq->rt.highest_prio = p->prio;
 	if (rq->rt.rt_nr_running > 1)
-		rt_set_overload(p, rq->cpu);
+		rt_set_overload(rq);
 #endif /* CONFIG_SMP */
 }
 
@@ -74,7 +86,7 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 	} else
 		rq->rt.highest_prio = MAX_RT_PRIO;
 	if (rq->rt.rt_nr_running < 2)
-		rt_clear_overload(p, rq->cpu);
+		rt_clear_overload(rq);
 #endif /* CONFIG_SMP */
 }
 
@@ -427,7 +439,7 @@ static int pull_rt_task(struct rq *this_rq)
 				 * Small chance that this_rq->curr changed
 				 * but it's really harmless here.
 				 */
-				rt_clear_overload(this_rq->curr, this_rq->cpu);
+				rt_clear_overload(this_rq);
 			else
 				/*
 				 * Heh, the src_rq is now overloaded, since

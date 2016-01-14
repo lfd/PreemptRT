@@ -253,6 +253,12 @@ static inline ktime_t hrtimer_cb_get_time(struct hrtimer *timer)
 extern ktime_t ktime_get(void);
 extern ktime_t ktime_get_real(void);
 
+# if (BITS_PER_LONG == 64) || defined(CONFIG_KTIME_SCALAR)
+#  define hrtimer_trace(a,b)		trace_special_u64((a).tv64,b)
+# else
+#  define hrtimer_trace(a,b)		trace_special((a).tv.sec,(a).tv.nsec,b)
+# endif
+
 /* Exported timer functions: */
 
 /* Initialize timers: */

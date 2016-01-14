@@ -730,6 +730,8 @@ static void enqueue_hrtimer(struct hrtimer *timer,
 	struct hrtimer *entry;
 	int leftmost = 1;
 
+	hrtimer_trace(timer->expires, (unsigned long) timer);
+
 	/*
 	 * Find the right place in the rbtree:
 	 */
@@ -1071,6 +1073,7 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 
  retry:
 	now = ktime_get();
+	hrtimer_trace(now, 0);
 
 	expires_next.tv64 = KTIME_MAX;
 
@@ -1098,6 +1101,8 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 					expires_next = expires;
 				break;
 			}
+
+			hrtimer_trace(timer->expires, (unsigned long) timer);
 
 			/* Move softirq callbacks to the pending list */
 			if (timer->cb_mode == HRTIMER_CB_SOFTIRQ) {

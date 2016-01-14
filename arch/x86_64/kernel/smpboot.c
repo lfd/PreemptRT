@@ -331,8 +331,8 @@ void __cpuinit start_secondary(void)
 	barrier();
 
 	/*
-  	 * Check TSC sync first:
- 	 */
+	 * Check TSC sync first:
+	 */
 	check_tsc_sync_target();
 
 	Dprintk("cpu %d: setting up apic clock\n", smp_processor_id()); 	

@@ -90,6 +90,15 @@ config SECURITY_FILE_CAPABILITIES
 
 	  If in doubt, answer N.
 
+config REALTIME_CAPABILITIES
+	tristate "Real-Time LSM (Obsolete)"
+	depends on SECURITY && EXPERIMENTAL
+	help
+	  This is an obsolete LSM - use newer PAM and rt-limites
+	  to manage your real-time apps.
+
+	  If you are unsure how to answer this question, answer N.
+
 config SECURITY_ROOTPLUG
 	bool "Root Plug Support"
 	depends on USB=y && SECURITY

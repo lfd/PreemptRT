@@ -105,10 +105,20 @@ static DEFINE_PER_CPU(unsigned long[RADIX_TREE_MAX_PATH+1], optimistic_histogram
 
 static void optimistic_hit(unsigned long height)
 {
+	unsigned long flags;
+
 	if (height > RADIX_TREE_MAX_PATH)
 		height = RADIX_TREE_MAX_PATH;
 
+	/*
+	 * HACK:
+	 *  On PREEMPT_RT this protects the percpu var.
+	 *  We really need to fix this to pass in cpu var protected
+	 *  with a RT sleeping spinlock.
+	 */
+	local_irq_save(flags);
 	__get_cpu_var(optimistic_histogram)[height]++;
+	local_irq_restore(flags);
 }
 
 #ifdef CONFIG_PROC_FS

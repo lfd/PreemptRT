@@ -339,9 +339,9 @@ void nmi_show_all_regs(void)
 	}
 }
 
-static DEFINE_SPINLOCK(nmi_print_lock);
+static DEFINE_RAW_SPINLOCK(nmi_print_lock);
 
-void irq_show_regs_callback(int cpu, struct pt_regs *regs)
+notrace void irq_show_regs_callback(int cpu, struct pt_regs *regs)
 {
 	if (!nmi_show_regs[cpu])
 		return;
@@ -354,7 +354,7 @@ void irq_show_regs_callback(int cpu, struct pt_regs *regs)
 	spin_unlock(&nmi_print_lock);
 }
 
-int __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
+int notrace __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 {
 	int sum;
 	int touched = 0;

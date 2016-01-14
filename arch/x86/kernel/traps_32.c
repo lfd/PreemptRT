@@ -295,6 +295,12 @@ void dump_stack(void)
 
 EXPORT_SYMBOL(dump_stack);
 
+#if defined(CONFIG_DEBUG_STACKOVERFLOW) && defined(CONFIG_EVENT_TRACE)
+extern unsigned long worst_stack_left;
+#else
+# define worst_stack_left -1L
+#endif
+
 void show_registers(struct pt_regs *regs)
 {
 	int i;
@@ -364,7 +370,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 		u32 lock_owner;
 		int lock_owner_depth;
 	} die = {
-		.lock =			__RAW_SPIN_LOCK_UNLOCKED,
+		.lock =			RAW_SPIN_LOCK_UNLOCKED(die.lock),
 		.lock_owner =		-1,
 		.lock_owner_depth =	0
 	};
@@ -375,7 +381,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 
 	if (die.lock_owner != raw_smp_processor_id()) {
 		console_verbose();
-		__raw_spin_lock(&die.lock);
+		spin_lock(&die.lock);
 		raw_local_save_flags(flags);
 		die.lock_owner = smp_processor_id();
 		die.lock_owner_depth = 0;
@@ -426,7 +432,7 @@ void die(const char * str, struct pt_regs * regs, long err)
 	bust_spinlocks(0);
 	die.lock_owner = -1;
 	add_taint(TAINT_DIE);
-	__raw_spin_unlock(&die.lock);
+	spin_unlock(&die.lock);
 	raw_local_irq_restore(flags);
 
 	if (!regs)
@@ -465,6 +471,11 @@ static void __kprobes do_trap(int trapnr, int signr, char *str, int vm86,
 
 	if (!user_mode(regs))
 		goto kernel_trap;
+
+#ifdef CONFIG_PREEMPT_RT
+	local_irq_enable();
+	preempt_check_resched();
+#endif
 
 	trap_signal: {
 		/*
@@ -722,10 +733,11 @@ void __kprobes die_nmi(struct pt_regs *regs, const char *msg)
 		crash_kexec(regs);
 	}
 
+	nmi_exit();
 	do_exit(SIGSEGV);
 }
 
-static __kprobes void default_do_nmi(struct pt_regs * regs)
+static notrace __kprobes void default_do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = 0;
 
@@ -765,11 +777,12 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 
 static int ignore_nmis;
 
-fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
+fastcall notrace __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
 	int cpu;
 
 	nmi_enter();
+	nmi_trace((unsigned long)do_nmi, regs->eip, regs->eflags);
 
 	cpu = smp_processor_id();
 

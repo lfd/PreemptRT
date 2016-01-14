@@ -83,7 +83,8 @@ void ich_force_hpet_resume(void)
 
 static void ich_force_enable_hpet(struct pci_dev *dev)
 {
-	u32 val, rcba;
+	u32 val;
+	u32 uninitialized_var(rcba);
 	int err = 0;
 
 	if (hpet_address || force_hpet_address)

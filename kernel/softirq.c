@@ -295,6 +295,8 @@ restart:
 
 asmlinkage void __do_softirq(void)
 {
+	unsigned long p_flags;
+
 #ifdef CONFIG_PREEMPT_SOFTIRQS
 	/*
 	 * 'preempt harder'. Push all softirq processing off to ksoftirqd.
@@ -310,6 +312,8 @@ asmlinkage void __do_softirq(void)
 	 */
 	__local_bh_disable((unsigned long)__builtin_return_address(0));
 	trace_softirq_enter();
+	p_flags = current->flags & PF_HARDIRQ;
+	current->flags &= ~PF_HARDIRQ;
 
 	___do_softirq();
 
@@ -318,6 +322,37 @@ asmlinkage void __do_softirq(void)
 	account_system_vtime(current);
 	_local_bh_enable();
 
+	current->flags |= p_flags;
+}
+
+/*
+ * Process softirqs straight from hardirq context,
+ * without having to switch to a softirq thread.
+ * This can reduce the context-switch rate.
+ *
+ * NOTE: this is unused right now.
+ */
+void do_softirq_from_hardirq(void)
+{
+	unsigned long p_flags;
+
+	if (!local_softirq_pending())
+		return;
+	/*
+	 * 'immediate' softirq execution:
+	 */
+	__local_bh_disable((unsigned long)__builtin_return_address(0));
+	p_flags = current->flags & PF_HARDIRQ;
+	current->flags &= ~PF_HARDIRQ;
+
+	___do_softirq();
+
+	trace_softirq_exit();
+
+	account_system_vtime(current);
+	_local_bh_enable();
+
+	current->flags |= p_flags;
 }
 
 #ifndef __ARCH_HAS_DO_SOFTIRQ

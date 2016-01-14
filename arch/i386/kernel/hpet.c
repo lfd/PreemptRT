@@ -3,13 +3,13 @@
 #include <linux/errno.h>
 #include <linux/hpet.h>
 #include <linux/init.h>
+#include <linux/ioport.h>
 #include <linux/sysdev.h>
 #include <linux/pm.h>
 
 #include <asm/hpet.h>
+#include <asm/i8253.h>
 #include <asm/io.h>
-
-extern struct clock_event_device *global_clock_event;
 
 #define HPET_MASK	CLOCKSOURCE_MASK(32)
 #define HPET_SHIFT	22
@@ -21,7 +21,7 @@ extern struct clock_event_device *global_clock_event;
  * HPET address is set in acpi/boot.c, when an ACPI entry exists
  */
 unsigned long hpet_address;
-static void __iomem * hpet_virt_address;
+static void __iomem *hpet_virt_address;
 
 static inline unsigned long hpet_readl(unsigned long a)
 {
@@ -31,6 +31,17 @@ static inline unsigned long hpet_readl(unsigned long a)
 static inline void hpet_writel(unsigned long d, unsigned long a)
 {
 	writel(d, hpet_virt_address + a);
+}
+
+static inline void hpet_set_mapping(void)
+{
+	hpet_virt_address = ioremap_nocache(hpet_address, HPET_MMAP_SIZE);
+}
+
+static inline void hpet_clear_mapping(void)
+{
+	iounmap(hpet_virt_address);
+	hpet_virt_address = NULL;
 }
 
 /*
@@ -82,7 +93,7 @@ static void hpet_reserve_platform_timers(unsigned long id)
 
 	memset(&hd, 0, sizeof (hd));
 	hd.hd_phys_address = hpet_address;
-	hd.hd_address = hpet_virt_address;
+	hd.hd_address = hpet;
 	hd.hd_nirqs = nrtimers;
 	hd.hd_flags = HPET_DATA_PLATFORM;
 	hpet_reserve_timer(&hd, 0);
@@ -237,7 +248,7 @@ int __init hpet_enable(void)
 	if (!is_hpet_capable())
 		return 0;
 
-	hpet_virt_address = ioremap_nocache(hpet_address, HPET_MMAP_SIZE);
+	hpet_set_mapping();
 
 	/*
 	 * Read the period and check for a sane value:
@@ -333,12 +344,10 @@ int __init hpet_enable(void)
 	return 0;
 
 out_nohpet:
-	iounmap(hpet_virt_address);
-	hpet_virt_address = NULL;
+	hpet_clear_mapping();
 	boot_hpet_disable = 1;
 	return 0;
 }
-
 
 #ifdef CONFIG_HPET_EMULATE_RTC
 

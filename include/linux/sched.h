@@ -565,6 +565,19 @@ struct signal_struct {
 
 #define SIGNAL_UNKILLABLE	0x00000040 /* for init: ignore fatal signals */
 
+#ifdef CONFIG_PREEMPT_RCU_BOOST
+#define set_rcu_prio(p, prio) /* cpp to avoid #include hell */ \
+	do { \
+		(p)->rcu_prio = (prio); \
+	} while (0)
+#define get_rcu_prio(p) (p)->rcu_prio  /* cpp to avoid #include hell */
+#else /* #ifdef CONFIG_PREEMPT_RCU_BOOST */
+static inline void set_rcu_prio(struct task_struct *p, int prio)
+{
+}
+#define get_rcu_prio(p) (MAX_PRIO)  /* cpp to use MAX_PRIO before it's defined */
+#endif /* #else #ifdef CONFIG_PREEMPT_RCU_BOOST */
+
 /* If true, all threads except ->group_exit_task have pending SIGKILL */
 static inline int signal_group_exit(const struct signal_struct *sig)
 {
@@ -1039,6 +1052,9 @@ struct task_struct {
 #endif
 
 	int prio, static_prio, normal_prio;
+#ifdef CONFIG_PREEMPT_RCU_BOOST
+	int rcu_prio;
+#endif
 	const struct sched_class *sched_class;
 	struct sched_entity se;
 	struct sched_rt_entity rt;
@@ -1072,6 +1088,12 @@ struct task_struct {
 
 #if defined(CONFIG_SCHEDSTATS) || defined(CONFIG_TASK_DELAY_ACCT)
 	struct sched_info sched_info;
+#endif
+#ifdef CONFIG_PREEMPT_RCU_BOOST
+	struct rcu_boost_dat *rcub_rbdp;
+	enum rcu_boost_state rcub_state;
+	struct list_head rcub_entry;
+	unsigned long rcu_preempt_counter;
 #endif
 
 	struct list_head tasks;

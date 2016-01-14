@@ -1113,21 +1113,24 @@ static void pre_schedule_rt(struct rq *rq, struct task_struct *prev)
 	}
 }
 
+/*
+ * assumes rq->lock is held
+ */
+static int needs_post_schedule_rt(struct rq *rq)
+{
+	return rq->rt.overloaded ? 1 : 0;
+}
+
 static void post_schedule_rt(struct rq *rq)
 {
 	/*
-	 * If we have more than one rt_task queued, then
-	 * see if we can push the other rt_tasks off to other CPUS.
-	 * Note we may release the rq lock, and since
-	 * the lock was owned by prev, we need to release it
-	 * first via finish_lock_switch and then reaquire it here.
+	 * This is only called if needs_post_schedule_rt() indicates that
+	 * we need to push tasks away
 	 */
-	if (unlikely(rq->rt.overloaded)) {
-		spin_lock(&rq->lock);
-		push_rt_tasks(rq);
-		schedstat_inc(rq, rto_schedule_tail);
-		spin_unlock(&rq->lock);
-	}
+	spin_lock(&rq->lock);
+	push_rt_tasks(rq);
+	schedstat_inc(rq, rto_schedule_tail);
+	spin_unlock(&rq->lock);
 }
 
 /*
@@ -1372,6 +1375,7 @@ static const struct sched_class rt_sched_class = {
 	.rq_online              = rq_online_rt,
 	.rq_offline             = rq_offline_rt,
 	.pre_schedule		= pre_schedule_rt,
+	.needs_post_schedule	= needs_post_schedule_rt,
 	.post_schedule		= post_schedule_rt,
 	.task_wake_up		= task_wake_up_rt,
 	.switched_from		= switched_from_rt,

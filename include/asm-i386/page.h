@@ -11,6 +11,7 @@
 
 #ifdef __KERNEL__
 #ifndef __ASSEMBLY__
+#include <linux/linkage.h>
 
 #ifdef CONFIG_X86_USE_3DNOW
 
@@ -49,32 +50,32 @@ typedef struct { unsigned long long pmd; } pmd_t;
 typedef struct { unsigned long long pgd; } pgd_t;
 typedef struct { unsigned long long pgprot; } pgprot_t;
 
-static inline unsigned long long native_pgd_val(pgd_t pgd)
+static fastcall inline unsigned long long native_pgd_val(pgd_t pgd)
 {
 	return pgd.pgd;
 }
 
-static inline unsigned long long native_pmd_val(pmd_t pmd)
+static fastcall inline unsigned long long native_pmd_val(pmd_t pmd)
 {
 	return pmd.pmd;
 }
 
-static inline unsigned long long native_pte_val(pte_t pte)
+static fastcall inline unsigned long long native_pte_val(pte_t pte)
 {
 	return pte.pte_low | ((unsigned long long)pte.pte_high << 32);
 }
 
-static inline pgd_t native_make_pgd(unsigned long long val)
+static fastcall inline pgd_t native_make_pgd(unsigned long long val)
 {
 	return (pgd_t) { val };
 }
 
-static inline pmd_t native_make_pmd(unsigned long long val)
+static fastcall inline pmd_t native_make_pmd(unsigned long long val)
 {
 	return (pmd_t) { val };
 }
 
-static inline pte_t native_make_pte(unsigned long long val)
+static fastcall inline pte_t native_make_pte(unsigned long long val)
 {
 	return (pte_t) { .pte_low = val, .pte_high = (val >> 32) } ;
 }
@@ -92,22 +93,22 @@ typedef struct { unsigned long pgd; } pgd_t;
 typedef struct { unsigned long pgprot; } pgprot_t;
 #define boot_pte_t pte_t /* or would you rather have a typedef */
 
-static inline unsigned long native_pgd_val(pgd_t pgd)
+static fastcall inline unsigned long native_pgd_val(pgd_t pgd)
 {
 	return pgd.pgd;
 }
 
-static inline unsigned long native_pte_val(pte_t pte)
+static fastcall inline unsigned long native_pte_val(pte_t pte)
 {
 	return pte.pte_low;
 }
 
-static inline pgd_t native_make_pgd(unsigned long val)
+static fastcall inline pgd_t native_make_pgd(unsigned long val)
 {
 	return (pgd_t) { val };
 }
 
-static inline pte_t native_make_pte(unsigned long val)
+static fastcall inline pte_t native_make_pte(unsigned long val)
 {
 	return (pte_t) { .pte_low = val };
 }

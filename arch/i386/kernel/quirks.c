@@ -161,7 +161,8 @@ static struct pci_dev *cached_dev;
 
 static void old_ich_force_hpet_resume(void)
 {
-	u32 val, gen_cntl;
+	u32 val;
+	u32 uninitialized_var(gen_cntl);
 
 	if (!force_hpet_address || !cached_dev)
 		return;
@@ -182,7 +183,8 @@ static void old_ich_force_hpet_resume(void)
 
 static void old_ich_force_enable_hpet(struct pci_dev *dev)
 {
-	u32 val, gen_cntl;
+	u32 val;
+	u32 uninitialized_var(gen_cntl);
 
 	if (hpet_address || force_hpet_address)
 		return;

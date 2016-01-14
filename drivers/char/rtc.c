@@ -91,6 +91,7 @@
 #include <asm/ebus.h>
 #ifdef __sparc_v9__
 #include <asm/isa.h>
+#endif
 static unsigned long rtc_port;
 static int rtc_irq = PCI_IRQ_NONE;
 #endif

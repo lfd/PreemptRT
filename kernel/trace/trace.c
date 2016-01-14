@@ -176,10 +176,9 @@ flip_trace(struct trace_array_cpu *tr1, struct trace_array_cpu *tr2)
 
 	INIT_LIST_HEAD(&flip_pages);
 
-	tr1->trace_current = NULL;
-	memcpy(&tr1->trace_current_idx, &tr2->trace_current_idx,
+	memcpy(&tr1->trace_current, &tr2->trace_current,
 		sizeof(struct trace_array_cpu) -
-		offsetof(struct trace_array_cpu, trace_current_idx));
+		offsetof(struct trace_array_cpu, trace_current));
 
 	check_pages(tr1);
 	check_pages(tr2);

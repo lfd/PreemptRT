@@ -353,6 +353,12 @@ EXPORT_SYMBOL_GPL(filevec_add_drain_all);
 
 void file_kill(struct file *file)
 {
+	if (file && file->f_mapping && file->f_mapping->host) {
+		struct super_block *sb = file->f_mapping->host->i_sb;
+		if (sb)
+			synchronize_qrcu(&sb->s_qrcu);
+	}
+
 	if (file_flag(file, F_SUPERBLOCK)) {
 		void **ptr;
 
@@ -409,8 +415,10 @@ void file_move(struct file *file, struct list_head *list)
 int fs_may_remount_ro(struct super_block *sb)
 {
 	struct file *file;
+	int idx;
 
 	/* Check that no files are currently opened for writing. */
+	idx = qrcu_read_lock(&sb->s_qrcu);
 	filevec_add_drain_all();
 	lock_list_for_each_entry(file, &sb->s_files, f_u.fu_llist) {
 		struct inode *inode = file->f_path.dentry->d_inode;
@@ -423,9 +431,11 @@ int fs_may_remount_ro(struct super_block *sb)
 		if (S_ISREG(inode->i_mode) && (file->f_mode & FMODE_WRITE))
 			goto too_bad;
 	}
+	qrcu_read_unlock(&sb->s_qrcu, idx);
 	return 1; /* Tis' cool bro. */
 too_bad:
 	lock_list_for_each_entry_stop(file, f_u.fu_llist);
+	qrcu_read_unlock(&sb->s_qrcu, idx);
 	return 0;
 }
 

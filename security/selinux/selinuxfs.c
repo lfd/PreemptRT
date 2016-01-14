@@ -964,6 +964,7 @@ static void sel_remove_entries(struct dentry *de)
 	struct list_head *node;
 	struct file *filp;
 	struct super_block *sb = de->d_sb;
+	int idx;
 
 	spin_lock(&dcache_lock);
 	node = de->d_subdirs.next;
@@ -984,6 +985,8 @@ static void sel_remove_entries(struct dentry *de)
 
 	spin_unlock(&dcache_lock);
 
+	idx = qrcu_read_lock(&sb->s_qrcu);
+	filevec_add_drain_all();
 	lock_list_for_each_entry(filp, &sb->s_files, f_u.fu_llist) {
 		struct dentry * dentry = filp->f_path.dentry;
 
@@ -992,6 +995,7 @@ static void sel_remove_entries(struct dentry *de)
 		}
 		filp->f_op = NULL;
 	}
+	qrcu_read_unlock(&sb->s_qrcu, idx);
 }
 
 #define BOOL_DIR_NAME "booleans"

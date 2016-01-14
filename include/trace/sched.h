@@ -53,4 +53,8 @@ DEFINE_TRACE(sched_signal_send,
 	TPPROTO(int sig, struct task_struct *p),
 		TPARGS(sig, p));
 
+DEFINE_TRACE(sched_resched_task,
+	TPPROTO(struct task_struct *task, int cpu),
+		TPARGS(task, cpu));
+
 #endif

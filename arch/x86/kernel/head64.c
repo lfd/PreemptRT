@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/percpu.h>
+#include <linux/sched.h>
 
 #include <asm/processor.h>
 #include <asm/proto.h>

@@ -41,6 +41,8 @@
 #include <linux/mount.h>
 #include <linux/audit.h>
 #include <linux/profile.h>
+#include <linux/kthread.h>
+#include <linux/notifier.h>
 #include <linux/rmap.h>
 #include <linux/acct.h>
 #include <linux/tsacct_kern.h>
@@ -68,6 +70,15 @@ int max_threads;		/* tunable limit on nr_threads */
 DEFINE_PER_CPU(unsigned long, process_counts) = 0;
 
 __cacheline_aligned DEFINE_RWLOCK(tasklist_lock);  /* outer */
+
+/*
+ * Delayed mmdrop. In the PREEMPT_RT case we
+ * dont want to do this from the scheduling
+ * context.
+ */
+static DEFINE_PER_CPU(struct task_struct *, desched_task);
+
+static DEFINE_PER_CPU(struct list_head, delayed_drop_list);
 
 int nr_processes(void)
 {
@@ -112,10 +123,13 @@ void free_task(struct task_struct *tsk)
 }
 EXPORT_SYMBOL(free_task);
 
-void __put_task_struct(struct task_struct *tsk)
+#ifdef CONFIG_PREEMPT_RT
+void __put_task_struct_cb(struct rcu_head *rhp)
 {
+	struct task_struct *tsk = container_of(rhp, struct task_struct, rcu);
+
+	BUG_ON(atomic_read(&tsk->usage));
 	WARN_ON(!(tsk->exit_state & (EXIT_DEAD | EXIT_ZOMBIE)));
-	WARN_ON(atomic_read(&tsk->usage));
 	WARN_ON(tsk == current);
 	sched_dead(tsk);
 
@@ -128,8 +142,27 @@ void __put_task_struct(struct task_struct *tsk)
 		free_task(tsk);
 }
 
+#else
+
+void __put_task_struct(struct task_struct *tsk)
+{
+	WARN_ON(!(tsk->exit_state & (EXIT_DEAD | EXIT_ZOMBIE)));
+	BUG_ON(atomic_read(&tsk->usage));
+	WARN_ON(tsk == current);
+
+	security_task_free(tsk);
+	free_uid(tsk->user);
+	put_group_info(tsk->group_info);
+
+	if (!profile_handoff_task(tsk))
+		free_task(tsk);
+}
+#endif
+
 void __init fork_init(unsigned long mempages)
 {
+	int i;
+
 #ifndef __HAVE_ARCH_TASK_STRUCT_ALLOCATOR
 #ifndef ARCH_MIN_TASKALIGN
 #define ARCH_MIN_TASKALIGN	L1_CACHE_BYTES
@@ -157,6 +190,9 @@ void __init fork_init(unsigned long mempages)
 	init_task.signal->rlim[RLIMIT_NPROC].rlim_max = max_threads/2;
 	init_task.signal->rlim[RLIMIT_SIGPENDING] =
 		init_task.signal->rlim[RLIMIT_NPROC];
+
+	for (i = 0; i < NR_CPUS; i++)
+		INIT_LIST_HEAD(&per_cpu(delayed_drop_list, i));
 }
 
 static struct task_struct *dup_task_struct(struct task_struct *orig)
@@ -341,6 +377,7 @@ static struct mm_struct * mm_init(struct mm_struct * mm)
 	spin_lock_init(&mm->page_table_lock);
 	rwlock_init(&mm->ioctx_list_lock);
 	mm->ioctx_list = NULL;
+	INIT_LIST_HEAD(&mm->delayed_drop);
 	mm->free_area_cache = TASK_UNMAPPED_BASE;
 	mm->cached_hole_size = ~0UL;
 
@@ -1200,10 +1237,12 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	 * to ensure it is on a valid CPU (and if not, just force it back to
 	 * parent's CPU). This avoids alot of nasty races.
 	 */
+	preempt_disable();
 	p->cpus_allowed = current->cpus_allowed;
 	if (unlikely(!cpu_isset(task_cpu(p), p->cpus_allowed) ||
 			!cpu_online(task_cpu(p))))
 		set_task_cpu(p, smp_processor_id());
+	preempt_enable();
 
 	/* CLONE_PARENT re-uses the old parent */
 	if (clone_flags & (CLONE_PARENT|CLONE_THREAD))
@@ -1263,7 +1302,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 			attach_pid(p, PIDTYPE_SID, task_session(current));
 
 			list_add_tail_rcu(&p->tasks, &init_task.tasks);
+			preempt_disable();
 			__get_cpu_var(process_counts)++;
+			preempt_enable();
 		}
 		attach_pid(p, PIDTYPE_PID, pid);
 		nr_threads++;
@@ -1685,3 +1726,122 @@ bad_unshare_cleanup_thread:
 bad_unshare_out:
 	return err;
 }
+
+static int mmdrop_complete(void)
+{
+	struct list_head *head;
+	int ret = 0;
+
+	head = &get_cpu_var(delayed_drop_list);
+	while (!list_empty(head)) {
+		struct mm_struct *mm = list_entry(head->next,
+					struct mm_struct, delayed_drop);
+		list_del(&mm->delayed_drop);
+		put_cpu_var(delayed_drop_list);
+
+		__mmdrop(mm);
+		ret = 1;
+
+		head = &get_cpu_var(delayed_drop_list);
+	}
+	put_cpu_var(delayed_drop_list);
+
+	return ret;
+}
+
+/*
+ * We dont want to do complex work from the scheduler, thus
+ * we delay the work to a per-CPU worker thread:
+ */
+void fastcall __mmdrop_delayed(struct mm_struct *mm)
+{
+	struct task_struct *desched_task;
+	struct list_head *head;
+
+	head = &get_cpu_var(delayed_drop_list);
+	list_add_tail(&mm->delayed_drop, head);
+	desched_task = __get_cpu_var(desched_task);
+	if (desched_task)
+		wake_up_process(desched_task);
+	put_cpu_var(delayed_drop_list);
+}
+
+static int desched_thread(void * __bind_cpu)
+{
+	set_user_nice(current, -10);
+	current->flags |= PF_NOFREEZE | PF_SOFTIRQ;
+
+	set_current_state(TASK_INTERRUPTIBLE);
+
+	while (!kthread_should_stop()) {
+
+		if (mmdrop_complete())
+			continue;
+		schedule();
+
+		/* This must be called from time to time on ia64, and is a no-op on other archs.
+		 * Used to be in cpu_idle(), but with the new -rt semantics it can't stay there.
+		 */
+		check_pgt_cache();
+
+		set_current_state(TASK_INTERRUPTIBLE);
+	}
+	__set_current_state(TASK_RUNNING);
+	return 0;
+}
+
+static int __devinit cpu_callback(struct notifier_block *nfb,
+				  unsigned long action,
+				  void *hcpu)
+{
+	int hotcpu = (unsigned long)hcpu;
+	struct task_struct *p;
+
+	switch (action) {
+	case CPU_UP_PREPARE:
+
+		BUG_ON(per_cpu(desched_task, hotcpu));
+		INIT_LIST_HEAD(&per_cpu(delayed_drop_list, hotcpu));
+		p = kthread_create(desched_thread, hcpu, "desched/%d", hotcpu);
+		if (IS_ERR(p)) {
+			printk("desched_thread for %i failed\n", hotcpu);
+			return NOTIFY_BAD;
+		}
+		per_cpu(desched_task, hotcpu) = p;
+		kthread_bind(p, hotcpu);
+		break;
+	case CPU_ONLINE:
+
+		wake_up_process(per_cpu(desched_task, hotcpu));
+		break;
+#ifdef CONFIG_HOTPLUG_CPU
+	case CPU_UP_CANCELED:
+
+		/* Unbind so it can run.  Fall thru. */
+		kthread_bind(per_cpu(desched_task, hotcpu), smp_processor_id());
+	case CPU_DEAD:
+
+		p = per_cpu(desched_task, hotcpu);
+		per_cpu(desched_task, hotcpu) = NULL;
+		kthread_stop(p);
+		takeover_tasklets(hotcpu);
+		break;
+#endif /* CONFIG_HOTPLUG_CPU */
+	}
+	return NOTIFY_OK;
+}
+
+static struct notifier_block __devinitdata cpu_nfb = {
+	.notifier_call = cpu_callback
+};
+
+__init int spawn_desched_task(void)
+{
+	void *cpu = (void *)(long)smp_processor_id();
+
+	cpu_callback(&cpu_nfb, CPU_UP_PREPARE, cpu);
+	cpu_callback(&cpu_nfb, CPU_ONLINE, cpu);
+	register_cpu_notifier(&cpu_nfb);
+	return 0;
+}
+

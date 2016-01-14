@@ -152,12 +152,12 @@ static void insert_work(struct cpu_workqueue_struct *cwq,
 
 /* Preempt must be disabled. */
 static void __queue_work(struct cpu_workqueue_struct *cwq,
-			 struct work_struct *work)
+			 struct work_struct *work, int prio)
 {
 	unsigned long flags;
 
 	spin_lock_irqsave(&cwq->lock, flags);
-	insert_work(cwq, work, current->normal_prio, current->normal_prio);
+	insert_work(cwq, work, prio, prio);
 	spin_unlock_irqrestore(&cwq->lock, flags);
 }
 
@@ -179,7 +179,7 @@ int queue_work(struct workqueue_struct *wq, struct work_struct *work)
 
 	if (!test_and_set_bit(WORK_STRUCT_PENDING, work_data_bits(work))) {
 		BUG_ON(!plist_node_empty(&work->entry));
-		__queue_work(wq_per_cpu(wq, cpu), work);
+		__queue_work(wq_per_cpu(wq, cpu), work, current->normal_prio);
 		ret = 1;
 	}
 	return ret;
@@ -192,7 +192,8 @@ static void delayed_work_timer_fn(unsigned long __data)
 	struct cpu_workqueue_struct *cwq = get_wq_data(&dwork->work);
 	struct workqueue_struct *wq = cwq->wq;
 
-	__queue_work(wq_per_cpu(wq, raw_smp_processor_id()), &dwork->work);
+	__queue_work(wq_per_cpu(wq, raw_smp_processor_id()),
+			&dwork->work, dwork->prio);
 }
 
 /**
@@ -236,6 +237,7 @@ int queue_delayed_work_on(int cpu, struct workqueue_struct *wq,
 		timer_stats_timer_set_start_info(&dwork->timer);
 
 		/* This stores cwq for the moment, for the timer_fn */
+		dwork->prio = current->normal_prio;
 		set_wq_data(work, wq_per_cpu(wq, raw_smp_processor_id()));
 		timer->expires = jiffies + delay;
 		timer->data = (unsigned long)dwork;
@@ -722,7 +724,8 @@ int schedule_on_each_cpu(void (*func)(void *info), void *info, int retry, int wa
 		work->info = info;
 		INIT_WORK(&work->work, schedule_on_each_cpu_func);
 		set_bit(WORK_STRUCT_PENDING, work_data_bits(&work->work));
-		__queue_work(per_cpu_ptr(keventd_wq->cpu_wq, cpu), &work->work);
+		__queue_work(per_cpu_ptr(keventd_wq->cpu_wq, cpu),
+				&work->work, current->normal_prio);
 	}
 	put_online_cpus();
 out:
@@ -768,7 +771,8 @@ int schedule_on_each_cpu_wq(struct workqueue_struct *wq, work_func_t func)
 
 		INIT_WORK(work, func);
 		set_bit(WORK_STRUCT_PENDING, work_data_bits(work));
-		__queue_work(per_cpu_ptr(wq->cpu_wq, cpu), work);
+		__queue_work(per_cpu_ptr(wq->cpu_wq, cpu), work,
+				current->normal_prio);
 	}
 	flush_workqueue(wq);
 	free_percpu(works);

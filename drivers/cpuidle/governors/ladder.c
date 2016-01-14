@@ -202,7 +202,7 @@ static struct cpuidle_governor ladder_governor = {
 	.init =		ladder_init_device,
 	.exit =		ladder_exit_device,
 	.scan =		ladder_scan_device,
-	.select_state =	ladder_select_state,
+	.select =	ladder_select_state,
 	.owner =	THIS_MODULE,
 };
 

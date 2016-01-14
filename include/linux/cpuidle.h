@@ -164,8 +164,8 @@ struct cpuidle_governor {
 	void (*exit)		(struct cpuidle_device *dev);
 	void (*scan)		(struct cpuidle_device *dev);
 
-	void (*prepare_idle)	(struct cpuidle_device *dev);
-	int  (*select_state)	(struct cpuidle_device *dev);
+	int  (*select)		(struct cpuidle_device *dev);
+	void (*reflect)		(struct cpuidle_device *dev);
 
 	struct module 		*owner;
 };

@@ -124,7 +124,7 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
 {
 	int ret = -EEXIST;
 
-	if (!gov || !gov->select_state)
+	if (!gov || !gov->select)
 		return -EINVAL;
 
 	mutex_lock(&cpuidle_lock);

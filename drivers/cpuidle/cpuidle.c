@@ -30,12 +30,10 @@ static void (*pm_idle_old)(void);
  * cpuidle_idle_call - the main idle loop
  *
  * NOTE: no locks or semaphores should be used here
- * FIXME: DYNTICKS handling
  */
 static void cpuidle_idle_call(void)
 {
 	struct cpuidle_device *dev = __get_cpu_var(cpuidle_devices);
-
 	struct cpuidle_state *target_state;
 	int next_state;
 
@@ -48,24 +46,21 @@ static void cpuidle_idle_call(void)
 		return;
 	}
 
-	if (cpuidle_curr_governor->prepare_idle)
-		cpuidle_curr_governor->prepare_idle(dev);
+	/* ask the governor for the next state */
+	next_state = cpuidle_curr_governor->select(dev);
+	if (need_resched())
+		return;
+	target_state = &dev->states[next_state];
 
-	while(!need_resched()) {
-		next_state = cpuidle_curr_governor->select_state(dev);
-		if (need_resched())
-			break;
+	/* enter the state and update stats */
+	dev->last_residency = target_state->enter(dev, target_state);
+	dev->last_state = target_state;
+	target_state->time += dev->last_residency;
+	target_state->usage++;
 
-		target_state = &dev->states[next_state];
-
-		dev->last_residency = target_state->enter(dev, target_state);
-		dev->last_state = target_state;
-		target_state->time += dev->last_residency;
-		target_state->usage++;
-
-		if (dev->status != CPUIDLE_STATUS_DOIDLE)
-			break;
-	}
+	/* give the governor an opportunity to reflect on the outcome */
+	if (cpuidle_curr_governor->reflect)
+		cpuidle_curr_governor->reflect(dev);
 }
 
 /**

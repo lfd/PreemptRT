@@ -1515,7 +1515,20 @@ struct task_struct {
 	/* state flags for use by tracers */
 	unsigned long trace;
 #endif
+#ifdef CONFIG_PREEMPT_RT
+	/*
+	 * Temporary hack, until we find a solution to
+	 * handle printk in atomic operations.
+	 */
+	int in_printk;
+#endif
 };
+
+#ifdef CONFIG_PREEMPT_RT
+# define set_printk_might_sleep(x) do { current->in_printk = x; } while(0)
+#else
+# define set_printk_might_sleep(x) do { } while(0)
+#endif
 
 /*
  * Priority of a process goes from 0..MAX_PRIO-1, valid RT

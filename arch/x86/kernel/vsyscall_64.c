@@ -86,6 +86,7 @@ void update_vsyscall(struct timespec *wall_time, struct clocksource *clock)
 	vsyscall_gtod_data.clock.mask = clock->mask;
 	vsyscall_gtod_data.clock.mult = clock->mult;
 	vsyscall_gtod_data.clock.shift = clock->shift;
+	vsyscall_gtod_data.clock.cycle_accumulated = clock->cycle_accumulated;
 	vsyscall_gtod_data.wall_time_sec = wall_time->tv_sec;
 	vsyscall_gtod_data.wall_time_nsec = wall_time->tv_nsec;
 	vsyscall_gtod_data.wall_to_monotonic = wall_to_monotonic;
@@ -121,7 +122,7 @@ static __always_inline long time_syscall(long *t)
 
 static __always_inline void do_vgettimeofday(struct timeval * tv)
 {
-	cycle_t now, base, mask, cycle_delta;
+	cycle_t now, base, accumulated, mask, cycle_delta;
 	unsigned seq;
 	unsigned long mult, shift, nsec;
 	cycle_t (*vread)(void);
@@ -135,6 +136,7 @@ static __always_inline void do_vgettimeofday(struct timeval * tv)
 		}
 		now = vread();
 		base = __vsyscall_gtod_data.clock.cycle_last;
+		accumulated  = __vsyscall_gtod_data.clock.cycle_accumulated;
 		mask = __vsyscall_gtod_data.clock.mask;
 		mult = __vsyscall_gtod_data.clock.mult;
 		shift = __vsyscall_gtod_data.clock.shift;
@@ -145,6 +147,7 @@ static __always_inline void do_vgettimeofday(struct timeval * tv)
 
 	/* calculate interval: */
 	cycle_delta = (now - base) & mask;
+	cycle_delta += accumulated;
 	/* convert to nsecs: */
 	nsec += (cycle_delta * mult) >> shift;
 

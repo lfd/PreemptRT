@@ -278,6 +278,7 @@ extern int dir_notify_enable;
 #include <linux/cache.h>
 #include <linux/kobject.h>
 #include <linux/list.h>
+#include <linux/lock_list.h>
 #include <linux/radix-tree.h>
 #include <linux/prio_tree.h>
 #include <linux/init.h>
@@ -722,11 +723,16 @@ struct file {
 	/*
 	 * fu_list becomes invalid after file_free is called and queued via
 	 * fu_rcuhead for RCU freeing
+	 * fu_llist is used for the superblock s_files list; its crucial that
+	 * the spinlock contained therein is not clobbered by other uses of
+	 * the union.
 	 */
 	union {
 		struct list_head	fu_list;
+		struct lock_list_head	fu_llist;
 		struct rcu_head 	fu_rcuhead;
 	} f_u;
+	unsigned long		f__flags;
 	struct path		f_path;
 #define f_dentry	f_path.dentry
 #define f_vfsmnt	f_path.mnt
@@ -757,8 +763,19 @@ extern spinlock_t files_lock;
 #define file_list_lock() spin_lock(&files_lock);
 #define file_list_unlock() spin_unlock(&files_lock);
 
+#define F_SUPERBLOCK	0
+
+#define file_flag_set(file, flag)	\
+	__set_bit((flag), &(file)->f__flags)
+#define file_flag_clear(file, flag)	\
+	__clear_bit((flag), &(file)->f__flags)
+#define file_flag(file, flag)		\
+	test_bit((flag), &(file)->f__flags)
+
 #define get_file(x)	atomic_inc(&(x)->f_count)
 #define file_count(x)	atomic_read(&(x)->f_count)
+
+extern int filevec_add_drain_all(void);
 
 #define	MAX_NON_LFS	((1UL<<31) - 1)
 
@@ -949,7 +966,7 @@ struct super_block {
 	struct list_head	s_dirty;	/* dirty inodes */
 	struct list_head	s_io;		/* parked for writeback */
 	struct hlist_head	s_anon;		/* anonymous dentries for (nfs) exporting */
-	struct list_head	s_files;
+	struct lock_list_head	s_files;
 
 	struct block_device	*s_bdev;
 	struct mtd_info		*s_mtd;

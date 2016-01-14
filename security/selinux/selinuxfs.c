@@ -961,7 +961,8 @@ static const struct file_operations sel_commit_bools_ops = {
 /* partial revoke() from fs/proc/generic.c proc_kill_inodes */
 static void sel_remove_entries(struct dentry *de)
 {
-	struct list_head *p, *node;
+	struct list_head *node;
+	struct file *filp;
 	struct super_block *sb = de->d_sb;
 
 	spin_lock(&dcache_lock);
@@ -983,9 +984,7 @@ static void sel_remove_entries(struct dentry *de)
 
 	spin_unlock(&dcache_lock);
 
-	file_list_lock();
-	list_for_each(p, &sb->s_files) {
-		struct file * filp = list_entry(p, struct file, f_u.fu_list);
+	lock_list_for_each_entry(filp, &sb->s_files, f_u.fu_llist) {
 		struct dentry * dentry = filp->f_path.dentry;
 
 		if (dentry->d_parent != de) {
@@ -993,7 +992,6 @@ static void sel_remove_entries(struct dentry *de)
 		}
 		filp->f_op = NULL;
 	}
-	file_list_unlock();
 }
 
 #define BOOL_DIR_NAME "booleans"

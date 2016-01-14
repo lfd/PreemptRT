@@ -289,6 +289,7 @@ static void wrandom_flush(void)
 	for (i = 0; i < MULTIPATH_STATE_SIZE; ++i) {
 		struct multipath_route *r;
 
+		rcu_read_lock();
 		spin_lock_bh(&state[i].lock);
 		list_for_each_entry_rcu(r, &state[i].head, list) {
 			struct multipath_dest *d;
@@ -303,6 +304,7 @@ static void wrandom_flush(void)
 		}
 
 		spin_unlock_bh(&state[i].lock);
+		rcu_read_unlock();
 	}
 }
 

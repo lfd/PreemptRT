@@ -35,7 +35,7 @@ void *kmap_atomic_prot(struct page *page, enum km_type type, pgprot_t prot)
 	pagefault_disable();
 
 	idx = type + KM_TYPE_NR*smp_processor_id();
-	BUG_ON(!pte_none(*(kmap_pte-idx)));
+	WARN_ON_ONCE(!pte_none(*(kmap_pte-idx)));
 
 	if (!PageHighMem(page))
 		return page_address(page);

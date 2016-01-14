@@ -2131,10 +2131,10 @@ static int rtl8139_poll(struct net_device *dev, int *budget)
 		 * Order is important since data can get interrupted
 		 * again when we think we are done.
 		 */
-		local_irq_save(flags);
+		local_irq_save_nort(flags);
 		RTL_W16_F(IntrMask, rtl8139_intr_mask);
 		__netif_rx_complete(dev);
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 	}
 	spin_unlock(&tp->rx_lock);
 

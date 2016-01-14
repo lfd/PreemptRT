@@ -98,6 +98,16 @@ cycle_t notrace usecs_to_cycles(unsigned long usecs)
 	return ns2cyc(clock, (u64)usecs * 1000);
 }
 
+static DEFINE_PER_CPU(ktime_t, timestamp);
+
+void warp_check_clock_was_changed(void)
+{
+	int cpu;
+
+	for_each_online_cpu(cpu)
+		per_cpu(timestamp, cpu).tv64 = 0;
+}
+
 /**
  * __get_realtime_clock_ts - Returns the time of day in a timespec
  * @ts:		pointer to the timespec to be set
@@ -109,7 +119,12 @@ static inline void __get_realtime_clock_ts(struct timespec *ts)
 {
 	unsigned long seq;
 	s64 nsecs;
+	unsigned long flags;
+	static int once = 1;
+	ktime_t prev, now;
+	int cpu;
 
+	local_irq_save(flags);
 	do {
 		seq = read_seqbegin(&xtime_lock);
 
@@ -119,6 +134,25 @@ static inline void __get_realtime_clock_ts(struct timespec *ts)
 	} while (read_seqretry(&xtime_lock, seq));
 
 	timespec_add_ns(ts, nsecs);
+
+	now = timespec_to_ktime(*ts);
+
+	cpu = raw_smp_processor_id();
+	prev = per_cpu(timestamp, cpu);
+	per_cpu(timestamp, cpu) = now;
+
+	if (once > 0 && prev.tv64 > now.tv64) {
+		once--;
+		stop_trace();
+		user_trace_stop();
+		local_irq_restore(flags);
+
+		printk("BUG: time warp detected!\n");
+		printk("prev > now, %016Lx > %016Lx:\n", prev.tv64, now.tv64);
+		printk("= %Ld delta, on CPU#%d\n", prev.tv64 - now.tv64, cpu);
+		dump_stack();
+	} else
+		local_irq_restore(flags);
 }
 
 /**
@@ -179,6 +213,7 @@ int do_settimeofday(struct timespec *tv)
 	ntp_clear();
 
 	update_vsyscall(&xtime, clock);
+	warp_check_clock_was_changed();
 
 	write_sequnlock_irqrestore(&xtime_lock, flags);
 
@@ -314,6 +349,7 @@ static int timekeeping_resume(struct sys_device *dev)
 	clock->cycle_last = clocksource_read(clock);
 	clock->error = 0;
 	timekeeping_suspended = 0;
+	warp_check_clock_was_changed();
 	write_sequnlock_irqrestore(&xtime_lock, flags);
 
 	touch_softlockup_watchdog();

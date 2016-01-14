@@ -638,7 +638,7 @@ static void native_smp_send_stop(void)
  * all the work is done automatically when
  * we return from the interrupt.
  */
-fastcall void smp_reschedule_interrupt(struct pt_regs *regs)
+notrace fastcall void smp_reschedule_interrupt(struct pt_regs *regs)
 {
 	ack_APIC_irq();
 	__get_cpu_var(irq_stat).irq_resched_count++;

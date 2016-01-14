@@ -215,7 +215,7 @@ void dump_trace(struct task_struct *tsk, struct pt_regs *regs,
 		unsigned long *stack,
 		struct stacktrace_ops *ops, void *data)
 {
-	const unsigned cpu = get_cpu();
+	const unsigned cpu = raw_smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long*)cpu_pda(cpu)->irqstackptr;
 	unsigned used = 0;
 	struct thread_info *tinfo;
@@ -306,7 +306,6 @@ void dump_trace(struct task_struct *tsk, struct pt_regs *regs,
 	tinfo = task_thread_info(tsk);
 	HANDLE_STACK (valid_stack_ptr(tinfo, stack));
 #undef HANDLE_STACK
-	put_cpu();
 }
 EXPORT_SYMBOL(dump_trace);
 
@@ -355,7 +354,7 @@ _show_stack(struct task_struct *tsk, struct pt_regs *regs, unsigned long *rsp)
 {
 	unsigned long *stack;
 	int i;
-	const int cpu = smp_processor_id();
+	const int cpu = raw_smp_processor_id();
 	unsigned long *irqstack_end = (unsigned long *) (cpu_pda(cpu)->irqstackptr);
 	unsigned long *irqstack = (unsigned long *) (cpu_pda(cpu)->irqstackptr - IRQSTACKSIZE);
 

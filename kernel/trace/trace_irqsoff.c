@@ -208,6 +208,7 @@ start_critical_timing(unsigned long ip, unsigned long parent_ip)
 	local_save_flags(flags);
 
 	ftrace(tr, data, ip, parent_ip, flags);
+	trace_start_events();
 
 	__get_cpu_var(tracing_cpu) = 1;
 
@@ -240,6 +241,7 @@ stop_critical_timing(unsigned long ip, unsigned long parent_ip)
 
 	atomic_inc(&data->disabled);
 	local_save_flags(flags);
+	trace_stop_events();
 	ftrace(tr, data, ip, parent_ip, flags);
 	check_critical_timing(tr, data, parent_ip ? : ip, cpu);
 	data->critical_start = 0;
@@ -363,12 +365,16 @@ static void __irqsoff_tracer_init(struct trace_array *tr)
 	/* make sure that the tracer is visibel */
 	smp_wmb();
 
+	trace_event_register(tr);
+
 	if (tr->ctrl)
 		start_irqsoff_tracer(tr);
 }
 
 static void irqsoff_tracer_reset(struct trace_array *tr)
 {
+	trace_event_unregister(tr);
+
 	if (tr->ctrl)
 		stop_irqsoff_tracer(tr);
 }

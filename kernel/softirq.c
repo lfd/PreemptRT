@@ -148,7 +148,7 @@ static void trigger_softirqs(void)
 	}
 }
 
-#ifndef CONFIG_PREEMPT_RT
+#ifndef CONFIG_PREEMPT_HARDIRQS
 
 /*
  * This one is for softirq.c-internal use,

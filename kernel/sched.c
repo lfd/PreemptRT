@@ -74,16 +74,6 @@
 #include "sched_cpupri.h"
 
 /*
- * Scheduler clock - returns current time in nanosec units.
- * This is default implementation.
- * Architectures and sub-architectures can override this.
- */
-unsigned long long __attribute__((weak)) sched_clock(void)
-{
-	return (unsigned long long)jiffies * (NSEC_PER_SEC / HZ);
-}
-
-/*
  * Convert user-nice values [ -20 ... 0 ... 19 ]
  * to static priority [ MAX_RT_PRIO..MAX_PRIO-1 ],
  * and back.
@@ -439,13 +429,7 @@ struct rq {
 	unsigned long next_balance;
 	struct mm_struct *prev_mm;
 
-	u64 clock, prev_clock_raw;
-	s64 clock_max_delta;
-
-	unsigned int clock_warps, clock_overflows, clock_underflows;
-	u64 idle_clock;
-	unsigned int clock_deep_idle_events;
-	u64 tick_timestamp;
+	u64 clock;
 
 	atomic_t nr_iowait;
 
@@ -511,53 +495,6 @@ static inline int cpu_of(struct rq *rq)
 }
 
 /*
- * Update the per-runqueue clock, as finegrained as the platform can give
- * us, but without assuming monotonicity, etc.:
- */
-static void __update_rq_clock(struct rq *rq)
-{
-	u64 prev_raw = rq->prev_clock_raw;
-	u64 now = sched_clock();
-	s64 delta = now - prev_raw;
-	u64 clock = rq->clock;
-
-#ifdef CONFIG_SCHED_DEBUG
-	WARN_ON_ONCE(cpu_of(rq) != smp_processor_id());
-#endif
-	/*
-	 * Protect against sched_clock() occasionally going backwards:
-	 */
-	if (unlikely(delta < 0)) {
-		clock++;
-		rq->clock_warps++;
-	} else {
-		/*
-		 * Catch too large forward jumps too:
-		 */
-		if (unlikely(clock + delta > rq->tick_timestamp + TICK_NSEC)) {
-			if (clock < rq->tick_timestamp + TICK_NSEC)
-				clock = rq->tick_timestamp + TICK_NSEC;
-			else
-				clock++;
-			rq->clock_overflows++;
-		} else {
-			if (unlikely(delta > rq->clock_max_delta))
-				rq->clock_max_delta = delta;
-			clock += delta;
-		}
-	}
-
-	rq->prev_clock_raw = now;
-	rq->clock = clock;
-}
-
-static void update_rq_clock(struct rq *rq)
-{
-	if (likely(smp_processor_id() == cpu_of(rq)))
-		__update_rq_clock(rq);
-}
-
-/*
  * The domain tree (rq->sd) is protected by RCU's quiescent state transition.
  * See detach_destroy_domains: synchronize_sched for details.
  *
@@ -571,6 +508,11 @@ static void update_rq_clock(struct rq *rq)
 #define this_rq()		(&__get_cpu_var(runqueues))
 #define task_rq(p)		cpu_rq(task_cpu(p))
 #define cpu_curr(cpu)		(cpu_rq(cpu)->curr)
+
+static inline void update_rq_clock(struct rq *rq)
+{
+	rq->clock = sched_clock_cpu(cpu_of(rq));
+}
 
 unsigned long rt_needs_cpu(int cpu)
 {
@@ -712,8 +654,6 @@ static unsigned long long notrace __sync_cpu_clock(cycles_t time, int cpu)
 static unsigned long long notrace __cpu_clock(int cpu)
 {
 	unsigned long long now;
-	unsigned long flags;
-	struct rq *rq;
 
 	/*
 	 * Only call sched_clock() if the scheduler has already been
@@ -722,11 +662,7 @@ static unsigned long long notrace __cpu_clock(int cpu)
 	if (unlikely(!scheduler_running))
 		return 0;
 
-	local_irq_save(flags);
-	rq = cpu_rq(cpu);
-	update_rq_clock(rq);
-	now = rq->clock;
-	local_irq_restore(flags);
+	now = sched_clock_cpu(cpu);
 
 	return now;
 }
@@ -895,43 +831,6 @@ static struct rq *this_rq_lock(void)
 	return rq;
 }
 
-/*
- * We are going deep-idle (irqs are disabled):
- */
-void sched_clock_idle_sleep_event(void)
-{
-	struct rq *rq = cpu_rq(smp_processor_id());
-
-	spin_lock(&rq->lock);
-	__update_rq_clock(rq);
-	spin_unlock(&rq->lock);
-	rq->clock_deep_idle_events++;
-}
-EXPORT_SYMBOL_GPL(sched_clock_idle_sleep_event);
-
-/*
- * We just idled delta nanoseconds (called with irqs disabled):
- */
-void sched_clock_idle_wakeup_event(u64 delta_ns)
-{
-	struct rq *rq = cpu_rq(smp_processor_id());
-	u64 now = sched_clock();
-
-	rq->idle_clock += delta_ns;
-	/*
-	 * Override the previous timestamp and ignore all
-	 * sched_clock() deltas that occured while we idled,
-	 * and use the PM-provided delta_ns to advance the
-	 * rq clock:
-	 */
-	spin_lock(&rq->lock);
-	rq->prev_clock_raw = now;
-	rq->clock += delta_ns;
-	spin_unlock(&rq->lock);
-	touch_softlockup_watchdog();
-}
-EXPORT_SYMBOL_GPL(sched_clock_idle_wakeup_event);
-
 static void __resched_task(struct task_struct *p, int tif_bit);
 
 static inline void resched_task(struct task_struct *p)
@@ -1056,7 +955,7 @@ static enum hrtimer_restart hrtick(struct hrtimer *timer)
 	WARN_ON_ONCE(cpu_of(rq) != smp_processor_id());
 
 	spin_lock(&rq->lock);
-	__update_rq_clock(rq);
+	update_rq_clock(rq);
 	rq->curr->sched_class->task_tick(rq, rq->curr, 1);
 	spin_unlock(&rq->lock);
 
@@ -3910,18 +3809,11 @@ void scheduler_tick(void)
 	int cpu = smp_processor_id();
 	struct rq *rq = cpu_rq(cpu);
 	struct task_struct *curr = rq->curr;
-	u64 next_tick = rq->tick_timestamp + TICK_NSEC;
+
+	sched_clock_tick();
 
 	spin_lock(&rq->lock);
-	__update_rq_clock(rq);
-	/*
-	 * Let rq->clock advance by at least TICK_NSEC:
-	 */
-	if (unlikely(rq->clock < next_tick)) {
-		rq->clock = next_tick;
-		rq->clock_underflows++;
-	}
-	rq->tick_timestamp = rq->clock;
+	update_rq_clock(rq);
 	update_cpu_load(rq);
 	curr->sched_class->task_tick(rq, curr, 0);
 	update_sched_rt_period(rq);
@@ -4099,7 +3991,7 @@ need_resched_nonpreemptible:
 	 * Do the rq-clock update outside the rq lock:
 	 */
 	local_irq_disable();
-	__update_rq_clock(rq);
+	update_rq_clock(rq);
 	spin_lock(&rq->lock);
 	clear_tsk_need_resched(prev);
 
@@ -7393,7 +7285,6 @@ void __init sched_init(void)
 		spin_lock_init(&rq->lock);
 		lockdep_set_class(&rq->lock, &rq->rq_lock_key);
 		rq->nr_running = 0;
-		rq->clock = 1;
 		init_cfs_rq(&rq->cfs, rq);
 		init_rt_rq(&rq->rt, rq);
 #ifdef CONFIG_FAIR_GROUP_SCHED
@@ -7498,6 +7389,7 @@ EXPORT_SYMBOL(__might_sleep);
 static void normalize_task(struct rq *rq, struct task_struct *p)
 {
 	int on_rq;
+
 	update_rq_clock(rq);
 	on_rq = p->se.on_rq;
 	if (on_rq)
@@ -7529,7 +7421,6 @@ void normalize_rt_tasks(void)
 		p->se.sleep_start		= 0;
 		p->se.block_start		= 0;
 #endif
-		task_rq(p)->clock		= 0;
 
 		if (!rt_task(p)) {
 			/*

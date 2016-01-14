@@ -57,6 +57,11 @@ void ftrace_ctx_switch(struct task_struct *prev, struct task_struct *next)
 	 * Chain to the wakeup tracer (this is a NOP if disabled):
 	 */
 	wakeup_sched_switch(prev, next);
+
+	/*
+	 * Chain to event trace;
+	 */
+	trace_event_sched_switch(prev, next);
 }
 
 static notrace void sched_switch_reset(struct trace_array *tr)

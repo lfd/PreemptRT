@@ -332,6 +332,192 @@ config STACKTRACE
 	depends on DEBUG_KERNEL
 	depends on STACKTRACE_SUPPORT
 
+config PREEMPT_TRACE
+	bool
+	default y
+	depends on DEBUG_PREEMPT
+
+config EVENT_TRACE
+	bool "Kernel event tracing"
+	default n
+	depends on GENERIC_TIME
+	select FRAME_POINTER
+	select STACKTRACE
+	help
+	  This option enables a kernel tracing mechanism that will track
+	  certain kernel events such as system call entry and return,
+	  IRQ entry, context-switching, etc.
+
+	  Run the scripts/trace-it utility on a kernel with this option
+	  enabled for sample output.
+
+config FUNCTION_TRACE
+	bool "Kernel function call tracing"
+	default n
+	depends on !REORDER
+	select EVENT_TRACE
+	help
+	  This option enables a kernel tracing mechanism that will track
+	  precise function-call granularity kernel execution. Sample
+	  output:
+
+           pcscd-1772  0D..2 6867us : deactivate_task <pcscd-1772> (-2 1)
+           pcscd-1772  0D..2 6867us : dequeue_task (deactivate_task)
+          <idle>-0     0D..2 6870us : __switch_to (__schedule)
+          <idle>-0     0D..2 6871us : __schedule <pcscd-1772> (-2 20)
+          <idle>-0     0D..2 6871us : __lock_acquire (lock_acquire)
+          <idle>-0     0D..2 6872us : __spin_unlock_irq (__schedule)
+
+	  Run the scripts/trace-it sample utility on a kernel with this
+	  option enabled to capture 1 second worth of events.
+
+	  (Note that kernel size and overhead increases noticeably
+	  with this option enabled.)
+
+config WAKEUP_TIMING
+	bool "Wakeup latency timing"
+	depends on GENERIC_TIME
+	help
+	  This option measures the time spent from a highprio thread being
+	  woken up to it getting scheduled on a CPU, with microsecond
+	  accuracy.
+
+	  The default measurement method is a maximum search, which is
+	  disabled by default and can be runtime (re-)started via:
+
+	      echo 0 > /proc/sys/kernel/preempt_max_latency
+
+config LATENCY_TRACE
+	bool "Latency tracing"
+	default n
+	depends on LATENCY_TIMING && !REORDER && GENERIC_TIME
+	select FRAME_POINTER
+	select FUNCTION_TRACE
+	help
+	  When this option is enabled then the last maximum latency timing
+	  event's full trace can be found in /proc/latency_trace, in a
+	  human-readable (or rather as some would say, in a
+	  kernel-developer-readable) form.
+
+	  (Note that kernel size and overhead increases noticeably
+	  with this option enabled.)
+
+config CRITICAL_PREEMPT_TIMING
+	bool "Non-preemptible critical section latency timing"
+	default n
+	depends on PREEMPT
+	depends on GENERIC_TIME
+	help
+	  This option measures the time spent in preempt-off critical
+	  sections, with microsecond accuracy.
+
+	  The default measurement method is a maximum search, which is
+	  disabled by default and can be runtime (re-)started via:
+
+	      echo 0 > /proc/sys/kernel/preempt_max_latency
+
+	  (Note that kernel size and overhead increases with this option
+	  enabled. This option and the irqs-off timing option can be
+	  used together or separately.)
+
+config CRITICAL_IRQSOFF_TIMING
+	bool "Interrupts-off critical section latency timing"
+	default n
+	depends on GENERIC_TIME
+	select TRACE_IRQFLAGS
+	help
+	  This option measures the time spent in irqs-off critical
+	  sections, with microsecond accuracy.
+
+	  The default measurement method is a maximum search, which is
+	  disabled by default and can be runtime (re-)started via:
+
+	      echo 0 > /proc/sys/kernel/preempt_max_latency
+
+	  (Note that kernel size and overhead increases with this option
+	  enabled. This option and the preempt-off timing option can be
+	  used together or separately.)
+
+config WAKEUP_LATENCY_HIST
+	bool "wakeup latency histogram"
+	default n
+	depends on WAKEUP_TIMING
+	help
+	  This option logs all the wakeup latency timing to a big histogram
+	  bucket, in the meanwhile, it also dummies up printk produced by
+	  wakeup latency timing.
+
+	  The wakeup latency timing histogram can be viewed via:
+
+	      cat /proc/latency_hist/wakeup_latency/CPU*
+
+	  (Note: * presents CPU ID.)
+
+config PREEMPT_OFF_HIST
+        bool "non-preemptible critical section latency histogram"
+        default n
+        depends on CRITICAL_PREEMPT_TIMING
+        help
+          This option logs all the non-preemptible critical section latency
+	  timing to a big histogram bucket, in the meanwhile, it also
+	  dummies up printk produced by non-preemptible critical section
+	  latency timing.
+
+          The non-preemptible critical section latency timing histogram can
+	  be viewed via:
+
+              cat /proc/latency_hist/preempt_off_latency/CPU*
+
+          (Note: * presents CPU ID.)
+
+config INTERRUPT_OFF_HIST
+        bool "interrupts-off critical section latency histogram"
+        default n
+        depends on CRITICAL_IRQSOFF_TIMING
+        help
+          This option logs all the interrupts-off critical section latency
+          timing to a big histogram bucket, in the meanwhile, it also
+          dummies up printk produced by interrupts-off critical section
+          latency timing.
+
+          The interrupts-off critical section latency timing histogram can
+          be viewed via:
+
+              cat /proc/latency_hist/interrupt_off_latency/CPU*
+
+          (Note: * presents CPU ID.)
+
+config CRITICAL_TIMING
+	bool
+	default y
+	depends on CRITICAL_PREEMPT_TIMING || CRITICAL_IRQSOFF_TIMING
+
+config DEBUG_TRACE_IRQFLAGS
+	bool
+	default y
+	depends on CRITICAL_IRQSOFF_TIMING
+
+config LATENCY_TIMING
+	bool
+	default y
+	depends on WAKEUP_TIMING || CRITICAL_TIMING
+	select SYSCTL
+
+config CRITICAL_LATENCY_HIST
+	bool
+	default y
+	depends on PREEMPT_OFF_HIST || INTERRUPT_OFF_HIST
+
+config LATENCY_HIST
+	bool
+	default y
+	depends on WAKEUP_LATENCY_HIST || CRITICAL_LATENCY_HIST
+
+config MCOUNT
+	bool
+	depends on FUNCTION_TRACE
+	default y
+
 config DEBUG_KOBJECT
 	bool "kobject debugging"
 	depends on DEBUG_KERNEL

@@ -34,6 +34,7 @@
 #include <linux/swap.h>
 #include <linux/syscalls.h>
 #include <linux/jiffies.h>
+#include <linux/interrupt.h>
 #include <linux/futex.h>
 #include <linux/task_io_accounting_ops.h>
 #include <linux/rcupdate.h>

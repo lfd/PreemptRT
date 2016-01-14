@@ -51,7 +51,7 @@ struct ladder_device_state {
 
 struct ladder_device {
 	struct ladder_device_state states[CPUIDLE_STATE_MAX];
-	int bm_check:1;
+	unsigned int bm_check:1;
 	unsigned long bm_check_timestamp;
 	unsigned long bm_activity; /* FIXME: bm activity should be global */
 	int last_state_idx;

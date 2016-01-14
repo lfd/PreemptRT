@@ -28,6 +28,7 @@
 #include <linux/acpi_pmtmr.h>
 #include <linux/module.h>
 #include <linux/dmi.h>
+#include <linux/ftrace.h>
 
 #include <asm/atomic.h>
 #include <asm/smp.h>
@@ -627,6 +628,7 @@ void smp_apic_timer_interrupt(struct pt_regs *regs)
 {
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
+	trace_event_irq(-1, user_mode(regs), regs->ip);
 	/*
 	 * NOTE! We'd better ACK the irq immediately,
 	 * because timer handling can be slow.

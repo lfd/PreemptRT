@@ -339,10 +339,14 @@ static void __call_console_drivers(unsigned long start, unsigned long end)
 			int trace_save = trace_enabled;
 
 			trace_enabled = 0;
+			set_printk_might_sleep(1);
 			con->write(con, &LOG_BUF(start), end - start);
+			set_printk_might_sleep(0);
 			trace_enabled = trace_save;
 #else
+			set_printk_might_sleep(1);
 			con->write(con, &LOG_BUF(start), end - start);
+			set_printk_might_sleep(0);
 #endif
 		}
 	}

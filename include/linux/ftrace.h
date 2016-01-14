@@ -121,6 +121,9 @@ static inline void ftrace_kill_atomic(void) { }
 # define ftrace_kill()				do { } while (0)
 # define __ftrace_kill()			do { } while (0)
 # define ftrace_kill_atomic()			do { } while (0)
+# define function_trace_stop			0
+# define ftrace_stop()				do { } while (0)
+# define ftrace_start()				do { } while (0)
 #endif /* CONFIG_FTRACE */
 
 #ifdef CONFIG_DYNAMIC_FTRACE

@@ -305,7 +305,7 @@ static int hpet_legacy_next_event(unsigned long delta,
 /*
  * Clock source related code
  */
-static cycle_t read_hpet(void)
+static cycle_t notrace read_hpet(void)
 {
 	return (cycle_t)hpet_readl(HPET_COUNTER);
 }

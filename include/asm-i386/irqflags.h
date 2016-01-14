@@ -12,36 +12,36 @@
 #include <asm/processor-flags.h>
 
 #ifndef __ASSEMBLY__
-static inline unsigned long native_save_fl(void)
+static fastcall inline unsigned long native_save_fl(void)
 {
 	unsigned long f;
 	asm volatile("pushfl ; popl %0":"=g" (f): /* no input */);
 	return f;
 }
 
-static inline void native_restore_fl(unsigned long f)
+static fastcall inline void native_restore_fl(unsigned long f)
 {
 	asm volatile("pushl %0 ; popfl": /* no output */
 			     :"g" (f)
 			     :"memory", "cc");
 }
 
-static inline void native_irq_disable(void)
+static fastcall inline void native_irq_disable(void)
 {
 	asm volatile("cli": : :"memory");
 }
 
-static inline void native_irq_enable(void)
+static fastcall inline void native_irq_enable(void)
 {
 	asm volatile("sti": : :"memory");
 }
 
-static inline void native_safe_halt(void)
+static fastcall inline void native_safe_halt(void)
 {
 	asm volatile("sti; hlt": : :"memory");
 }
 
-static inline void native_halt(void)
+static fastcall inline void native_halt(void)
 {
 	asm volatile("hlt": : :"memory");
 }

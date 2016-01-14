@@ -268,7 +268,7 @@ DECLARE_PER_CPU(struct ip_conntrack_stat, nf_conntrack_stat);
 #define NF_CT_STAT_INC_ATOMIC(count)			\
 do {							\
 	local_bh_disable();				\
-	__get_cpu_var(nf_conntrack_stat).count++;	\
+	__raw_get_cpu_var(nf_conntrack_stat).count++;	\
 	local_bh_enable();				\
 } while (0)
 

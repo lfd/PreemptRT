@@ -37,8 +37,8 @@ int cpuidle_attach_driver(struct cpuidle_device *dev)
 	ret = cpuidle_curr_driver->init(dev);
 	if (ret) {
 		module_put(cpuidle_curr_driver->owner);
-		printk(KERN_ERR "cpuidle: driver %s failed to attach to cpu %d\n",
-			cpuidle_curr_driver->name, dev->cpu);
+		printk(KERN_INFO "cpuidle: driver %s failed to attach to "
+			"cpu %d\n", cpuidle_curr_driver->name, dev->cpu);
 	} else {
 		if (dev->status & CPUIDLE_STATUS_GOVERNOR_ATTACHED)
 			cpuidle_rescan_device(dev);

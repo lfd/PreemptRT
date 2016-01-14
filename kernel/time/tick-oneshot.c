@@ -82,7 +82,7 @@ int tick_switch_to_oneshot(void (*handler)(struct clock_event_device *))
 		} else {
 			if (!tick_device_is_functional(dev))
 				printk(" %s is not functional.\n", dev->name);
-			else if (!(dev->features & CLOCK_EVT_FEAT_ONESHOT))
+			else
 				printk(" %s does not support one-shot mode.\n",
 				       dev->name);
 		}

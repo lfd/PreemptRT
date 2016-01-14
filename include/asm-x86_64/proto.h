@@ -51,9 +51,6 @@ extern void reserve_bootmem_generic(unsigned long phys, unsigned len);
 
 extern void load_gs_index(unsigned gs);
 
-extern void stop_timer_interrupt(void);
-extern void main_timer_handler(void);
-
 extern unsigned long end_pfn_map; 
 
 extern void show_trace(struct task_struct *, struct pt_regs *, unsigned long * rsp);

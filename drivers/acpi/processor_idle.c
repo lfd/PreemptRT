@@ -885,7 +885,7 @@ static int acpi_idle_enter_c1(struct cpuidle_device *dev,
 	 * NEED_RESCHED:
 	 */
 	smp_mb();
-	if (!need_resched())
+	if (!need_resched() || !need_resched_delayed())
 		safe_halt();
 	current_thread_info()->status |= TS_POLLING;
 
@@ -921,7 +921,7 @@ static int acpi_idle_enter_c2(struct cpuidle_device *dev,
 	 */
 	smp_mb();
 
-	if (unlikely(need_resched())) {
+	if (unlikely(need_resched() || need_resched_delayed())) {
 		current_thread_info()->status |= TS_POLLING;
 		local_irq_enable();
 		return 0;
@@ -979,7 +979,7 @@ static int acpi_idle_enter_c3(struct cpuidle_device *dev,
 	 */
 	smp_mb();
 
-	if (unlikely(need_resched())) {
+	if (unlikely(need_resched() || need_resched_delayed())) {
 		current_thread_info()->status |= TS_POLLING;
 		local_irq_enable();
 		return 0;

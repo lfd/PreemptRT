@@ -313,7 +313,7 @@ static size_t sg_copy_buffer(struct scatterlist *sgl, unsigned int nents,
 	size_t buf_off = 0;
 	int i;
 
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	for_each_sg(sgl, sg, nents, i) {
 		struct page *page;

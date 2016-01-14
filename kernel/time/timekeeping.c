@@ -103,6 +103,54 @@ static inline void __get_realtime_clock_ts(struct timespec *ts)
 	timespec_add_ns(ts, nsecs);
 }
 
+cycle_t notrace get_monotonic_cycles(void)
+{
+	cycle_t cycle_now, cycle_delta, cycle_monotonic, cycle_last;
+
+	do {
+		/*
+		 * cycle_monotonic and cycle_last can change on
+		 * another CPU and we need the delta calculation
+		 * of cycle_now and cycle_last happen atomic, as well
+		 * as the adding to cycle_monotonic. We don't need to grab
+		 * any locks, we just keep trying until get all the
+		 * calculations together in one state.
+		 *
+		 * In fact, we __cant__ grab any locks. This
+		 * function is called from the latency_tracer which can
+		 * be called anywhere. To grab any locks (including
+		 * seq_locks) we risk putting ourselves into a deadlock.
+		 */
+		cycle_monotonic = clock->cycle_monotonic;
+		cycle_last = clock->cycle_last;
+
+		/* read clocksource: */
+		cycle_now = clocksource_read(clock);
+
+		/* calculate the delta since the last update_wall_time: */
+		cycle_delta = (cycle_now - cycle_last) & clock->mask;
+
+	} while (cycle_monotonic != clock->cycle_monotonic ||
+		 cycle_last != clock->cycle_last);
+
+	return cycle_monotonic + cycle_delta;
+}
+
+unsigned long notrace cycles_to_usecs(cycle_t cycles)
+{
+	u64 ret = cyc2ns(clock, cycles);
+
+	ret += NSEC_PER_USEC/2; /* For rounding in do_div() */
+	do_div(ret, NSEC_PER_USEC);
+
+	return ret;
+}
+
+cycle_t notrace usecs_to_cycles(unsigned long usecs)
+{
+	return ns2cyc(clock, (u64)usecs * 1000);
+}
+
 /**
  * getnstimeofday - Returns the time of day in a timespec
  * @ts:		pointer to the timespec to be set

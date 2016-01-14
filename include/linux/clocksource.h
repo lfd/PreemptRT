@@ -274,6 +274,9 @@ extern int clocksource_register(struct clocksource*);
 extern struct clocksource* clocksource_get_next(void);
 extern void clocksource_change_rating(struct clocksource *cs, int rating);
 extern void clocksource_resume(void);
+extern cycle_t get_monotonic_cycles(void);
+extern unsigned long cycles_to_usecs(cycle_t cycles);
+extern cycle_t usecs_to_cycles(unsigned long usecs);
 
 /* used to initialize clock */
 extern struct clocksource clocksource_jiffies;

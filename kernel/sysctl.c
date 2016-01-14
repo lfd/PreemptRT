@@ -48,6 +48,7 @@
 #include <linux/reboot.h>
 #include <linux/ftrace.h>
 #include <linux/profile.h>
+#include <linux/futex.h>
 
 #include <asm/uaccess.h>
 #include <asm/processor.h>
@@ -342,6 +343,16 @@ static struct ctl_table kern_table[] = {
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "lock_stat",
 		.data		= &lock_stat,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_FUTEX
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "futex_rt_pi_warning",
+		.data		= &futex_rt_pi_warning,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,

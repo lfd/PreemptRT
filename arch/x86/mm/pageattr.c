@@ -16,6 +16,7 @@
 #include <asm/processor.h>
 #include <asm/tlbflush.h>
 #include <asm/sections.h>
+#include <asm/setup.h>
 #include <asm/uaccess.h>
 #include <asm/pgalloc.h>
 #include <asm/proto.h>
@@ -95,7 +96,7 @@ static inline unsigned long highmap_start_pfn(void)
 
 static inline unsigned long highmap_end_pfn(void)
 {
-	return __pa(roundup((unsigned long)_end, PMD_SIZE)) >> PAGE_SHIFT;
+	return __pa(roundup(_brk_end, PMD_SIZE)) >> PAGE_SHIFT;
 }
 
 #endif
@@ -464,7 +465,7 @@ static int split_large_page(pte_t *kpte, unsigned long address)
 
 	if (!debug_pagealloc)
 		spin_unlock(&cpa_lock);
-	base = alloc_pages(GFP_KERNEL, 0);
+	base = alloc_pages(GFP_KERNEL | __GFP_NOTRACK, 0);
 	if (!debug_pagealloc)
 		spin_lock(&cpa_lock);
 	if (!base)
@@ -482,6 +483,13 @@ static int split_large_page(pte_t *kpte, unsigned long address)
 	pbase = (pte_t *)page_address(base);
 	paravirt_alloc_pte(&init_mm, page_to_pfn(base));
 	ref_prot = pte_pgprot(pte_clrhuge(*kpte));
+	/*
+	 * If we ever want to utilize the PAT bit, we need to
+	 * update this function to make sure it's converted from
+	 * bit 12 to bit 7 when we cross from the 2MB level to
+	 * the 4K level:
+	 */
+	WARN_ON_ONCE(pgprot_val(ref_prot) & _PAGE_PAT_LARGE);
 
 #ifdef CONFIG_X86_64
 	if (level == PG_LEVEL_1G) {
@@ -704,7 +712,7 @@ static int cpa_process_alias(struct cpa_data *cpa)
 	 * No need to redo, when the primary call touched the high
 	 * mapping already:
 	 */
-	if (within(vaddr, (unsigned long) _text, (unsigned long) _end))
+	if (within(vaddr, (unsigned long) _text, _brk_end))
 		return 0;
 
 	/*

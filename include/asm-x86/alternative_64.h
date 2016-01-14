@@ -154,6 +154,7 @@ apply_paravirt(struct paravirt_patch *start, struct paravirt_patch *end)
 #define __parainstructions_end NULL
 #endif
 
+const unsigned char *const *find_nop_table(void);
 extern void text_poke(void *addr, unsigned char *opcode, int len);
 
 #endif /* _X86_64_ALTERNATIVE_H */

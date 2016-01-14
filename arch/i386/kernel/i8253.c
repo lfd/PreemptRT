@@ -119,6 +119,7 @@ void __init setup_pit_timer(void)
 	global_clock_event = &pit_clockevent;
 }
 
+#ifndef CONFIG_X86_64
 /*
  * Since the PIT overflows every tick, its not very useful
  * to just read by itself. So use jiffies to emulate a free
@@ -203,3 +204,5 @@ static int __init init_pit_clocksource(void)
 	return clocksource_register(&clocksource_pit);
 }
 arch_initcall(init_pit_clocksource);
+
+#endif

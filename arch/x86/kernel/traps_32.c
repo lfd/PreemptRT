@@ -722,7 +722,7 @@ void __kprobes die_nmi(struct pt_regs *regs, const char *msg)
 	do_exit(SIGSEGV);
 }
 
-static __kprobes void default_do_nmi(struct pt_regs * regs)
+static notrace __kprobes void default_do_nmi(struct pt_regs *regs)
 {
 	unsigned char reason = 0;
 
@@ -762,7 +762,7 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 
 static int ignore_nmis;
 
-fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
+notrace fastcall __kprobes void do_nmi(struct pt_regs *regs, long error_code)
 {
 	int cpu;
 

@@ -507,9 +507,9 @@ void update_wall_time(void)
 		return;
 
 #ifdef CONFIG_GENERIC_TIME
-	cycle_now = (clocksource_read(clock) - clock->cycle_last) & clock->mask;
+	cycle_now = clocksource_read(clock);
 #else
-	cycle_now = clock->cycle_interval;
+	cycle_now = clock->cycle_last + clock->cycle_interval;
 #endif
 	clocksource_accumulate(clock, cycle_now);
 

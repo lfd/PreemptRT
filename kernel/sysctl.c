@@ -29,6 +29,7 @@
 #include <linux/utsname.h>
 #include <linux/capability.h>
 #include <linux/smp_lock.h>
+#include <linux/clocksource.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/kobject.h>
@@ -43,6 +44,7 @@
 #include <linux/limits.h>
 #include <linux/dcache.h>
 #include <linux/syscalls.h>
+#include <linux/profile.h>
 #include <linux/nfs_fs.h>
 #include <linux/acpi.h>
 
@@ -291,6 +293,132 @@ static ctl_table kern_table[] = {
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,
 	},
+#ifdef CONFIG_WAKEUP_TIMING
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "wakeup_timing",
+		.data		= &wakeup_timing,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#if defined(CONFIG_WAKEUP_TIMING) || defined(CONFIG_EVENT_TRACE)
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "preempt_max_latency",
+		.data		= &preempt_max_latency,
+		.maxlen		= sizeof(preempt_max_latency),
+		.mode		= 0644,
+		.proc_handler	= &proc_doulongvec_minmax,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "preempt_thresh",
+		.data		= &preempt_thresh,
+		.maxlen		= sizeof(preempt_thresh),
+		.mode		= 0644,
+		.proc_handler	= &proc_doulongvec_minmax,
+	},
+#endif
+#ifdef CONFIG_EVENT_TRACE
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_enabled",
+		.data		= &trace_enabled,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "syscall_tracing",
+		.data		= &syscall_tracing,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "stackframe_tracing",
+		.data		= &stackframe_tracing,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "mcount_enabled",
+		.data		= &mcount_enabled,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_user_triggered",
+		.data		= &trace_user_triggered,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_user_trigger_irq",
+		.data		= &trace_user_trigger_irq,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_freerunning",
+		.data		= &trace_freerunning,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_print_on_crash",
+		.data		= &trace_print_on_crash,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_verbose",
+		.data		= &trace_verbose,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_all_cpus",
+		.data		= &trace_all_cpus,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_use_raw_cycles",
+		.data		= &trace_use_raw_cycles,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "trace_all_runnable",
+		.data		= &trace_all_runnable,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
 	{
 		.ctl_name	= KERN_CORE_USES_PID,
 		.procname	= "core_uses_pid",

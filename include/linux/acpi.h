@@ -206,11 +206,8 @@ static inline unsigned int acpi_get_cstate_limit(void)
 {
 	return max_cstate;
 }
-static inline void acpi_set_cstate_limit(unsigned int new_limit)
-{
-	max_cstate = new_limit;
-	return;
-}
+extern void (*acpi_do_set_cstate_limit)(void);
+extern void acpi_set_cstate_limit(unsigned int new_limit);
 #else
 static inline unsigned int acpi_get_cstate_limit(void) { return 0; }
 static inline void acpi_set_cstate_limit(unsigned int new_limit) { return; }

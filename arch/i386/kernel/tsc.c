@@ -270,7 +270,7 @@ core_initcall(cpufreq_tsc);
 
 static unsigned long current_tsc_khz = 0;
 
-static cycle_t read_tsc(void)
+static notrace cycle_t read_tsc(void)
 {
 	cycle_t ret;
 

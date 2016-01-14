@@ -387,8 +387,7 @@ int remove_mapping(struct address_space *mapping, struct page *page)
 	BUG_ON(!PageLocked(page));
 	BUG_ON(mapping != page_mapping(page));
 
-	SetPageNoNewRefs(page);
-	smp_wmb();
+	set_page_no_new_refs(page);
 	write_lock_irq(&mapping->tree_lock);
 	/*
 	 * The non racy check for a busy page.
@@ -433,14 +432,13 @@ int remove_mapping(struct address_space *mapping, struct page *page)
 	write_unlock_irq(&mapping->tree_lock);
 
 free_it:
-	smp_wmb();
-	__ClearPageNoNewRefs(page);
+	end_page_no_new_refs(page);
 	__put_page(page); /* The pagecache ref */
 	return 1;
 
 cannot_free:
 	write_unlock_irq(&mapping->tree_lock);
-	ClearPageNoNewRefs(page);
+	end_page_no_new_refs(page);
 	return 0;
 }
 

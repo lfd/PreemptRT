@@ -309,7 +309,7 @@ void show_registers(struct pt_regs *regs)
 	printk("\n");
 }
 
-static DEFINE_SPINLOCK(die_lock);
+static DEFINE_RAW_SPINLOCK(die_lock);
 
 NORET_TYPE void ATTRIB_NORET die(const char * str, struct pt_regs * regs)
 {

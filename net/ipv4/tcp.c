@@ -2407,6 +2407,8 @@ static int __init set_thash_entries(char *str)
 }
 __setup("thash_entries=", set_thash_entries);
 
+void *__init alloc_large_system_bitmask(char *bitmaskname,
+					unsigned long bits, int flags);
 void __init tcp_init(void)
 {
 	struct sk_buff *skb = NULL;
@@ -2438,6 +2440,10 @@ void __init tcp_init(void)
 					NULL,
 					0);
 	tcp_hashinfo.ehash_size = 1 << tcp_hashinfo.ehash_size;
+	tcp_hashinfo.ebitmask =
+		alloc_large_system_bitmask("TCP established",
+					  tcp_hashinfo.ehash_size,
+					  0);
 	for (i = 0; i < tcp_hashinfo.ehash_size; i++) {
 		rwlock_init(&tcp_hashinfo.ehash[i].lock);
 		INIT_HLIST_HEAD(&tcp_hashinfo.ehash[i].chain);

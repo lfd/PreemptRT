@@ -3902,6 +3902,34 @@ void *__init alloc_large_system_hash(const char *tablename,
 	return table;
 }
 
+
+void *__init alloc_large_system_bitmask(char *bitmaskname,
+					unsigned long bits, int flags)
+{
+	unsigned long words = bits / (sizeof(unsigned long)*8);
+	unsigned long size = words * sizeof(unsigned long);
+	unsigned long *bitmask = NULL;
+
+	if (flags & HASH_EARLY)
+		bitmask = alloc_bootmem(size);
+	else if (hashdist)
+		bitmask = __vmalloc(size, GFP_ATOMIC, PAGE_KERNEL);
+	else {
+		bitmask = kmalloc(size, GFP_ATOMIC);
+		if (!bitmask) {
+			unsigned long order;
+			for (order = 0; ((1UL << order) << PAGE_SHIFT) < size; order++)
+				;
+			bitmask = (void*) __get_free_pages(GFP_ATOMIC, order);
+		}
+	}
+
+	if (!bitmask)
+		panic("Failed to allocate %s bitmask\n", bitmaskname);
+
+	return bitmask;
+}
+
 #ifdef CONFIG_OUT_OF_LINE_PFN_TO_PAGE
 struct page *pfn_to_page(unsigned long pfn)
 {

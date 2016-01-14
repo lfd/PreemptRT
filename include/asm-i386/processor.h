@@ -492,7 +492,7 @@ static inline void rep_nop(void)
 
 #define cpu_relax()	rep_nop()
 
-static inline void native_load_esp0(struct tss_struct *tss, struct thread_struct *thread)
+static inline void fastcall native_load_esp0(struct tss_struct *tss, struct thread_struct *thread)
 {
 	tss->x86_tss.esp0 = thread->esp0;
 	/* This can only happen when SEP is enabled, no need to test "SEP"arately */
@@ -503,7 +503,7 @@ static inline void native_load_esp0(struct tss_struct *tss, struct thread_struct
 }
 
 
-static inline unsigned long native_get_debugreg(int regno)
+static inline unsigned long fastcall native_get_debugreg(int regno)
 {
 	unsigned long val = 0; 	/* Damn you, gcc! */
 
@@ -526,7 +526,7 @@ static inline unsigned long native_get_debugreg(int regno)
 	return val;
 }
 
-static inline void native_set_debugreg(int regno, unsigned long value)
+static inline void fastcall native_set_debugreg(int regno, unsigned long value)
 {
 	switch (regno) {
 	case 0:
@@ -555,7 +555,7 @@ static inline void native_set_debugreg(int regno, unsigned long value)
 /*
  * Set IOPL bits in EFLAGS from given mask
  */
-static inline void native_set_iopl_mask(unsigned mask)
+static inline void fastcall native_set_iopl_mask(unsigned mask)
 {
 	unsigned int reg;
 	__asm__ __volatile__ ("pushfl;"

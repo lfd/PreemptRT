@@ -21,7 +21,7 @@
  */
 int __ratelimit(int ratelimit_jiffies, int ratelimit_burst)
 {
-	static DEFINE_SPINLOCK(ratelimit_lock);
+	static DEFINE_RAW_SPINLOCK(ratelimit_lock);
 	static unsigned toks = 10 * 5 * HZ;
 	static unsigned long last_msg;
 	static int missed;

@@ -7,6 +7,7 @@
 #ifdef CONFIG_FTRACE
 
 #include <linux/linkage.h>
+#include <linux/sched.h>
 #include <linux/fs.h>
 
 extern int ftrace_enabled;
@@ -71,6 +72,44 @@ void ftrace_kill(void);
 void __ftrace_kill(void);
 void ftrace_kill_atomic(void);
 
+/**
+ * ftrace_preempt_disable - preempt disable used by function tracers
+ *
+ * The function tracer needs to be careful in disabling preemption.
+ * If it calls preempt_enable() inside the scheduler, we may cause
+ * a recursive inifinite loop.
+ *
+ * Returns flag to be used by ftrace_preempt_enable()
+ */
+static inline int ftrace_preempt_disable(void)
+{
+	int resched;
+
+	resched = need_resched();
+	barrier();
+	preempt_disable_notrace();
+
+	return resched;
+}
+
+/**
+ * ftrace_preempt_enable - preempt enable used by function tracers
+ * @resched: variable returned by corresponding ftrace_preempt_disable
+ *
+ * If NEED_RESCHED was set before we disabed preemption, since we
+ * have not preempted yet, we either have interrupts off, preemption
+ * off, or we are inside the scheduler.  The first two are OK,
+ * but if resched is set and we are in the scheduler, calling
+ * preempt_enable that reschedules will cause a recursion back into
+ * the scheduler that will crash the box.
+ */
+static inline void ftrace_preempt_enable(int resched)
+{
+	if (resched)
+		preempt_enable_no_resched_notrace();
+	else
+		preempt_enable_notrace();
+}
 
 #else /* !CONFIG_FTRACE */
 # define register_ftrace_function(ops) do { } while (0)

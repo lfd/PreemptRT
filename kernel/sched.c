@@ -2115,8 +2115,12 @@ static inline void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	_finish_arch_switch(prev);
 	finish_lock_switch(rq, prev);
 	trace_stop_sched_switched(current);
+	/*
+	 * Delay the final freeing of the mm or task, so that we dont have
+	 * to do complex work from within the scheduler:
+	 */
 	if (mm)
-		mmdrop(mm);
+		mmdrop_delayed(mm);
 
 	if (unlikely(prev_state == TASK_DEAD)) {
 		/*

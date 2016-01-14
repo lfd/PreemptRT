@@ -57,14 +57,17 @@ EXPORT_SYMBOL(sys_tz);
  */
 asmlinkage long sys_time(time_t __user * tloc)
 {
-	time_t i;
-	struct timeval tv;
+	/*
+	 * We read xtime.tv_sec atomically - it's updated
+	 * atomically by update_wall_time(), so no need to
+	 * even read-lock the xtime seqlock:
+	 */
+	time_t i = xtime.tv_sec;
 
-	do_gettimeofday(&tv);
-	i = tv.tv_sec;
+	smp_rmb(); /* sys_time() results are coherent */
 
 	if (tloc) {
-		if (put_user(i,tloc))
+		if (put_user(i, tloc))
 			i = -EFAULT;
 	}
 	return i;
@@ -373,6 +376,20 @@ void do_gettimeofday (struct timeval *tv)
 
 	tv->tv_sec = sec;
 	tv->tv_usec = usec;
+
+	/*
+	 * Make sure xtime.tv_sec [returned by sys_time()] always
+	 * follows the gettimeofday() result precisely. This
+	 * condition is extremely unlikely, it can hit at most
+	 * once per second:
+	 */
+	if (unlikely(xtime.tv_sec != tv->tv_sec)) {
+		unsigned long flags;
+
+		write_seqlock_irqsave(&xtime_lock);
+		update_wall_time();
+		write_seqlock_irqrestore(&xtime_lock);
+	}
 }
 
 EXPORT_SYMBOL(do_gettimeofday);

@@ -768,12 +768,12 @@ void acpi_os_delete_lock(acpi_spinlock handle)
 acpi_status
 acpi_os_create_semaphore(u32 max_units, u32 initial_units, acpi_handle * handle)
 {
-	struct semaphore *sem = NULL;
+	struct compat_semaphore *sem = NULL;
 
-	sem = acpi_os_allocate(sizeof(struct semaphore));
+	sem = acpi_os_allocate(sizeof(struct compat_semaphore));
 	if (!sem)
 		return AE_NO_MEMORY;
-	memset(sem, 0, sizeof(struct semaphore));
+	memset(sem, 0, sizeof(struct compat_semaphore));
 
 	sema_init(sem, initial_units);
 
@@ -794,7 +794,7 @@ acpi_os_create_semaphore(u32 max_units, u32 initial_units, acpi_handle * handle)
 
 acpi_status acpi_os_delete_semaphore(acpi_handle handle)
 {
-	struct semaphore *sem = (struct semaphore *)handle;
+	struct compat_semaphore *sem = (struct compat_semaphore *)handle;
 
 	if (!sem)
 		return AE_BAD_PARAMETER;
@@ -814,7 +814,7 @@ acpi_status acpi_os_delete_semaphore(acpi_handle handle)
 acpi_status acpi_os_wait_semaphore(acpi_handle handle, u32 units, u16 timeout)
 {
 	acpi_status status = AE_OK;
-	struct semaphore *sem = (struct semaphore *)handle;
+	struct compat_semaphore *sem = (struct compat_semaphore *)handle;
 	long jiffies;
 	int ret = 0;
 
@@ -855,7 +855,7 @@ acpi_status acpi_os_wait_semaphore(acpi_handle handle, u32 units, u16 timeout)
  */
 acpi_status acpi_os_signal_semaphore(acpi_handle handle, u32 units)
 {
-	struct semaphore *sem = (struct semaphore *)handle;
+	struct compat_semaphore *sem = (struct compat_semaphore *)handle;
 
 	if (!sem || (units < 1))
 		return AE_BAD_PARAMETER;

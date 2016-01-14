@@ -837,6 +837,12 @@ static inline void acpi_idle_update_bm_rld(struct acpi_processor *pr,
  */
 static inline void acpi_idle_do_entry(struct acpi_processor_cx *cx)
 {
+	/*
+	 * We have irqs disabled here, so stop latency tracing
+	 * at this point and restart it after we return:
+	 */
+	stop_critical_timing();
+
 	if (cx->space_id == ACPI_CSTATE_FFH) {
 		/* Call into architectural FFH based C-state */
 		acpi_processor_ffh_cstate_enter(cx);
@@ -849,6 +855,8 @@ static inline void acpi_idle_do_entry(struct acpi_processor_cx *cx)
 		   gets asserted in time to freeze execution properly. */
 		unused = inl(acpi_gbl_FADT.xpm_timer_block.address);
 	}
+
+	touch_critical_timing();
 }
 
 /**

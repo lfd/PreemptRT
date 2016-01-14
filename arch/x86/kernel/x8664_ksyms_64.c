@@ -9,6 +9,12 @@
 #include <asm/uaccess.h>
 #include <asm/pgtable.h>
 #include <asm/desc.h>
+#include <asm/ftrace.h>
+
+#ifdef CONFIG_FTRACE
+/* mcount is defined in assembly */
+EXPORT_SYMBOL(mcount);
+#endif
 
 EXPORT_SYMBOL(kernel_thread);
 

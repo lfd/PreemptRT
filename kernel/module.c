@@ -47,6 +47,7 @@
 #include <linux/license.h>
 #include <asm/sections.h>
 #include <linux/tracepoint.h>
+#include <linux/ftrace.h>
 
 #if 0
 #define DEBUGP printk
@@ -1400,6 +1401,9 @@ static void free_module(struct module *mod)
 	/* Module unload stuff */
 	module_unload_free(mod);
 
+	/* release any pointers to mcount in this module */
+	ftrace_release(mod->module_core, mod->core_size);
+
 	/* This may be NULL, but that's OK */
 	module_free(mod, mod->module_init);
 	kfree(mod->args);
@@ -1773,9 +1777,11 @@ static struct module *load_module(void __user *umod,
 	unsigned int markersstringsindex;
 	unsigned int tracepointsindex;
 	unsigned int tracepointsstringsindex;
+	unsigned int mcountindex;
 	struct module *mod;
 	long err = 0;
 	void *percpu = NULL, *ptr = NULL; /* Stops spurious gcc warning */
+	void *mseg;
 	struct exception_table_entry *extable;
 	mm_segment_t old_fs;
 
@@ -2056,6 +2062,9 @@ static struct module *load_module(void __user *umod,
 	tracepointsstringsindex = find_sec(hdr, sechdrs, secstrings,
 					"__tracepoints_strings");
 
+	mcountindex = find_sec(hdr, sechdrs, secstrings,
+			       "__mcount_loc");
+
 	/* Now do relocations. */
 	for (i = 1; i < hdr->e_shnum; i++) {
 		const char *strtab = (char *)sechdrs[strindex].sh_addr;
@@ -2116,6 +2125,11 @@ static struct module *load_module(void __user *umod,
 			mod->tracepoints + mod->num_tracepoints);
 #endif
 	}
+
+	/* sechdrs[0].sh_size is always zero */
+	mseg = (void *)sechdrs[mcountindex].sh_addr;
+	ftrace_init_module(mseg, mseg + sechdrs[mcountindex].sh_size);
+
 	err = module_finalize(hdr, sechdrs, mod);
 	if (err < 0)
 		goto cleanup;
@@ -2185,6 +2199,7 @@ static struct module *load_module(void __user *umod,
  cleanup:
 	kobject_del(&mod->mkobj.kobj);
 	kobject_put(&mod->mkobj.kobj);
+	ftrace_release(mod->module_core, mod->core_size);
  free_unload:
 	module_unload_free(mod);
 	module_free(mod, mod->module_init);

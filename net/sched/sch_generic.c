@@ -14,6 +14,7 @@
 #include <asm/uaccess.h>
 #include <asm/system.h>
 #include <linux/bitops.h>
+#include <linux/kallsyms.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -31,6 +32,7 @@
 #include <linux/init.h>
 #include <linux/rcupdate.h>
 #include <linux/list.h>
+#include <linux/delay.h>
 #include <net/sock.h>
 #include <net/pkt_sched.h>
 
@@ -99,8 +101,10 @@ static inline int qdisc_restart(struct net_device *dev)
 		 * will be requeued.
 		 */
 		if (!nolock) {
+#ifdef CONFIG_PREEMPT_RT
+			netif_tx_lock(dev);
+#else
 			if (!netif_tx_trylock(dev)) {
-			collision:
 				/* So, someone grabbed the driver. */
 
 				/* It may be transient configuration error,
@@ -108,7 +112,7 @@ static inline int qdisc_restart(struct net_device *dev)
 				   it by checking xmit owner and drop the
 				   packet when deadloop is detected.
 				*/
-				if (dev->xmit_lock_owner == smp_processor_id()) {
+				if (dev->xmit_lock_owner == raw_smp_processor_id()) {
 					kfree_skb(skb);
 					if (net_ratelimit())
 						printk(KERN_DEBUG "Dead loop on netdevice %s, fix it urgently!\n", dev->name);
@@ -117,6 +121,7 @@ static inline int qdisc_restart(struct net_device *dev)
 				__get_cpu_var(netdev_rx_stat).cpu_collision++;
 				goto requeue;
 			}
+#endif
 		}
 
 		{
@@ -126,7 +131,15 @@ static inline int qdisc_restart(struct net_device *dev)
 			if (!netif_queue_stopped(dev)) {
 				int ret;
 
+				WARN_ON_RT(irqs_disabled());
 				ret = dev_hard_start_xmit(skb, dev);
+#ifdef CONFIG_PREEMPT_RT
+				if (irqs_disabled()) {
+					if (printk_ratelimit())
+						print_symbol("network driver disabled raw interrupts: %s\n", (unsigned long)dev->hard_start_xmit);
+					local_irq_enable();
+				}
+#endif
 				if (ret == NETDEV_TX_OK) {
 					if (!nolock) {
 						netif_tx_unlock(dev);
@@ -138,7 +151,10 @@ static inline int qdisc_restart(struct net_device *dev)
 				if (ret == NETDEV_TX_LOCKED && nolock) {
 					spin_lock(&dev->queue_lock);
 					q = dev->qdisc;
-					goto collision;
+					preempt_disable();
+					__get_cpu_var(netdev_rx_stat).cpu_collision++;
+					preempt_enable();
+					goto requeue;
 				}
 			}
 
@@ -565,9 +581,12 @@ void dev_deactivate(struct net_device *dev)
 	/* Wait for outstanding dev_queue_xmit calls. */
 	synchronize_rcu();
 
-	/* Wait for outstanding qdisc_run calls. */
+	/*
+	 * Wait for outstanding qdisc_run calls.
+	 * TODO: shouldnt this be wakeup-based, instead of polling it?
+	 */
 	while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
-		yield();
+		msleep(1);
 }
 
 void dev_init_scheduler(struct net_device *dev)

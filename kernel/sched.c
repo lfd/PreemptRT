@@ -81,6 +81,10 @@ unsigned long long __attribute__((weak)) sched_clock(void)
 #define PRIO_TO_NICE(prio)	((prio) - MAX_RT_PRIO - 20)
 #define TASK_NICE(p)		PRIO_TO_NICE((p)->static_prio)
 
+#define __PRIO(prio) \
+	((prio) <= 99 ? 199 - (prio) : (prio) - 120)
+
+#define PRIO(p) __PRIO((p)->prio)
 /*
  * 'User priority' is the nice value converted to something we
  * can work with better when scaling various scheduler parameters,
@@ -547,6 +551,12 @@ void sched_clock_unstable_event(void)
 #define NICE_0_LOAD	SCHED_LOAD_SCALE
 #define NICE_0_SHIFT	SCHED_LOAD_SHIFT
 
+static inline void trace_start_sched_wakeup(struct task_struct *p, struct rq *rq)
+{
+	if (p != rq->curr)
+		__trace_start_sched_wakeup(p);
+}
+
 /*
  * resched_task - mark a task 'to be rescheduled now'.
  *
@@ -563,6 +573,8 @@ void sched_clock_unstable_event(void)
 static void resched_task(struct task_struct *p)
 {
 	int cpu;
+
+	trace_start_sched_wakeup(p, task_rq(p));
 
 	assert_spin_locked(&task_rq(p)->lock);
 
@@ -595,6 +607,8 @@ static void resched_cpu(int cpu)
 #else
 static inline void resched_task(struct task_struct *p)
 {
+	trace_start_sched_wakeup(p, task_rq(p));
+
 	assert_spin_locked(&task_rq(p)->lock);
 	set_tsk_need_resched(p);
 }
@@ -953,6 +967,7 @@ unsigned long weighted_cpuload(const int cpu)
 
 static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
 {
+	trace_change_sched_cpu(p, cpu);
 	task_thread_info(p)->cpu = cpu;
 	set_task_cfs_rq(p);
 }
@@ -1519,14 +1534,19 @@ out:
 
 int fastcall wake_up_process(struct task_struct *p)
 {
-	return try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
+	int ret = try_to_wake_up(p, TASK_STOPPED | TASK_TRACED |
 				 TASK_INTERRUPTIBLE | TASK_UNINTERRUPTIBLE, 0);
+	mcount();
+	return ret;
 }
 EXPORT_SYMBOL(wake_up_process);
 
 int fastcall wake_up_state(struct task_struct *p, unsigned int state)
 {
-	return try_to_wake_up(p, state, 0);
+	int ret = try_to_wake_up(p, state, 0);
+
+	mcount();
+	return ret;
 }
 
 /*
@@ -1701,6 +1721,7 @@ static inline void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	prev_state = prev->state;
 	finish_arch_switch(prev);
 	finish_lock_switch(rq, prev);
+	trace_stop_sched_switched(current);
 	if (likely(mm))
 		mmdrop(mm);
 	if (unlikely(prev_state == TASK_DEAD)) {
@@ -1772,10 +1793,15 @@ context_switch(struct rq *rq, struct task_struct *prev,
 	spin_release(&rq->lock.dep_map, 1, _THIS_IP_);
 #endif
 
+	trace_cmdline();
+
 	/* Here we just switch the register state and the stack. */
 	switch_to(prev, next, prev);
 
 	barrier();
+
+	trace_special_pid(prev->pid, PRIO(prev), PRIO(current));
+
 	/*
 	 * this_rq must be evaluated again because prev may have moved
 	 * CPUs since it called schedule(), thus the 'rq' on its stack
@@ -3216,41 +3242,39 @@ void scheduler_tick(void)
 #endif
 }
 
-#if defined(CONFIG_PREEMPT) && defined(CONFIG_DEBUG_PREEMPT)
+#if defined(CONFIG_EVENT_TRACE) && defined(CONFIG_DEBUG_RT_MUTEXES)
 
-void fastcall add_preempt_count(int val)
+static void trace_array(struct prio_array *array)
 {
-	/*
-	 * Underflow?
-	 */
-	if (DEBUG_LOCKS_WARN_ON((preempt_count() < 0)))
-		return;
-	preempt_count() += val;
-	/*
-	 * Spinlock count overflowing soon?
-	 */
-	DEBUG_LOCKS_WARN_ON((preempt_count() & PREEMPT_MASK) >=
-				PREEMPT_MASK - 10);
-}
-EXPORT_SYMBOL(add_preempt_count);
+	int i;
+	struct task_struct *p;
+	struct list_head *head, *tmp;
 
-void fastcall sub_preempt_count(int val)
+	for (i = 0; i < MAX_RT_PRIO; i++) {
+		head = array->queue + i;
+		if (list_empty(head)) {
+			WARN_ON(test_bit(i, array->bitmap));
+			continue;
+		}
+		WARN_ON(!test_bit(i, array->bitmap));
+		list_for_each(tmp, head) {
+			p = list_entry(tmp, struct task_struct, run_list);
+			trace_special_pid(p->pid, p->prio, PRIO(p));
+		}
+	}
+}
+
+static inline void trace_all_runnable_tasks(struct rq *rq)
 {
-	/*
-	 * Underflow?
-	 */
-	if (DEBUG_LOCKS_WARN_ON(val > preempt_count()))
-		return;
-	/*
-	 * Is the spinlock portion underflowing?
-	 */
-	if (DEBUG_LOCKS_WARN_ON((val < PREEMPT_MASK) &&
-			!(preempt_count() & PREEMPT_MASK)))
-		return;
-
-	preempt_count() -= val;
+	if (trace_enabled)
+		trace_array(&rq->active);
 }
-EXPORT_SYMBOL(sub_preempt_count);
+
+#else
+
+static inline void trace_all_runnable_tasks(struct rq *rq)
+{
+}
 
 #endif
 
@@ -3361,6 +3385,8 @@ need_resched_nonpreemptible:
 	prev->sched_class->put_prev_task(rq, prev, now);
 	next = pick_next_task(rq, prev, now);
 
+	trace_all_runnable_tasks(rq);
+
 	sched_info_switch(prev, next);
 
 	if (likely(prev != next)) {
@@ -3369,8 +3395,10 @@ need_resched_nonpreemptible:
 		++*switch_count;
 
 		context_switch(rq, prev, next); /* unlocks the rq */
-	} else
+	} else {
 		spin_unlock_irq(&rq->lock);
+		trace_stop_sched_switched(next);
+	}
 
 	if (unlikely(reacquire_kernel_lock(current) < 0)) {
 		cpu = smp_processor_id();
@@ -3824,6 +3852,7 @@ void rt_mutex_setprio(struct task_struct *p, int prio)
 			check_preempt_curr(rq, p);
 		}
 	}
+
 	task_rq_unlock(rq, &flags);
 }
 
@@ -6336,6 +6365,7 @@ void __might_sleep(char *file, int line)
 		if (time_before(jiffies, prev_jiffy + HZ) && prev_jiffy)
 			return;
 		prev_jiffy = jiffies;
+		stop_trace();
 		printk(KERN_ERR "BUG: sleeping function called from invalid"
 				" context at %s:%d\n", file, line);
 		printk("in_atomic():%d, irqs_disabled():%d\n",

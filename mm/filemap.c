@@ -112,7 +112,7 @@ generic_file_direct_IO(int rw, struct kiocb *iocb, const struct iovec *iov,
 /*
  * Remove a page from the page cache and free it. Caller has to make
  * sure the page is locked and that nobody else uses it - or that usage
- * is safe.  The caller must hold a write_lock on the mapping's tree_lock.
+ * is safe.  The caller must hold the mapping's tree_lock.
  */
 void __remove_from_page_cache(struct page *page)
 {
@@ -144,9 +144,9 @@ void remove_from_page_cache(struct page *page)
 
 	BUG_ON(!PageLocked(page));
 
-	write_lock_irq(&mapping->tree_lock);
+	spin_lock_irq(&mapping->tree_lock);
 	__remove_from_page_cache(page);
-	write_unlock_irq(&mapping->tree_lock);
+	spin_unlock_irq(&mapping->tree_lock);
 }
 
 static int sync_page(void *word)
@@ -467,7 +467,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 	error = radix_tree_preload(gfp_mask & ~__GFP_HIGHMEM);
 	if (error == 0) {
 		set_page_nonewrefs(page);
-		write_lock_irq(&mapping->tree_lock);
+		spin_lock_irq(&mapping->tree_lock);
 		error = radix_tree_insert(&mapping->page_tree, offset, page);
 		if (!error) {
 			page_cache_get(page);
@@ -479,7 +479,7 @@ int add_to_page_cache(struct page *page, struct address_space *mapping,
 		} else
 			mem_cgroup_uncharge_page(page);
 
-		write_unlock_irq(&mapping->tree_lock);
+		spin_unlock_irq(&mapping->tree_lock);
 		clear_page_nonewrefs(page);
 		radix_tree_preload_end();
 	} else

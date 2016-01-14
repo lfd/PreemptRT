@@ -460,7 +460,6 @@ void invalidate_interrupt6(void);
 void invalidate_interrupt7(void);
 void thermal_interrupt(void);
 void threshold_interrupt(void);
-void i8254_timer_resume(void);
 
 static void setup_timer_hardware(void)
 {

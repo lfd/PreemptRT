@@ -331,7 +331,9 @@ ENTRY(system_call_after_swapgs)
 	cmpq $__NR_syscall_max,%rax
 	ja badsys
 	movq %r10,%rcx
+	TRACE_SYS_CALL
 	call *sys_call_table(,%rax,8)  # XXX:	 rip relative
+	TRACE_SYS_RET
 	movq %rax,RAX-ARGOFFSET(%rsp)
 /*
  * Syscall return path ending with SYSRET (fast path)
@@ -410,7 +412,9 @@ tracesys:
 	cmpq $__NR_syscall_max,%rax
 	ja   int_ret_from_sys_call	/* RAX(%rsp) set to -ENOSYS above */
 	movq %r10,%rcx	/* fixup for C */
+	TRACE_SYS_CALL
 	call *sys_call_table(,%rax,8)
+ 	TRACE_SYS_RET
 	movq %rax,RAX-ARGOFFSET(%rsp)
 	/* Use IRET because user could have changed frame */
 		

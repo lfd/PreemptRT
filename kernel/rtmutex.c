@@ -105,11 +105,12 @@ static inline void mark_rt_mutex_waiters(struct rt_mutex *lock)
  */
 int rt_mutex_getprio(struct task_struct *task)
 {
-	if (likely(!task_has_pi_waiters(task)))
-		return task->normal_prio;
+	int prio = min(task->normal_prio, get_rcu_prio(task));
 
-	return min(task_top_pi_waiter(task)->pi_list_entry.prio,
-		   task->normal_prio);
+	if (likely(!task_has_pi_waiters(task)))
+		return prio;
+
+	return min(task_top_pi_waiter(task)->pi_list_entry.prio, prio);
 }
 
 /*

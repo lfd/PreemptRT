@@ -950,7 +950,7 @@ void __devinit rcu_online_cpu(int cpu)
 
 #endif /* #else #ifdef CONFIG_HOTPLUG_CPU */
 
-static void rcu_process_callbacks(struct softirq_action *unused)
+void rcu_process_callbacks(struct softirq_action *unused)
 {
 	unsigned long flags;
 	struct rcu_head *next, *list;

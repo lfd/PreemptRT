@@ -203,7 +203,7 @@ static int jffs2_create(struct inode *dir_i, struct dentry *dentry, int mode,
 	inode->i_op = &jffs2_file_inode_operations;
 	inode->i_fop = &jffs2_file_operations;
 	inode->i_mapping->a_ops = &jffs2_file_address_operations;
-	inode->i_mapping->nrpages = 0;
+	mapping_nrpages_init(inode->i_mapping);
 
 	f = JFFS2_INODE_INFO(inode);
 	dir_f = JFFS2_INODE_INFO(dir_i);
@@ -227,7 +227,7 @@ static int jffs2_create(struct inode *dir_i, struct dentry *dentry, int mode,
 
 	D1(printk(KERN_DEBUG "jffs2_create: Created ino #%lu with mode %o, nlink %d(%d). nrpages %ld\n",
 		  inode->i_ino, inode->i_mode, inode->i_nlink,
-		  f->inocache->pino_nlink, inode->i_mapping->nrpages));
+		  f->inocache->pino_nlink, mapping_nrpages(inode->i_mapping)));
 	return 0;
 
  fail:

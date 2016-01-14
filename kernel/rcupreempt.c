@@ -944,7 +944,7 @@ void __cpuinit rcu_online_cpu(int cpu)
 	spin_unlock_irqrestore(&rcu_ctrlblk.fliplock, flags);
 }
 
-static void rcu_process_callbacks(struct softirq_action *unused)
+void rcu_process_callbacks(struct softirq_action *unused)
 {
 	unsigned long flags;
 	struct rcu_head *next, *list;

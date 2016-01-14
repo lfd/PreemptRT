@@ -65,7 +65,9 @@ static void __unhash_process(struct task_struct *p)
 		detach_pid(p, PIDTYPE_SID);
 
 		list_del_rcu(&p->tasks);
+		preempt_disable();
 		__get_cpu_var(process_counts)--;
+		preempt_enable();
 	}
 	list_del_rcu(&p->thread_group);
 	remove_parent(p);
@@ -594,9 +596,11 @@ static void exit_mm(struct task_struct * tsk)
 	task_lock(tsk);
 	tsk->mm = NULL;
 	up_read(&mm->mmap_sem);
+	preempt_disable(); // FIXME
 	enter_lazy_tlb(mm, current);
 	/* We don't want this task to be frozen prematurely */
 	clear_freeze_flag(tsk);
+	preempt_enable();
 	task_unlock(tsk);
 	mmput(mm);
 }
@@ -904,6 +908,7 @@ fastcall NORET_TYPE void do_exit(long code)
 
 	WARN_ON(atomic_read(&tsk->fs_excl));
 
+	BUG_ON(in_interrupt());
 	if (unlikely(in_interrupt()))
 		panic("Aiee, killing interrupt handler!");
 	if (unlikely(!tsk->pid))
@@ -1033,15 +1038,18 @@ fastcall NORET_TYPE void do_exit(long code)
 	if (tsk->splice_pipe)
 		__free_pipe_info(tsk->splice_pipe);
 
-	preempt_disable();
+again:
+	local_irq_disable();
 	/* causes final put_task_struct in finish_task_switch(). */
 	tsk->state = TASK_DEAD;
 
-	schedule();
-	BUG();
-	/* Avoid "noreturn function does return".  */
-	for (;;)
-		cpu_relax();	/* For when BUG is null */
+	__schedule();
+	printk(KERN_ERR "BUG: dead task %s:%d back from the grave!\n",
+		current->comm, current->pid);
+	printk(KERN_ERR ".... flags: %08x, count: %d, state: %08lx\n",
+		current->flags, atomic_read(&current->usage), current->state);
+	printk(KERN_ERR ".... trying again ...\n");
+	goto again;
 }
 
 EXPORT_SYMBOL_GPL(do_exit);
@@ -1548,6 +1556,7 @@ repeat:
 		list_for_each(_p,&tsk->children) {
 			p = list_entry(_p, struct task_struct, sibling);
 
+			BUG_ON(!atomic_read(&p->usage));
 			ret = eligible_child(pid, options, p);
 			if (!ret)
 				continue;

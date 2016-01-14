@@ -385,10 +385,12 @@ void
 show_trace(struct task_struct *tsk, struct pt_regs *regs, unsigned long *stack,
 		unsigned long bp)
 {
+	pause_on_oops_head();
 	printk("\nCall Trace:\n");
 	dump_trace(tsk, regs, stack, bp, &print_trace_ops, NULL);
 	printk("\n");
 	debug_show_held_locks(tsk);
+	pause_on_oops_tail();
 	print_preempt_trace(tsk);
 }
 

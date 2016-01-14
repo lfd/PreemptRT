@@ -123,7 +123,7 @@ void __lockfunc __read_lock(raw_rwlock_t *lock)
 {
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_read_lock(lock);
+	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
 }
 EXPORT_SYMBOL(__read_lock);
 
@@ -140,7 +140,7 @@ unsigned long __lockfunc __spin_lock_irqsave(raw_spinlock_t *lock)
 	 * that interrupts are not re-enabled during lock-acquire:
 	 */
 #ifdef CONFIG_LOCKDEP
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 #else
 	_raw_spin_lock_flags(lock, &flags);
 #endif
@@ -153,7 +153,7 @@ void __lockfunc __spin_lock_irq(raw_spinlock_t *lock)
 	local_irq_disable();
 	preempt_disable();
 	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 }
 EXPORT_SYMBOL(__spin_lock_irq);
 
@@ -162,7 +162,7 @@ void __lockfunc __spin_lock_bh(raw_spinlock_t *lock)
 	local_bh_disable();
 	preempt_disable();
 	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 }
 EXPORT_SYMBOL(__spin_lock_bh);
 
@@ -173,7 +173,7 @@ unsigned long __lockfunc __read_lock_irqsave(raw_rwlock_t *lock)
 	local_irq_save(flags);
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_read_lock(lock);
+	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
 	return flags;
 }
 EXPORT_SYMBOL(__read_lock_irqsave);
@@ -183,7 +183,7 @@ void __lockfunc __read_lock_irq(raw_rwlock_t *lock)
 	local_irq_disable();
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_read_lock(lock);
+	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
 }
 EXPORT_SYMBOL(__read_lock_irq);
 
@@ -192,7 +192,7 @@ void __lockfunc __read_lock_bh(raw_rwlock_t *lock)
 	local_bh_disable();
 	preempt_disable();
 	rwlock_acquire_read(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_read_lock(lock);
+	LOCK_CONTENDED(lock, _raw_read_trylock, _raw_read_lock);
 }
 EXPORT_SYMBOL(__read_lock_bh);
 
@@ -203,7 +203,7 @@ unsigned long __lockfunc __write_lock_irqsave(raw_rwlock_t *lock)
 	local_irq_save(flags);
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_write_lock(lock);
+	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
 	return flags;
 }
 EXPORT_SYMBOL(__write_lock_irqsave);
@@ -213,7 +213,7 @@ void __lockfunc __write_lock_irq(raw_rwlock_t *lock)
 	local_irq_disable();
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_write_lock(lock);
+	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
 }
 EXPORT_SYMBOL(__write_lock_irq);
 
@@ -222,7 +222,7 @@ void __lockfunc __write_lock_bh(raw_rwlock_t *lock)
 	local_bh_disable();
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_write_lock(lock);
+	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
 }
 EXPORT_SYMBOL(__write_lock_bh);
 
@@ -230,7 +230,7 @@ void __lockfunc __spin_lock(raw_spinlock_t *lock)
 {
 	preempt_disable();
 	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 }
 
 EXPORT_SYMBOL(__spin_lock);
@@ -239,7 +239,7 @@ void __lockfunc __write_lock(raw_rwlock_t *lock)
 {
 	preempt_disable();
 	rwlock_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-	_raw_write_lock(lock);
+	LOCK_CONTENDED(lock, _raw_write_trylock, _raw_write_lock);
 }
 
 EXPORT_SYMBOL(__write_lock);
@@ -342,7 +342,7 @@ void __lockfunc __spin_lock_nested(raw_spinlock_t *lock, int subclass)
 {
 	preempt_disable();
 	spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 }
 EXPORT_SYMBOL(__spin_lock_nested);
 
@@ -360,7 +360,7 @@ __spin_lock_irqsave_nested(raw_spinlock_t *lock, int subclass)
 	 * that interrupts are not re-enabled during lock-acquire:
 	 */
 #ifdef CONFIG_LOCKDEP
-	_raw_spin_lock(lock);
+	LOCK_CONTENDED(lock, _raw_spin_trylock, _raw_spin_lock);
 #else
 	_raw_spin_lock_flags(lock, &flags);
 #endif

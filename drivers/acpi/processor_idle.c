@@ -803,7 +803,7 @@ int acpi_processor_power_exit(struct acpi_processor *pr,
  * @t1: the start time
  * @t2: the end time
  */
-static inline u32 ticks_elapsed(u32 t1, u32 t2)
+static inline u32 ticks_elapsed_in_us(u32 t1, u32 t2)
 {
 	if (t2 >= t1)
 		return PM_TIMER_TICKS_TO_US(t2 - t1);
@@ -811,6 +811,16 @@ static inline u32 ticks_elapsed(u32 t1, u32 t2)
 		return PM_TIMER_TICKS_TO_US(((0x00FFFFFF - t1) + t2) & 0x00FFFFFF);
 	else
 		return PM_TIMER_TICKS_TO_US((0xFFFFFFFF - t1) + t2);
+}
+
+static inline u32 ticks_elapsed(u32 t1, u32 t2)
+{
+	if (t2 >= t1)
+		return (t2 - t1);
+	else if (!(acpi_gbl_FADT.flags & ACPI_FADT_32BIT_TIMER))
+		return (((0x00FFFFFF - t1) + t2) & 0x00FFFFFF);
+	else
+		return ((0xFFFFFFFF - t1) + t2);
 }
 
 /**
@@ -936,7 +946,8 @@ static int acpi_idle_enter_c2(struct cpuidle_device *dev,
 	cx->usage++;
 
 	acpi_state_timer_broadcast(pr, cx, 0);
-	return ticks_elapsed(t1, t2);
+	cx->time += ticks_elapsed(t1, t2);
+	return ticks_elapsed_in_us(t1, t2);
 }
 
 static int c3_cpu_count;
@@ -1020,7 +1031,8 @@ static int acpi_idle_enter_c3(struct cpuidle_device *dev,
 	cx->usage++;
 
 	acpi_state_timer_broadcast(pr, cx, 0);
-	return ticks_elapsed(t1, t2);
+	cx->time += ticks_elapsed(t1, t2);
+	return ticks_elapsed_in_us(t1, t2);
 }
 
 /**

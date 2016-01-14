@@ -31,6 +31,7 @@
 #include <linux/bug.h>
 #include <linux/nmi.h>
 #include <linux/mm.h>
+#include <linux/ftrace.h>
 
 #ifdef CONFIG_EISA
 #include <linux/ioport.h>
@@ -834,6 +835,8 @@ notrace __kprobes void do_nmi(struct pt_regs *regs, long error_code)
 	int cpu;
 
 	nmi_enter();
+
+	trace_event_irq(-1, user_mode(regs), regs->ip);
 
 	cpu = smp_processor_id();
 

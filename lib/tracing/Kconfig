@@ -1,0 +1,10 @@
+
+# Archs that enable MCOUNT should select HAVE_MCOUNT
+config HAVE_MCOUNT
+       bool
+
+# MCOUNT itself is useless, or will just be added overhead.
+# It needs something to register a function with it.
+config MCOUNT
+	bool
+	select FRAME_POINTER

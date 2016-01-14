@@ -97,8 +97,8 @@ static void (*__initdata interrupt[NR_VECTORS - FIRST_EXTERNAL_VECTOR])(void) = 
  */
 
 static int i8259A_auto_eoi;
-DEFINE_SPINLOCK(i8259A_lock);
 static void mask_and_ack_8259A(unsigned int);
+DEFINE_RAW_SPINLOCK(i8259A_lock);
 
 static struct irq_chip i8259A_chip = {
 	.name		= "XT-PIC",

@@ -17,17 +17,22 @@
 
 static inline void __native_flush_tlb(void)
 {
+	preempt_disable();
 	write_cr3(read_cr3());
+	preempt_enable();
 }
 
 static inline void __native_flush_tlb_global(void)
 {
-	unsigned long cr4 = read_cr4();
+	unsigned long cr4;
 
+	preempt_disable();
+	cr4 = read_cr4();
 	/* clear PGE */
 	write_cr4(cr4 & ~X86_CR4_PGE);
 	/* write old PGE again and flush TLBs */
 	write_cr4(cr4);
+	preempt_enable();
 }
 
 static inline void __native_flush_tlb_single(unsigned long addr)

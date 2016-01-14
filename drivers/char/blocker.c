@@ -4,7 +4,6 @@
 
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
-#include <asm/rtc.h>
 
 #define BLOCKER_MINOR		221
 

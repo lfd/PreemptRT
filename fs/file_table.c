@@ -353,6 +353,12 @@ EXPORT_SYMBOL_GPL(filevec_add_drain_all);
 
 void file_kill(struct file *file)
 {
+	if (file && file->f_mapping && file->f_mapping->host) {
+		struct super_block *sb = file->f_mapping->host->i_sb;
+		if (sb)
+			barrier_sync(&sb->s_barrier);
+	}
+
 	if (file_flag(file, F_SUPERBLOCK)) {
 		void **ptr;
 
@@ -411,6 +417,7 @@ int fs_may_remount_ro(struct super_block *sb)
 	struct file *file;
 
 	/* Check that no files are currently opened for writing. */
+	barrier_lock(&sb->s_barrier);
 	filevec_add_drain_all();
 	lock_list_for_each_entry(file, &sb->s_files, f_u.fu_llist) {
 		struct inode *inode = file->f_path.dentry->d_inode;
@@ -423,9 +430,11 @@ int fs_may_remount_ro(struct super_block *sb)
 		if (S_ISREG(inode->i_mode) && (file->f_mode & FMODE_WRITE))
 			goto too_bad;
 	}
+	barrier_unlock(&sb->s_barrier);
 	return 1; /* Tis' cool bro. */
 too_bad:
 	lock_list_for_each_entry_stop(file, f_u.fu_llist);
+	barrier_unlock(&sb->s_barrier);
 	return 0;
 }
 

@@ -284,6 +284,7 @@ extern int dir_notify_enable;
 #include <linux/init.h>
 #include <linux/pid.h>
 #include <linux/mutex.h>
+#include <linux/barrier.h>
 
 #include <asm/atomic.h>
 #include <asm/semaphore.h>
@@ -957,6 +958,7 @@ struct super_block {
 	struct list_head	s_io;		/* parked for writeback */
 	struct hlist_head	s_anon;		/* anonymous dentries for (nfs) exporting */
 	struct lock_list_head	s_files;
+	struct barrier		s_barrier;
 
 	struct block_device	*s_bdev;
 	struct mtd_info		*s_mtd;

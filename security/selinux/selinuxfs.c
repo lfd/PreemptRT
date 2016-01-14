@@ -967,9 +967,9 @@ static void sel_remove_bools(struct dentry *de)
 
 	spin_unlock(&dcache_lock);
 
-	file_list_lock();
-	list_for_each(p, &sb->s_files) {
-		struct file * filp = list_entry(p, struct file, f_u.fu_list);
+	barrier_lock(&sb->s_barrier);
+	filevec_add_drain_all();
+	lock_list_for_each_entry(filp, &sb->s_files, f_u.fu_llist) {
 		struct dentry * dentry = filp->f_path.dentry;
 
 		if (dentry->d_parent != de) {
@@ -977,6 +977,7 @@ static void sel_remove_bools(struct dentry *de)
 		}
 		filp->f_op = NULL;
 	}
+	barrier_unlock(&sb->s_barrier);
 }
 
 #define BOOL_DIR_NAME "booleans"

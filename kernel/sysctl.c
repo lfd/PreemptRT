@@ -148,6 +148,10 @@ extern int no_unaligned_warning;
 extern int max_lock_depth;
 #endif
 
+#ifdef CONFIG_PREEMPT_RT
+extern int rt_rwlock_limit;
+#endif
+
 #ifdef CONFIG_PROC_SYSCTL
 static int proc_do_cad_pid(struct ctl_table *table, int write, struct file *filp,
 		  void __user *buffer, size_t *lenp, loff_t *ppos);
@@ -386,6 +390,16 @@ static struct ctl_table kern_table[] = {
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "hardirq_preemption",
 		.data		= &hardirq_preemption,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
+#endif
+#ifdef CONFIG_PREEMPT_RT
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "rwlock_reader_limit",
+		.data		= &rt_rwlock_limit,
 		.maxlen		= sizeof(int),
 		.mode		= 0644,
 		.proc_handler	= &proc_dointvec,

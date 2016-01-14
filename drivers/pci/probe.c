@@ -886,6 +886,7 @@ static void pci_release_bus_bridge_dev(struct device *dev)
 
 struct pci_dev *alloc_pci_dev(void)
 {
+	int i;
 	struct pci_dev *dev;
 
 	dev = kzalloc(sizeof(struct pci_dev), GFP_KERNEL);
@@ -893,6 +894,9 @@ struct pci_dev *alloc_pci_dev(void)
 		return NULL;
 
 	INIT_LIST_HEAD(&dev->bus_list);
+
+	for (i = 0; i < ARRAY_SIZE(dev->cached_capabilities); ++i)
+		dev->cached_capabilities[i] = -1;
 
 	pci_msi_init_pci_dev(dev);
 

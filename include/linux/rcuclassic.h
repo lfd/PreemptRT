@@ -49,7 +49,7 @@ struct rcu_ctrlblk {
 
 	int	signaled;
 
-	spinlock_t	lock	____cacheline_internodealigned_in_smp;
+	raw_spinlock_t	lock	____cacheline_internodealigned_in_smp;
 	cpumask_t	cpumask; /* CPUs that need to switch in order    */
 				 /* for current batch to proceed.        */
 } ____cacheline_internodealigned_in_smp;

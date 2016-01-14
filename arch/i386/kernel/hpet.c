@@ -24,6 +24,8 @@
  */
 unsigned long hpet_address;
 
+static void __iomem * hpet_virt_address;
+
 #ifdef CONFIG_X86_64
 
 #include <asm/pgtable.h>
@@ -33,18 +35,21 @@ static inline void hpet_set_mapping(void)
 {
 	set_fixmap_nocache(FIX_HPET_BASE, hpet_address);
 	__set_fixmap(VSYSCALL_HPET, hpet_address, PAGE_KERNEL_VSYSCALL_NOCACHE);
+	hpet_virt_address = (void __iomem *)fix_to_virt(FIX_HPET_BASE);
+
 }
 
 static inline void __iomem *hpet_get_virt_address(void)
 {
-	return (void __iomem *)fix_to_virt(FIX_HPET_BASE);
+	return hpet_virt_address;
 }
 
-static inline void hpet_clear_mapping(void) { }
+static inline void hpet_clear_mapping(void)
+{
+	hpet_virt_address = NULL;
+}
 
 #else
-
-static void __iomem * hpet_virt_address;
 
 static inline unsigned long hpet_readl(unsigned long a)
 {
@@ -172,6 +177,7 @@ static struct clock_event_device hpet_clockevent = {
 	.set_next_event = hpet_legacy_next_event,
 	.shift		= 32,
 	.irq		= 0,
+	.rating		= 50,
 };
 
 static void hpet_start_counter(void)
@@ -184,6 +190,17 @@ static void hpet_start_counter(void)
 	hpet_writel(0, HPET_COUNTER + 4);
 	cfg |= HPET_CFG_ENABLE;
 	hpet_writel(cfg, HPET_CFG);
+}
+
+static void hpet_resume_device(void)
+{
+	ich_force_hpet_resume();
+}
+
+static void hpet_restart_counter(void)
+{
+	hpet_resume_device();
+	hpet_start_counter();
 }
 
 static void hpet_enable_legacy_int(void)
@@ -307,7 +324,7 @@ static struct clocksource clocksource_hpet = {
 	.mask		= HPET_MASK,
 	.shift		= HPET_SHIFT,
 	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-	.resume		= hpet_start_counter,
+	.resume		= hpet_restart_counter,
 #ifdef CONFIG_X86_64
 	.vread		= vread_hpet,
 #endif
@@ -370,6 +387,9 @@ int __init hpet_enable(void)
 {
 	unsigned long id;
 
+	if (hpet_get_virt_address())
+		return 0;
+
 	if (!is_hpet_capable())
 		return 0;
 
@@ -420,8 +440,22 @@ out_nohpet:
  */
 static __init int hpet_late_init(void)
 {
-	if (is_hpet_capable())
-		hpet_reserve_platform_timers(hpet_readl(HPET_ID));
+	if (boot_hpet_disable)
+		return -ENODEV;
+
+	if (!hpet_address) {
+		if (!force_hpet_address)
+			return -ENODEV;
+
+		hpet_address = force_hpet_address;
+		hpet_enable();
+		if (!hpet_get_virt_address())
+			return -ENODEV;
+	}
+
+	hpet_reserve_platform_timers(hpet_readl(HPET_ID));
+
+	return 0;
 }
 fs_initcall(hpet_late_init);
 

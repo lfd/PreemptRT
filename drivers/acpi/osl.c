@@ -1065,6 +1065,7 @@ void acpi_set_cstate_limit(unsigned int new_limit)
 	if (acpi_do_set_cstate_limit)
 		acpi_do_set_cstate_limit();
 }
+EXPORT_SYMBOL(acpi_set_cstate_limit);
 
 /*
  * Acquire a spinlock.

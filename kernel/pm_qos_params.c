@@ -192,14 +192,7 @@ static int find_pm_qos_object_by_minor(int minor)
  */
 int pm_qos_requirement(int pm_qos_class)
 {
-	int ret_val;
-	unsigned long flags;
-
-	spin_lock_irqsave(&pm_qos_lock, flags);
-	ret_val = pm_qos_array[pm_qos_class]->target_value;
-	spin_unlock_irqrestore(&pm_qos_lock, flags);
-
-	return ret_val;
+	return pm_qos_array[pm_qos_class]->target_value;
 }
 EXPORT_SYMBOL_GPL(pm_qos_requirement);
 

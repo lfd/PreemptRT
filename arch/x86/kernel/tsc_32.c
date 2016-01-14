@@ -399,8 +399,14 @@ void __init tsc_init(void)
 	cpu_khz = calculate_cpu_khz();
 	tsc_khz = cpu_khz;
 
-	if (!cpu_khz)
+	if (!cpu_khz) {
+		/*
+		 * We need to disable the TSC completely in this case
+		 * to prevent sched_clock() from using it.
+		 */
+		tsc_disabled = 1;
 		goto out_no_tsc;
+	}
 
 	printk("Detected %lu.%03lu MHz processor.\n",
 				(unsigned long)cpu_khz / 1000,

@@ -626,7 +626,16 @@ static void svm_free_vcpu(struct kvm_vcpu *vcpu)
 static void svm_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct vcpu_svm *svm = to_svm(vcpu);
+	cpumask_t this_mask = cpumask_of_cpu(cpu);
 	int i;
+
+	/*
+	 * Keep the context preemptible, but do not migrate
+	 * away to another CPU. TODO: make sure this persists.
+	 * Save/restore original mask.
+	 */
+	if (unlikely(!cpus_equal(current->cpus_allowed, this_mask)))
+		set_cpus_allowed(current, cpumask_of_cpu(cpu));
 
 	if (unlikely(cpu != vcpu->cpu)) {
 		u64 tsc_this, delta;

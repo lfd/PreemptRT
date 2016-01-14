@@ -427,6 +427,8 @@ static void vmx_load_host_state(struct vcpu_vmx *vmx)
 		local_irq_restore(flags);
 	}
 	reload_tss();
+	preempt_enable();
+
 	save_msrs(vmx->guest_msrs, vmx->save_nmsrs);
 	load_msrs(vmx->host_msrs, vmx->save_nmsrs);
 	if (msr_efer_need_save_restore(vmx))
@@ -440,8 +442,17 @@ static void vmx_load_host_state(struct vcpu_vmx *vmx)
 static void vmx_vcpu_load(struct kvm_vcpu *vcpu, int cpu)
 {
 	struct vcpu_vmx *vmx = to_vmx(vcpu);
+	cpumask_t this_mask = cpumask_of_cpu(cpu);
 	u64 phys_addr = __pa(vmx->vmcs);
 	u64 tsc_this, delta;
+
+	/*
+	 * Keep the context preemptible, but do not migrate
+	 * away to another CPU. TODO: make sure this persists.
+	 * Save/restore original mask.
+	 */
+	if (unlikely(!cpus_equal(current->cpus_allowed, this_mask)))
+		set_cpus_allowed(current, cpumask_of_cpu(cpu));
 
 	if (vcpu->cpu != cpu) {
 		vcpu_clear(vmx);
@@ -2204,6 +2215,7 @@ static void vmx_vcpu_run(struct kvm_vcpu *vcpu, struct kvm_run *kvm_run)
 	 */
 	vmcs_writel(HOST_CR0, read_cr0());
 
+	preempt_disable();
 	asm (
 		/* Store host registers */
 #ifdef CONFIG_X86_64

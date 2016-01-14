@@ -1107,7 +1107,7 @@ rt_rwlock_update_owner(struct rw_mutex *rwm, unsigned owners)
 	rt_rwlock_set_owner(rwm, RT_RW_READER, RT_RWLOCK_CHECK);
 }
 
-static int try_to_take_rw_read(struct rw_mutex *rwm)
+static int try_to_take_rw_read(struct rw_mutex *rwm, int mtx)
 {
 	struct rt_mutex *mutex = &rwm->mutex;
 	struct rt_mutex_waiter *waiter;
@@ -1161,7 +1161,9 @@ static int try_to_take_rw_read(struct rw_mutex *rwm)
 		return 0;
 
 	if (mtxowner && mtxowner != RT_RW_READER) {
-		if (!try_to_steal_lock(mutex)) {
+		int mode = mtx ? STEAL_NORMAL : STEAL_LATERAL;
+
+		if (!try_to_steal_lock(mutex, mode)) {
 			/*
 			 * readers don't own the mutex, and rwm shows that a
 			 * writer doesn't have it either. If we enter this
@@ -1177,7 +1179,7 @@ static int try_to_take_rw_read(struct rw_mutex *rwm)
 				return 0;
 			if (rt_mutex_has_waiters(mutex)) {
 				waiter = rt_mutex_top_waiter(mutex);
-				if (current->prio >= waiter->task->prio)
+				if (!lock_is_stealable(waiter->task, mode))
 					return 0;
 				/*
 				 * The pending reader has PI waiters,
@@ -1220,7 +1222,7 @@ static int try_to_take_rw_read(struct rw_mutex *rwm)
 }
 
 static int
-try_to_take_rw_write(struct rw_mutex *rwm)
+try_to_take_rw_write(struct rw_mutex *rwm, int mtx)
 {
 	struct rt_mutex *mutex = &rwm->mutex;
 	struct task_struct *own;
@@ -1243,7 +1245,7 @@ try_to_take_rw_write(struct rw_mutex *rwm)
 	 */
 	WARN_ON(own && !rt_mutex_owner_pending(mutex));
 
-	if (!try_to_take_rt_mutex(mutex))
+	if (!do_try_to_take_rt_mutex(mutex, mtx ? STEAL_NORMAL : STEAL_LATERAL))
 		return 0;
 
 	/*
@@ -1266,7 +1268,7 @@ rt_read_slowlock(struct rw_mutex *rwm, int mtx)
 	spin_lock_irqsave(&mutex->wait_lock, flags);
 	init_rw_lists(rwm);
 
-	if (try_to_take_rw_read(rwm)) {
+	if (try_to_take_rw_read(rwm, mtx)) {
 		spin_unlock_irqrestore(&mutex->wait_lock, flags);
 		return;
 	}
@@ -1296,7 +1298,7 @@ rt_read_slowlock(struct rw_mutex *rwm, int mtx)
 		unsigned long saved_flags;
 
 		/* Try to acquire the lock: */
-		if (try_to_take_rw_read(rwm))
+		if (try_to_take_rw_read(rwm, mtx))
 			break;
 		update_rw_mutex_owner(rwm);
 
@@ -1432,7 +1434,7 @@ void fastcall rt_rwlock_read_lock(struct rw_mutex *rwm)
 
 
 static inline int
-rt_read_slowtrylock(struct rw_mutex *rwm)
+rt_read_slowtrylock(struct rw_mutex *rwm, int mtx)
 {
 	struct rt_mutex *mutex = &rwm->mutex;
 	unsigned long flags;
@@ -1441,7 +1443,7 @@ rt_read_slowtrylock(struct rw_mutex *rwm)
 	spin_lock_irqsave(&mutex->wait_lock, flags);
 	init_rw_lists(rwm);
 
-	if (try_to_take_rw_read(rwm))
+	if (try_to_take_rw_read(rwm, mtx))
 		ret = 1;
 
 	spin_unlock_irqrestore(&mutex->wait_lock, flags);
@@ -1451,17 +1453,17 @@ rt_read_slowtrylock(struct rw_mutex *rwm)
 
 static inline int
 rt_read_fasttrylock(struct rw_mutex *rwm,
-		    int fastcall (*slowfn)(struct rw_mutex *rwm))
+		    int fastcall (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
 	if (likely(__rt_read_fasttrylock(rwm)))
 		return 1;
 	else
-		return slowfn(rwm);
+		return slowfn(rwm, mtx);
 }
 
 int __sched rt_mutex_down_read_trylock(struct rw_mutex *rwm)
 {
-	return rt_read_fasttrylock(rwm, rt_read_slowtrylock);
+	return rt_read_fasttrylock(rwm, rt_read_slowtrylock, 1);
 }
 
 static void
@@ -1481,7 +1483,7 @@ rt_write_slowlock(struct rw_mutex *rwm, int mtx)
 	spin_lock_irqsave(&mutex->wait_lock, flags);
 	init_rw_lists(rwm);
 
-	if (try_to_take_rw_write(rwm)) {
+	if (try_to_take_rw_write(rwm, mtx)) {
 		spin_unlock_irqrestore(&mutex->wait_lock, flags);
 		return;
 	}
@@ -1505,7 +1507,7 @@ rt_write_slowlock(struct rw_mutex *rwm, int mtx)
 		unsigned long saved_flags;
 
 		/* Try to acquire the lock: */
-		if (try_to_take_rw_write(rwm))
+		if (try_to_take_rw_write(rwm, mtx))
 			break;
 		update_rw_mutex_owner(rwm);
 
@@ -1594,7 +1596,7 @@ void fastcall rt_rwlock_write_lock(struct rw_mutex *rwm)
 }
 
 static int
-rt_write_slowtrylock(struct rw_mutex *rwm)
+rt_write_slowtrylock(struct rw_mutex *rwm, int mtx)
 {
 	struct rt_mutex *mutex = &rwm->mutex;
 	unsigned long flags;
@@ -1603,7 +1605,7 @@ rt_write_slowtrylock(struct rw_mutex *rwm)
 	spin_lock_irqsave(&mutex->wait_lock, flags);
 	init_rw_lists(rwm);
 
-	if (try_to_take_rw_write(rwm))
+	if (try_to_take_rw_write(rwm, mtx))
 		ret = 1;
 
 	spin_unlock_irqrestore(&mutex->wait_lock, flags);
@@ -1613,7 +1615,7 @@ rt_write_slowtrylock(struct rw_mutex *rwm)
 
 static inline int
 rt_write_fasttrylock(struct rw_mutex *rwm,
-		    int fastcall (*slowfn)(struct rw_mutex *rwm))
+		     int fastcall (*slowfn)(struct rw_mutex *rwm, int mtx), int mtx)
 {
 	unsigned long val = (unsigned long)current | RT_RWLOCK_WRITER;
 
@@ -1621,12 +1623,12 @@ rt_write_fasttrylock(struct rw_mutex *rwm,
 		rt_mutex_deadlock_account_lock(&rwm->mutex, current);
 		return 1;
 	} else
-		return slowfn(rwm);
+		return slowfn(rwm, mtx);
 }
 
 int fastcall rt_mutex_down_write_trylock(struct rw_mutex *rwm)
 {
-	return rt_write_fasttrylock(rwm, rt_write_slowtrylock);
+	return rt_write_fasttrylock(rwm, rt_write_slowtrylock, 1);
 }
 
 static void fastcall noinline __sched

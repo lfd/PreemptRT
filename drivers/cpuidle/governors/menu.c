@@ -11,8 +11,8 @@
 #include <linux/latency.h>
 #include <linux/time.h>
 #include <linux/ktime.h>
-#include <linux/tick.h>
 #include <linux/hrtimer.h>
+#include <linux/tick.h>
 
 #define BM_HOLDOFF	20000	/* 20 ms */
 

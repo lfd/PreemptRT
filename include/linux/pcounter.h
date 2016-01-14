@@ -28,7 +28,9 @@ struct pcounter {
 static DEFINE_PER_CPU(int, NAME##_pcounter_values);			\
 static void NAME##_pcounter_add(struct pcounter *self, int val)		\
 {									\
-       __get_cpu_var(NAME##_pcounter_values) += val;			\
+	preempt_disable();						\
+	__get_cpu_var(NAME##_pcounter_values) += val;			\
+	preempt_enable();						\
 }									\
 static int NAME##_pcounter_getval(const struct pcounter *self, int cpu)	\
 {									\

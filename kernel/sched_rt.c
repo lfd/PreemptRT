@@ -109,6 +109,48 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 #endif /* CONFIG_SMP */
 }
 
+static inline void incr_rt_nr_uninterruptible(struct task_struct *p,
+					      struct rq *rq)
+{
+	rq->rt.rt_nr_uninterruptible++;
+}
+
+static inline void decr_rt_nr_uninterruptible(struct task_struct *p,
+					      struct rq *rq)
+{
+	rq->rt.rt_nr_uninterruptible--;
+}
+
+unsigned long rt_nr_running(void)
+{
+	unsigned long i, sum = 0;
+
+	for_each_online_cpu(i)
+		sum += cpu_rq(i)->rt.rt_nr_running;
+
+	return sum;
+}
+
+unsigned long rt_nr_running_cpu(int cpu)
+{
+	return cpu_rq(cpu)->rt.rt_nr_running;
+}
+
+unsigned long rt_nr_uninterruptible(void)
+{
+	unsigned long i, sum = 0;
+
+	for_each_online_cpu(i)
+		sum += cpu_rq(i)->rt.rt_nr_uninterruptible;
+
+	return sum;
+}
+
+unsigned long rt_nr_uninterruptible_cpu(int cpu)
+{
+	return cpu_rq(cpu)->rt.rt_nr_uninterruptible;
+}
+
 static void enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup)
 {
 	struct rt_prio_array *array = &rq->rt.active;
@@ -117,6 +159,9 @@ static void enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup)
 	__set_bit(p->prio, array->bitmap);
 
 	inc_rt_tasks(p, rq);
+
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		decr_rt_nr_uninterruptible(p, rq);
 }
 
 /*
@@ -127,6 +172,9 @@ static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int sleep)
 	struct rt_prio_array *array = &rq->rt.active;
 
 	update_curr_rt(rq);
+
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		incr_rt_nr_uninterruptible(p, rq);
 
 	list_del(&p->run_list);
 	if (list_empty(array->queue + p->prio))
@@ -461,6 +509,8 @@ static int push_rt_task(struct rq *rq)
 
 	resched_task(lowest_rq->curr);
 
+	schedstat_inc(rq, rto_pushed);
+
 	spin_unlock(&lowest_rq->lock);
 
 	ret = 1;
@@ -613,6 +663,7 @@ static int pull_rt_task(struct rq *this_rq)
 			 */
 			next = p;
 
+			schedstat_inc(src_rq, rto_pulled);
 		}
  bail:
 		spin_unlock(&src_rq->lock);
@@ -634,8 +685,10 @@ static void schedule_balance_rt(struct rq *rq,
 			array = &rq->rt.active;
 			next_prio = sched_find_first_bit(array->bitmap);
 		}
-		if (next_prio > prev->prio)
+		if (next_prio > prev->prio) {
 			pull_rt_task(rq);
+			schedstat_inc(rq, rto_schedule);
+		}
 	}
 }
 
@@ -651,6 +704,7 @@ static void schedule_tail_balance_rt(struct rq *rq)
 	if (unlikely(rq->rt.overloaded)) {
 		spin_lock_irq(&rq->lock);
 		push_rt_tasks(rq);
+		schedstat_inc(rq, rto_schedule_tail);
 		spin_unlock_irq(&rq->lock);
 	}
 }
@@ -660,8 +714,10 @@ static void wakeup_balance_rt(struct rq *rq, struct task_struct *p)
 	if (unlikely(rt_task(p)) &&
 	    !task_running(rq, p) &&
 	    (p->prio >= rq->rt.highest_prio) &&
-	    rq->rt.overloaded)
+	    rq->rt.overloaded) {
 		push_rt_tasks(rq);
+ 		schedstat_inc(rq, rto_wakeup);
+	}
 }
 
 #else /* CONFIG_SMP */

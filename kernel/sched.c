@@ -483,6 +483,12 @@ static void update_rq_clock(struct rq *rq)
 #define cpu_curr(cpu)		(cpu_rq(cpu)->curr)
 
 /*
+ * Number of tasks to iterate in a single balance run.
+ * Limited because this is done with IRQs disabled.
+ */
+unsigned int sysctl_sched_nr_migrate = 32;
+
+/*
  * For kernel-internal use: high-speed (but slightly incorrect) per-cpu
  * clock constructed from sched_clock():
  */
@@ -2331,7 +2337,7 @@ static int balance_tasks(struct rq *this_rq, int this_cpu, struct rq *busiest,
 		      int *all_pinned, unsigned long *load_moved,
 		      int *this_best_prio, struct rq_iterator *iterator)
 {
-	int pulled = 0, pinned = 0, skip_for_load;
+	int loops = 0, pulled = 0, pinned = 0, skip_for_load;
 	struct task_struct *p;
 	long rem_load_move = max_load_move;
 
@@ -2345,10 +2351,10 @@ static int balance_tasks(struct rq *this_rq, int this_cpu, struct rq *busiest,
 	 */
 	p = iterator->start(iterator->arg);
 next:
-	if (!p)
+	if (!p || loops++ > sysctl_sched_nr_migrate)
 		goto out;
 	/*
-	 * To help distribute high priority tasks accross CPUs we don't
+	 * To help distribute high priority tasks across CPUs we don't
 	 * skip a task if it will be the highest priority task (i.e. smallest
 	 * prio value) on its new queue regardless of its load weight
 	 */
@@ -2365,8 +2371,7 @@ next:
 	rem_load_move -= p->se.load.weight;
 
 	/*
-	 * We only want to steal up to the prescribed number of tasks
-	 * and the prescribed amount of weighted load.
+	 * We only want to steal up to the prescribed amount of weighted load.
 	 */
 	if (pulled < max_nr_move && rem_load_move > 0) {
 		if (p->prio < *this_best_prio)

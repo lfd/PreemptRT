@@ -521,9 +521,9 @@ event_thread(void *data)
 {
 	int rc;
 
-	lock_kernel();
+//	lock_kernel();
 	daemonize("cpci_hp_eventd");
-	unlock_kernel();
+//	unlock_kernel();
 
 	dbg("%s - event thread started", __FUNCTION__);
 	while (1) {
@@ -562,9 +562,9 @@ poll_thread(void *data)
 {
 	int rc;
 
-	lock_kernel();
+//	lock_kernel();
 	daemonize("cpci_hp_polld");
-	unlock_kernel();
+//	unlock_kernel();
 
 	while (1) {
 		if (thread_finished || signal_pending(current))

@@ -1036,7 +1036,7 @@ static void ide_do_request (ide_hwgroup_t *hwgroup, int masked_irq)
 	ide_get_lock(ide_intr, hwgroup);
 
 	/* caller must own ide_lock */
-	BUG_ON(!irqs_disabled());
+	BUG_ON_NONRT(!irqs_disabled());
 
 	while (!hwgroup->busy) {
 		hwgroup->busy = 1;
@@ -1302,7 +1302,7 @@ void ide_timer_expiry (unsigned long data)
 			disable_irq(hwif->irq);
 			/* local CPU only,
 			 * as if we were handling an interrupt */
-			local_irq_disable();
+			local_irq_disable_nort();
 			if (hwgroup->polling) {
 				startstop = handler(drive);
 			} else if (drive_is_ready(drive)) {

@@ -17,6 +17,7 @@
 #include <linux/fs.h>
 
 #include "trace.h"
+#include "trace_hist.h"
 
 static struct trace_array		*irqsoff_trace __read_mostly;
 static int				tracer_enabled __read_mostly;
@@ -252,11 +253,15 @@ void start_critical_timings(void)
 {
 	if (preempt_trace() || irq_trace())
 		start_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
+
+	tracing_hist_preempt_start();
 }
 EXPORT_SYMBOL_GPL(start_critical_timings);
 
 void stop_critical_timings(void)
 {
+	tracing_hist_preempt_stop(TRACE_STOP);
+
 	if (preempt_trace() || irq_trace())
 		stop_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
 }
@@ -266,6 +271,8 @@ EXPORT_SYMBOL_GPL(stop_critical_timings);
 #ifdef CONFIG_PROVE_LOCKING
 void time_hardirqs_on(unsigned long a0, unsigned long a1)
 {
+	tracing_hist_preempt_stop(1);
+
 	if (!preempt_trace() && irq_trace())
 		stop_critical_timing(a0, a1);
 }
@@ -274,6 +281,8 @@ void time_hardirqs_off(unsigned long a0, unsigned long a1)
 {
 	if (!preempt_trace() && irq_trace())
 		start_critical_timing(a0, a1);
+
+	tracing_hist_preempt_start();
 }
 
 #else /* !CONFIG_PROVE_LOCKING */
@@ -307,6 +316,8 @@ inline void print_irqtrace_events(struct task_struct *curr)
  */
 void trace_hardirqs_on(void)
 {
+	tracing_hist_preempt_stop(1);
+
 	if (!preempt_trace() && irq_trace())
 		stop_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
 }
@@ -316,11 +327,15 @@ void trace_hardirqs_off(void)
 {
 	if (!preempt_trace() && irq_trace())
 		start_critical_timing(CALLER_ADDR0, CALLER_ADDR1);
+
+	tracing_hist_preempt_start();
 }
 EXPORT_SYMBOL(trace_hardirqs_off);
 
 void trace_hardirqs_on_caller(unsigned long caller_addr)
 {
+	tracing_hist_preempt_stop(1);
+
 	if (!preempt_trace() && irq_trace())
 		stop_critical_timing(CALLER_ADDR0, caller_addr);
 }
@@ -330,6 +345,8 @@ void trace_hardirqs_off_caller(unsigned long caller_addr)
 {
 	if (!preempt_trace() && irq_trace())
 		start_critical_timing(CALLER_ADDR0, caller_addr);
+
+	tracing_hist_preempt_start();
 }
 EXPORT_SYMBOL(trace_hardirqs_off_caller);
 
@@ -339,6 +356,7 @@ EXPORT_SYMBOL(trace_hardirqs_off_caller);
 #ifdef CONFIG_PREEMPT_TRACER
 void trace_preempt_on(unsigned long a0, unsigned long a1)
 {
+	tracing_hist_preempt_stop(0);
 	if (preempt_trace())
 		stop_critical_timing(a0, a1);
 }
@@ -347,6 +365,7 @@ void trace_preempt_off(unsigned long a0, unsigned long a1)
 {
 	if (preempt_trace())
 		start_critical_timing(a0, a1);
+	tracing_hist_preempt_start();
 }
 #endif /* CONFIG_PREEMPT_TRACER */
 

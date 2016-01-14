@@ -1036,6 +1036,126 @@ ftrace_special(unsigned long arg1, unsigned long arg2, unsigned long arg3)
 	local_irq_restore(flags);
 }
 
+void tracing_event_irq(struct trace_array *tr,
+		       struct trace_array_cpu *data,
+		       unsigned long flags,
+		       unsigned long ip,
+		       int irq, int usermode,
+		       unsigned long retip)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_IRQ;
+	entry->field.irq.ip		= ip;
+	entry->field.irq.irq		= irq;
+	entry->field.irq.ret_ip		= retip;
+	entry->field.irq.usermode	= usermode;
+}
+
+void tracing_event_fault(struct trace_array *tr,
+			 struct trace_array_cpu *data,
+			 unsigned long flags,
+			 unsigned long ip,
+			 unsigned long retip,
+			 unsigned long error_code,
+			 unsigned long address)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_FAULT;
+	entry->field.fault.ip		= ip;
+	entry->field.fault.ret_ip	= retip;
+	entry->field.fault.errorcode	= error_code;
+	entry->field.fault.address	= address;
+}
+
+void tracing_event_timer_set(struct trace_array *tr,
+			     struct trace_array_cpu *data,
+			     unsigned long flags,
+			     unsigned long ip,
+			     ktime_t *expires, void *timer)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_TIMER_SET;
+	entry->field.timer.ip		= ip;
+	entry->field.timer.expire	= *expires;
+	entry->field.timer.timer	= timer;
+}
+
+void tracing_event_timer_triggered(struct trace_array *tr,
+				   struct trace_array_cpu *data,
+				   unsigned long flags,
+				   unsigned long ip,
+				   ktime_t *expired, void *timer)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_TIMER_TRIG;
+	entry->field.timer.ip		= ip;
+	entry->field.timer.expire	= *expired;
+	entry->field.timer.timer	= timer;
+}
+
+void tracing_event_timestamp(struct trace_array *tr,
+			     struct trace_array_cpu *data,
+			     unsigned long flags,
+			     unsigned long ip,
+			     ktime_t *now)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_TIMESTAMP;
+	entry->field.timestamp.ip		= ip;
+	entry->field.timestamp.now		= *now;
+}
+
+void tracing_event_task_activate(struct trace_array *tr,
+				 struct trace_array_cpu *data,
+				 unsigned long flags,
+				 unsigned long ip,
+				 struct task_struct *p,
+				 int task_cpu)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_TASK_ACT;
+	entry->field.task.ip		= ip;
+	entry->field.task.pid		= p->pid;
+	entry->field.task.prio		= p->prio;
+	entry->field.task.cpu		= task_cpu;
+}
+
+void tracing_event_task_deactivate(struct trace_array *tr,
+				   struct trace_array_cpu *data,
+				   unsigned long flags,
+				   unsigned long ip,
+				   struct task_struct *p,
+				   int task_cpu)
+{
+	struct trace_entry *entry;
+
+	entry = tracing_get_trace_entry(tr, data);
+	tracing_generic_entry_update(entry, flags);
+	entry->type			= TRACE_TASK_DEACT;
+	entry->field.task.ip		= ip;
+	entry->field.task.pid		= p->pid;
+	entry->field.task.prio		= p->prio;
+	entry->field.task.cpu		= task_cpu;
+}
+
 #ifdef CONFIG_FTRACE
 static void
 function_trace_call(unsigned long ip, unsigned long parent_ip)
@@ -1681,6 +1801,55 @@ print_lat_fmt(struct trace_iterator *iter, unsigned int trace_idx, int cpu)
 		if (field->flags & TRACE_FLAG_CONT)
 			trace_seq_print_cont(s, iter);
 		break;
+	case TRACE_IRQ:
+		seq_print_ip_sym(s, entry->field.irq.ip, sym_flags);
+		if (entry->field.irq.irq >= 0)
+			trace_seq_printf(s, " %d ", entry->field.irq.irq);
+		if (entry->field.irq.usermode)
+			trace_seq_puts(s, " (usermode)\n ");
+		else {
+			trace_seq_puts(s, " (");
+			seq_print_ip_sym(s, entry->field.irq.ret_ip, sym_flags);
+			trace_seq_puts(s, ")\n");
+		}
+		break;
+	case TRACE_FAULT:
+		seq_print_ip_sym(s, entry->field.fault.ip, sym_flags);
+		trace_seq_printf(s, " %lx ", entry->field.fault.errorcode);
+		trace_seq_puts(s, " (");
+		seq_print_ip_sym(s, entry->field.fault.ret_ip, sym_flags);
+		trace_seq_puts(s, ")");
+		trace_seq_printf(s, " [%lx]\n", entry->field.fault.address);
+		break;
+	case TRACE_TIMER_SET:
+		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%p)\n",
+			   entry->field.timer.expire, entry->field.timer.timer);
+		break;
+	case TRACE_TIMER_TRIG:
+		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%p)\n",
+			   entry->field.timer.expire, entry->field.timer.timer);
+		break;
+	case TRACE_TIMESTAMP:
+		seq_print_ip_sym(s, entry->field.timestamp.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld)\n",
+			   entry->field.timestamp.now.tv64);
+		break;
+	case TRACE_TASK_ACT:
+		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->field.task.pid);
+		trace_seq_printf(s, " %s %d %d [%d]\n",
+			   comm, entry->field.task.pid,
+			   entry->field.task.prio, entry->field.task.cpu);
+		break;
+	case TRACE_TASK_DEACT:
+		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->field.task.pid);
+		trace_seq_printf(s, " %s %d %d [%d]\n",
+			   comm, entry->field.task.pid,
+			   entry->field.task.prio, entry->field.task.cpu);
+		break;
 	default:
 		trace_seq_printf(s, "Unknown type %d\n", entry->type);
 	}
@@ -1795,6 +1964,57 @@ static int print_trace_fmt(struct trace_iterator *iter)
 		if (field->flags & TRACE_FLAG_CONT)
 			trace_seq_print_cont(s, iter);
 		break;
+	case TRACE_IRQ:
+		seq_print_ip_sym(s, entry->field.irq.ip, sym_flags);
+		if (entry->field.irq.irq >= 0)
+			trace_seq_printf(s, " %d ", entry->field.irq.irq);
+		if (entry->field.irq.usermode)
+			trace_seq_puts(s, " (usermode)\n ");
+		else {
+			trace_seq_puts(s, " (");
+			seq_print_ip_sym(s, entry->field.irq.ret_ip, sym_flags);
+			trace_seq_puts(s, ")\n");
+		}
+		break;
+	case TRACE_FAULT:
+		seq_print_ip_sym(s, entry->field.fault.ip, sym_flags);
+		trace_seq_printf(s, " %lx ", entry->field.fault.errorcode);
+		trace_seq_puts(s, " (");
+		seq_print_ip_sym(s, entry->field.fault.ret_ip, sym_flags);
+		trace_seq_puts(s, ")");
+		trace_seq_printf(s, " [%lx]\n", entry->field.fault.address);
+		break;
+	case TRACE_TIMER_SET:
+		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%p)\n",
+			   entry->field.timer.expire, entry->field.timer.timer);
+		break;
+	case TRACE_TIMER_TRIG:
+		seq_print_ip_sym(s, entry->field.timer.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld) (%p)\n",
+			   entry->field.timer.expire, entry->field.timer.timer);
+		break;
+	case TRACE_TIMESTAMP:
+		seq_print_ip_sym(s, entry->field.timestamp.ip, sym_flags);
+		trace_seq_printf(s, " (%Ld)\n",
+			   entry->field.timestamp.now.tv64);
+		break;
+	case TRACE_TASK_ACT:
+		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->field.task.pid);
+		trace_seq_printf(s, " %s %d %d [%d]\n",
+			   comm, entry->field.task.pid,
+			   entry->field.task.prio, entry->field.task.cpu);
+		break;
+	case TRACE_TASK_DEACT:
+		seq_print_ip_sym(s, entry->field.task.ip, sym_flags);
+		comm = trace_find_cmdline(entry->field.task.pid);
+		trace_seq_printf(s, " %s %d %d [%d]\n",
+			   comm, entry->field.task.pid,
+			   entry->field.task.prio, entry->field.task.cpu);
+		break;
+	default:
+		trace_seq_printf(s, "Unknown type %d\n", entry->type);
 	}
 	return 1;
 }

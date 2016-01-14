@@ -19,6 +19,7 @@ config X86_64
 config X86
 	bool
 	default y
+	select HAVE_MCOUNT
 
 config GENERIC_TIME
 	bool

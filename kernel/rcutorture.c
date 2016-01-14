@@ -328,7 +328,11 @@ static void rcu_bh_torture_read_unlock(int idx) __releases(RCU_BH)
 
 static int rcu_bh_torture_completed(void)
 {
+#ifdef CONFIG_PREEMPT_RCU
+	return rcu_batches_completed();
+#else
 	return rcu_batches_completed_bh();
+#endif
 }
 
 static void rcu_bh_torture_deferred_free(struct rcu_torture *p)

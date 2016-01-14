@@ -366,6 +366,8 @@ static void vmx_load_host_state(struct kvm_vcpu *vcpu)
 
 		reload_tss();
 	}
+	preempt_enable();
+
 	save_msrs(vcpu->guest_msrs, vcpu->save_nmsrs);
 	load_msrs(vcpu->host_msrs, vcpu->save_nmsrs);
 	if (msr_efer_need_save_restore(vcpu))
@@ -379,10 +381,17 @@ static void vmx_load_host_state(struct kvm_vcpu *vcpu)
 static void vmx_vcpu_load(struct kvm_vcpu *vcpu)
 {
 	u64 phys_addr = __pa(vcpu->vmcs);
-	int cpu;
 	u64 tsc_this, delta;
+	int cpu = raw_smp_processor_id();
+	cpumask_t this_mask = cpumask_of_cpu(cpu);
 
-	cpu = get_cpu();
+	/*
+	 * Keep the context preemptible, but do not migrate
+	 * away to another CPU. TODO: make sure this persists.
+	 * Save/restore original mask.
+	 */
+	if (unlikely(!cpus_equal(current->cpus_allowed, this_mask)))
+		set_cpus_allowed(current, cpumask_of_cpu(cpu));
 
 	if (vcpu->cpu != cpu)
 		vcpu_clear(vcpu);
@@ -428,7 +437,6 @@ static void vmx_vcpu_put(struct kvm_vcpu *vcpu)
 {
 	vmx_load_host_state(vcpu);
 	kvm_put_guest_fpu(vcpu);
-	put_cpu();
 }
 
 static void vmx_fpu_activate(struct kvm_vcpu *vcpu)
@@ -2022,6 +2030,7 @@ again:
 		if (test_and_clear_bit(KVM_TLB_FLUSH, &vcpu->requests))
 		    vmx_flush_tlb(vcpu);
 
+	preempt_disable();
 	asm (
 		/* Store host registers */
 #ifdef CONFIG_X86_64

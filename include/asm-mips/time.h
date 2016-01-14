@@ -23,7 +23,7 @@
 #include <linux/spinlock.h>
 #include <linux/clocksource.h>
 
-extern spinlock_t rtc_lock;
+extern raw_spinlock_t rtc_lock;
 
 /*
  * RTC ops.  By default, they point to no-RTC functions.

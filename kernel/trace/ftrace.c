@@ -146,6 +146,10 @@ static int notrace __unregister_ftrace_function(struct ftrace_ops *ops)
 
 #ifdef CONFIG_DYNAMIC_FTRACE
 
+static struct task_struct *ftraced_task;
+static DECLARE_WAIT_QUEUE_HEAD(ftraced_waiters);
+static unsigned long ftraced_iteration_counter;
+
 enum {
 	FTRACE_ENABLE_CALLS		= (1 << 0),
 	FTRACE_DISABLE_CALLS		= (1 << 1),
@@ -590,8 +594,11 @@ static int notrace ftraced(void *ignore)
 			ftraced_trigger = 0;
 			ftrace_record_suspend--;
 		}
+		ftraced_iteration_counter++;
 		mutex_unlock(&ftraced_lock);
 		mutex_unlock(&ftrace_sysctl_lock);
+
+		wake_up_interruptible(&ftraced_waiters);
 
 		ftrace_shutdown_replenish();
 
@@ -1003,6 +1010,25 @@ ftrace_filter_write(struct file *file, const char __user *ubuf,
 	return ret;
 }
 
+/**
+ * ftrace_set_filter - set a function to filter on in ftrace
+ * @buf - the string that holds the function filter text.
+ * @len - the length of the string.
+ * @reset - non zero to reset all filters before applying this filter.
+ *
+ * Filters denote which functions should be enabled when tracing is enabled.
+ * If @buf is NULL and reset is set, all functions will be enabled for tracing.
+ */
+notrace void ftrace_set_filter(unsigned char *buf, int len, int reset)
+{
+	mutex_lock(&ftrace_filter_lock);
+	if (reset)
+		ftrace_filter_reset();
+	if (buf)
+		ftrace_match(buf, len);
+	mutex_unlock(&ftrace_filter_lock);
+}
+
 static int notrace
 ftrace_filter_release(struct inode *inode, struct file *file)
 {
@@ -1050,6 +1076,49 @@ static struct file_operations ftrace_filter_fops = {
 	.release = ftrace_filter_release,
 };
 
+/**
+ * ftrace_force_update - force an update to all recording ftrace functions
+ *
+ * The ftrace dynamic update daemon only wakes up once a second.
+ * There may be cases where an update needs to be done immediately
+ * for tests or internal kernel tracing to begin. This function
+ * wakes the daemon to do an update and will not return until the
+ * update is complete.
+ */
+int ftrace_force_update(void)
+{
+	unsigned long last_counter;
+	DECLARE_WAITQUEUE(wait, current);
+	int ret = 0;
+
+	if (!ftraced_task)
+		return -ENODEV;
+
+	mutex_lock(&ftraced_lock);
+	last_counter = ftraced_iteration_counter;
+
+	set_current_state(TASK_INTERRUPTIBLE);
+	add_wait_queue(&ftraced_waiters, &wait);
+
+	do {
+		mutex_unlock(&ftraced_lock);
+		wake_up_process(ftraced_task);
+		schedule();
+		mutex_lock(&ftraced_lock);
+		if (signal_pending(current)) {
+			ret = -EINTR;
+			break;
+		}
+		set_current_state(TASK_INTERRUPTIBLE);
+	} while (last_counter == ftraced_iteration_counter);
+
+	mutex_unlock(&ftraced_lock);
+	remove_wait_queue(&ftraced_waiters, &wait);
+	set_current_state(TASK_RUNNING);
+
+	return ret;
+}
+
 static __init int ftrace_init_debugfs(void)
 {
 	struct dentry *d_tracer;
@@ -1095,16 +1164,17 @@ static int __init notrace ftrace_dynamic_init(void)
 		return -1;
 
 	last_ftrace_enabled = ftrace_enabled = 1;
+	ftraced_task = p;
 
 	return 0;
 }
 
 core_initcall(ftrace_dynamic_init);
 #else
-# define ftrace_startup()	  do { } while (0)
-# define ftrace_shutdown()	  do { } while (0)
-# define ftrace_startup_sysctl()  do { } while (0)
-# define ftrace_shutdown_sysctl() do { } while (0)
+# define ftrace_startup()		do { } while (0)
+# define ftrace_shutdown()		do { } while (0)
+# define ftrace_startup_sysctl()	do { } while (0)
+# define ftrace_shutdown_sysctl()	do { } while (0)
 #endif /* CONFIG_DYNAMIC_FTRACE */
 
 /**

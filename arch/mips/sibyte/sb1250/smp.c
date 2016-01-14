@@ -59,7 +59,7 @@ void sb1250_smp_finish(void)
 {
 	extern void sb1250_time_init(void);
 	sb1250_time_init();
-	local_irq_enable();
+	raw_local_irq_enable();
 }
 
 /*

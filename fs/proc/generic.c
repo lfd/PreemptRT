@@ -19,6 +19,7 @@
 #include <linux/idr.h>
 #include <linux/namei.h>
 #include <linux/bitops.h>
+#include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
 
@@ -75,6 +76,12 @@ proc_file_read(struct file *file, char __user *buf, size_t nbytes,
 	dp = PDE(inode);
 	if (!(page = (char*) __get_free_page(GFP_KERNEL)))
 		return -ENOMEM;
+
+	if (!dp->proc_fops)
+		goto out_free;
+	atomic_inc(&dp->pde_users);
+	if (!dp->proc_fops)
+		goto out_dec;
 
 	while ((nbytes > 0) && !eof) {
 		count = min_t(size_t, PROC_BLOCK_SIZE, nbytes);
@@ -195,6 +202,9 @@ proc_file_read(struct file *file, char __user *buf, size_t nbytes,
 		buf += n;
 		retval += n;
 	}
+out_dec:
+	atomic_dec(&dp->pde_users);
+out_free:
 	free_page((unsigned long) page);
 	return retval;
 }
@@ -205,14 +215,20 @@ proc_file_write(struct file *file, const char __user *buffer,
 {
 	struct inode *inode = file->f_path.dentry->d_inode;
 	struct proc_dir_entry * dp;
+	ssize_t rv;
 	
 	dp = PDE(inode);
 
-	if (!dp->write_proc)
+	if (!dp->write_proc || !dp->proc_fops)
 		return -EIO;
 
-	/* FIXME: does this routine need ppos?  probably... */
-	return dp->write_proc(file, buffer, count, dp->data);
+	rv = -EIO;
+	atomic_inc(&dp->pde_users);
+	if (dp->proc_fops)
+		/* FIXME: does this routine need ppos?  probably... */
+		rv = dp->write_proc(file, buffer, count, dp->data);
+	atomic_dec(&dp->pde_users);
+	return rv;
 }
 
 
@@ -723,14 +739,22 @@ void remove_proc_entry(const char *name, struct proc_dir_entry *parent)
 	if (!parent && xlate_proc_name(name, &parent, &fn) != 0)
 		goto out;
 	len = strlen(fn);
-
 	filevec_add_drain_all();
 
+again:
 	spin_lock(&proc_subdir_lock);
 	for (p = &parent->subdir; *p; p=&(*p)->next ) {
 		if (!proc_match(len, fn, *p))
 			continue;
 		de = *p;
+
+		de->proc_fops = NULL;
+		if (atomic_read(&de->pde_users) > 0) {
+			spin_unlock(&proc_subdir_lock);
+			msleep(1);
+			goto again;
+		}
+
 		*p = de->next;
 		de->next = NULL;
 		if (S_ISDIR(de->mode))

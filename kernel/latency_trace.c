@@ -1984,6 +1984,28 @@ void notrace trace_hardirqs_off(void)
 
 EXPORT_SYMBOL(trace_hardirqs_off);
 
+/* used by x86_64 thunk.S */
+void notrace trace_hardirqs_on_caller(unsigned long caller_addr)
+{
+	unsigned long flags;
+
+	local_save_flags(flags);
+
+	if (!irqs_off_preempt_count() && irqs_disabled_flags(flags))
+		__stop_critical_timing(caller_addr, 0 /* CALLER_ADDR1 */);
+}
+
+void notrace trace_hardirqs_off_caller(unsigned long caller_addr)
+{
+	unsigned long flags;
+
+	local_save_flags(flags);
+
+	if (!irqs_off_preempt_count() && irqs_disabled_flags(flags))
+		__start_critical_timing(caller_addr, 0 /* CALLER_ADDR1 */,
+					INTERRUPT_LATENCY);
+}
+
 #endif /* !CONFIG_LOCKDEP */
 
 #endif /* CONFIG_CRITICAL_IRQSOFF_TIMING */

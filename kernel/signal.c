@@ -765,8 +765,10 @@ specific_send_sig_info(int sig, struct siginfo *info, struct task_struct *t)
 {
 	int ret = 0;
 
-	BUG_ON(!irqs_disabled());
+	BUG_ON_NONRT(!irqs_disabled());
+#ifdef CONFIG_SMP
 	assert_spin_locked(&t->sighand->siglock);
+#endif
 
 	/* Short-circuit ignored signals.  */
 	if (sig_ignored(t, sig))
@@ -1608,6 +1610,7 @@ static void ptrace_stop(int exit_code, int nostop_code, siginfo_t *info)
 	if (may_ptrace_stop()) {
 		do_notify_parent_cldstop(current, CLD_TRAPPED);
 		read_unlock(&tasklist_lock);
+		current->flags &= ~PF_NOSCHED;
 		schedule();
 	} else {
 		/*
@@ -1668,6 +1671,7 @@ finish_stop(int stop_count)
 	}
 
 	do {
+		current->flags &= ~PF_NOSCHED;
 		schedule();
 	} while (try_to_freeze());
 	/*
@@ -1779,6 +1783,9 @@ int get_signal_to_deliver(siginfo_t *info, struct k_sigaction *return_ka,
 
 	try_to_freeze();
 
+#ifdef CONFIG_PREEMPT_RT
+	might_sleep();
+#endif
 relock:
 	spin_lock_irq(&current->sighand->siglock);
 	for (;;) {

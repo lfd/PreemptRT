@@ -166,3 +166,53 @@
 	.byte 0xf1
 	.endm
 
+
+/*
+ * latency-tracing helpers:
+ */
+
+	.macro TRACE_SYS_CALL
+
+#ifdef CONFIG_EVENT_TRACER
+	SAVE_ARGS
+
+	mov     %rdx, %rcx
+	mov     %rsi, %rdx
+	mov     %rdi, %rsi
+	mov     %rax, %rdi
+
+	call sys_call
+
+	RESTORE_ARGS
+#endif
+	.endm
+
+
+	.macro TRACE_SYS_IA32_CALL
+
+#ifdef CONFIG_EVENT_TRACER
+	SAVE_ARGS
+
+	mov     %rdx, %rcx
+	mov     %rsi, %rdx
+	mov     %rdi, %rsi
+	mov     %rax, %rdi
+
+	call sys_ia32_call
+
+	RESTORE_ARGS
+#endif
+	.endm
+
+	.macro TRACE_SYS_RET
+
+#ifdef CONFIG_EVENT_TRACER
+	SAVE_ARGS
+
+	mov     %rax, %rdi
+
+	call sys_ret
+
+	RESTORE_ARGS
+#endif
+	.endm

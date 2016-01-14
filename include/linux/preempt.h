@@ -9,12 +9,26 @@
 #include <linux/thread_info.h>
 #include <linux/linkage.h>
 
-#ifdef CONFIG_DEBUG_PREEMPT
-  extern void fastcall add_preempt_count(int val);
-  extern void fastcall sub_preempt_count(int val);
+#if defined(CONFIG_DEBUG_PREEMPT) || defined(CONFIG_CRITICAL_TIMING)
+  extern void notrace add_preempt_count(unsigned int val);
+  extern void notrace sub_preempt_count(unsigned int val);
+  extern void notrace mask_preempt_count(unsigned int mask);
+  extern void notrace unmask_preempt_count(unsigned int mask);
 #else
 # define add_preempt_count(val)	do { preempt_count() += (val); } while (0)
 # define sub_preempt_count(val)	do { preempt_count() -= (val); } while (0)
+# define mask_preempt_count(mask) \
+		do { preempt_count() |= (mask); } while (0)
+# define unmask_preempt_count(mask) \
+		do { preempt_count() &= ~(mask); } while (0)
+#endif
+
+#ifdef CONFIG_CRITICAL_TIMING
+  extern void touch_critical_timing(void);
+  extern void stop_critical_timing(void);
+#else
+# define touch_critical_timing()	do { } while (0)
+# define stop_critical_timing()	do { } while (0)
 #endif
 
 #define inc_preempt_count() add_preempt_count(1)

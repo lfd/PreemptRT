@@ -83,6 +83,8 @@ enum pageflags {
 	PG_reserved,
 	PG_private,		/* If pagecache, has fs-private data */
 	PG_writeback,		/* Page is under writeback */
+	PG_nonewrefs,		/* Block concurrent pagecache lookups
+				 * while testing refcount */
 #ifdef CONFIG_PAGEFLAGS_EXTENDED
 	PG_head,		/* A head page */
 	PG_tail,		/* A tail page */
@@ -172,6 +174,9 @@ PAGEFLAG(MappedToDisk, mappedtodisk)
 /* PG_readahead is only used for file reads; PG_reclaim is only for writes */
 PAGEFLAG(Reclaim, reclaim) TESTCLEARFLAG(Reclaim, reclaim)
 PAGEFLAG(Readahead, reclaim)		/* Reminder to do async read-ahead */
+
+PAGEFLAG(NoNewRefs, nonewrefs)
+__CLEARPAGEFLAG(NoNewRefs, nonewrefs)
 
 #ifdef CONFIG_HIGHMEM
 /*

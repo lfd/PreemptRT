@@ -15,3 +15,6 @@ config OPROFILE
 
 	  If unsure, say N.
 
+config PROFILE_NMI
+	bool
+	default y

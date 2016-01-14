@@ -588,6 +588,12 @@ struct rq {
 
 	struct task_struct *migration_thread;
 	struct list_head migration_queue;
+
+	u64 irq_stamp;
+	unsigned long irq_time;
+	unsigned long rt_time;
+	u64 age_stamp;
+
 #endif
 
 #ifdef CONFIG_SCHED_HRTICK
@@ -848,6 +854,11 @@ const_debug unsigned int sysctl_sched_nr_migrate = 32;
  * default: 1s
  */
 unsigned int sysctl_sched_rt_period = 1000000;
+
+/*
+ * period/2 over which we average the the IRQ and RT cpu consumption
+ */
+const_debug unsigned int sysctl_sched_time_avg = NSEC_PER_SEC / 2;
 
 static __read_mostly int scheduler_running;
 
@@ -1348,6 +1359,76 @@ static inline void init_hrtick(void)
 }
 #endif
 
+#ifdef CONFIG_SMP
+/*
+ * Measure IRQ time, we start when we first enter IRQ state
+ * end stop when we last leave IRQ state (nested IRQs).
+ */
+void sched_irq_enter(void)
+{
+	if (!in_irq()) {
+		struct rq *rq = this_rq();
+
+		update_rq_clock(rq);
+		rq->irq_stamp = rq->clock;
+	}
+}
+
+void sched_irq_exit(void)
+{
+	if (!in_irq()) {
+		struct rq *rq = this_rq();
+
+		update_rq_clock(rq);
+		rq->irq_time += rq->clock - rq->irq_stamp;
+	}
+}
+
+/*
+ * Every period/2 we half the accumulated time. See lib/proportions.c
+ */
+static void sched_age_time(struct rq *rq)
+{
+	if (rq->clock - rq->age_stamp >= sysctl_sched_time_avg) {
+		rq->irq_time /= 2;
+		rq->rt_time /= 2;
+		rq->age_stamp = rq->clock;
+	}
+}
+
+/*
+ * Scale the SCHED_OTHER load on this rq up to compensate for the pressure
+ * of IRQ and RT usage of this CPU.
+ *
+ * See lib/proportions.c
+ */
+static unsigned long sched_scale_load(struct rq *rq, u64 load)
+{
+	u32 period = sysctl_sched_time_avg + (rq->clock - rq->age_stamp);
+
+	load *= period;
+	period -= rq->irq_time + rq->rt_time;
+	if ((s64)period <= 0)
+		period = 1;
+	load = div_u64(load, period);
+
+	/*
+	 * Clip the maximal load value to something plenty high - at these
+	 * load values we're lost anyway.
+	 */
+	return min_t(unsigned long, load, 1UL << 22);
+}
+#else
+static inline void sched_age_time(struct rq *rq)
+{
+}
+
+static inline unsigned long sched_scale_load(struct rq *rq, unsigned long load)
+{
+	return load;
+}
+#endif
+
 /*
  * resched_task - mark a task 'to be rescheduled now'.
  *
@@ -1648,8 +1729,12 @@ static void dec_nr_running(struct task_struct *p, struct rq *rq)
 static void set_load_weight(struct task_struct *p)
 {
 	if (task_has_rt_policy(p)) {
-		p->se.load.weight = prio_to_weight[0] * 2;
-		p->se.load.inv_weight = prio_to_wmult[0] >> 1;
+		/*
+		 * Real-time tasks do not contribute to SCHED_OTHER load
+		 * this is compensated by sched_scale_load() usage.
+		 */
+		p->se.load.weight = 0;
+		p->se.load.inv_weight = 0;
 		return;
 	}
 
@@ -2007,10 +2092,10 @@ static unsigned long source_load(int cpu, int type)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long total = weighted_cpuload(cpu);
 
-	if (type == 0)
-		return total;
+	if (type)
+		total = min(rq->cpu_load[type-1], total);
 
-	return min(rq->cpu_load[type-1], total);
+	return sched_scale_load(rq, total);
 }
 
 /*
@@ -2022,10 +2107,10 @@ static unsigned long target_load(int cpu, int type)
 	struct rq *rq = cpu_rq(cpu);
 	unsigned long total = weighted_cpuload(cpu);
 
-	if (type == 0)
-		return total;
+	if (type)
+		total = max(rq->cpu_load[type-1], total);
 
-	return max(rq->cpu_load[type-1], total);
+	return sched_scale_load(rq, total);
 }
 
 /*
@@ -3001,9 +3086,19 @@ balance_tasks(struct rq *this_rq, int this_cpu, struct rq *busiest,
 	int loops = 0, pulled = 0, pinned = 0, skip_for_load;
 	struct task_struct *p;
 	long rem_load_move = max_load_move;
+	unsigned long busy_weight, this_weight, weight_scale;
 
 	if (max_load_move == 0)
 		goto out;
+
+	/*
+	 * Compute a weight scale to properly account for the varying
+	 * load inflation between these CPUs.
+	 */
+	busy_weight = sched_scale_load(busiest, NICE_0_LOAD);
+	this_weight = sched_scale_load(busiest, NICE_0_LOAD);
+
+	weight_scale = div_u64((u64)this_weight * NICE_0_LOAD, busy_weight);
 
 	pinned = 1;
 
@@ -3029,7 +3124,7 @@ next:
 
 	pull_task(busiest, p, this_rq, this_cpu);
 	pulled++;
-	rem_load_move -= p->se.load.weight;
+	rem_load_move -= (weight_scale * p->se.load.weight) >> NICE_0_SHIFT;
 
 	/*
 	 * We only want to steal up to the prescribed amount of weighted load.
@@ -4290,6 +4385,7 @@ void scheduler_tick(void)
 	spin_lock(&rq->lock);
 	update_rq_clock(rq);
 	update_cpu_load(rq);
+	sched_age_time(rq);
 	if (curr != rq->idle && curr->se.on_rq)
 		curr->sched_class->task_tick(rq, curr, 0);
 	spin_unlock(&rq->lock);

@@ -1641,6 +1641,7 @@ extern unsigned int sysctl_sched_runtime_limit;
 extern unsigned int sysctl_sched_compat_yield;
 extern unsigned int sysctl_sched_child_runs_first;
 extern unsigned int sysctl_sched_features;
+extern unsigned int sysctl_sched_nr_migrate;
 
 extern void task_setprio(struct task_struct *p, int prio);
 

@@ -234,6 +234,7 @@ static inline ktime_t hrtimer_cb_get_time(struct hrtimer *timer)
  * clock_was_set() is a NOP for non- high-resolution systems. The
  * time-sorted order guarantees that a timer does not expire early and
  * is expired in the next softirq when the clock was advanced.
+ * (we still call the warp-check debugging code)
  */
 static inline void clock_was_set(void) { }
 

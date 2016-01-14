@@ -807,6 +807,7 @@ retry:
 
 	unlock_timer(timr, flag);
 	if (error == TIMER_RETRY) {
+		hrtimer_wait_for_timer(&timr->it.real.timer);
 		rtn = NULL;	// We already got the old time...
 		goto retry;
 	}
@@ -846,6 +847,7 @@ retry_delete:
 
 	if (timer_delete_hook(timer) == TIMER_RETRY) {
 		unlock_timer(timer, flags);
+		hrtimer_wait_for_timer(&timer->it.real.timer);
 		goto retry_delete;
 	}
 
@@ -878,6 +880,7 @@ retry_delete:
 
 	if (timer_delete_hook(timer) == TIMER_RETRY) {
 		unlock_timer(timer, flags);
+		hrtimer_wait_for_timer(&timer->it.real.timer);
 		goto retry_delete;
 	}
 	list_del(&timer->list);

@@ -377,6 +377,8 @@ static inline int acpi_pm_device_sleep_state(struct device *d, int w, int *p)
 }
 #endif /* !CONFIG_PM_SLEEP */
 
+int acpi_pm_device_sleep_state(struct device *, int, int *);
+
 #endif				/* CONFIG_ACPI */
 
 #endif /*__ACPI_BUS_H__*/

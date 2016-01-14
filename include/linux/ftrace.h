@@ -79,13 +79,16 @@ extern int skip_trace(unsigned long ip);
 
 void ftrace_disable_daemon(void);
 void ftrace_enable_daemon(void);
+extern void ftrace_release(void *start, unsigned long size);
 
 #else
-# define skip_trace(ip)				({ 0; })
-# define ftrace_force_update()			({ 0; })
-# define ftrace_set_filter(buf, len, reset)	do { } while (0)
-# define ftrace_disable_daemon()		do { } while (0)
-# define ftrace_enable_daemon()			do { } while (0)
+static inline int skip_trace(unsigned long ip)	{ return ip; }
+static inline int ftrace_force_update(void)	{ }
+static inline void
+ftrace_set_filter(unsigned char *buf, int len, int reset) { }
+static inline void ftrace_disable_daemon(void)	{ }
+static inline void ftrace_enable_daemon(void)	{ }
+static inline void ftrace_release(void *start, unsigned long size) { }
 #endif /* CONFIG_DYNAMIC_FTRACE */
 
 /* totally disable ftrace - can not re-enable after this */
@@ -199,12 +202,10 @@ static inline void ftrace_dump(void) { }
 #ifdef CONFIG_FTRACE_MCOUNT_RECORD
 extern void ftrace_init(void);
 extern void ftrace_init_module(unsigned long *start, unsigned long *end);
-extern void ftrace_release(void *start, unsigned long size);
 #else
 static inline void ftrace_init(void) { }
 static inline void
 ftrace_init_module(unsigned long *start, unsigned long *end) { }
-static inline void ftrace_release(void *start, unsigned long size) { }
 #endif
 
 

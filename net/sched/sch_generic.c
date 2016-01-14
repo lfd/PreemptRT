@@ -12,6 +12,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/kallsyms.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -150,16 +151,28 @@ static inline int qdisc_restart(struct net_device *dev)
 	 */
 	lockless = (dev->features & NETIF_F_LLTX);
 
-	if (!lockless && !netif_tx_trylock(dev)) {
-		/* Another CPU grabbed the driver tx lock */
-		return handle_dev_cpu_collision(skb, dev, q);
+	if (!lockless) {
+#ifdef CONFIG_PREEMPT_RT
+		netif_tx_lock(dev);
+#else
+		if (netif_tx_trylock(dev))
+			/* Another CPU grabbed the driver tx lock */
+			return handle_dev_cpu_collision(skb, dev, q);
+#endif
 	}
 
 	/* And release queue */
 	spin_unlock(&dev->queue_lock);
 
+	WARN_ON_RT(irqs_disabled());
 	ret = dev_hard_start_xmit(skb, dev);
-
+#ifdef CONFIG_PREEMPT_RT
+	if (irqs_disabled()) {
+		if (printk_ratelimit())
+			print_symbol("network driver disabled raw interrupts: %s\n", (unsigned long)dev->hard_start_xmit);
+		local_irq_enable();
+	}
+#endif
 	if (!lockless)
 		netif_tx_unlock(dev);
 
@@ -576,9 +589,12 @@ void dev_deactivate(struct net_device *dev)
 	/* Wait for outstanding dev_queue_xmit calls. */
 	synchronize_rcu();
 
-	/* Wait for outstanding qdisc_run calls. */
+	/*
+	 * Wait for outstanding qdisc_run calls.
+	 * TODO: shouldnt this be wakeup-based, instead of polling it?
+	 */
 	while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
-		yield();
+		msleep(1);
 }
 
 void dev_init_scheduler(struct net_device *dev)

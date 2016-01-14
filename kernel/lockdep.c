@@ -2009,7 +2009,7 @@ void early_boot_irqs_on(void)
 /*
  * Hardirqs will be enabled:
  */
-void notrace trace_hardirqs_on(void)
+void notrace trace_hardirqs_on_caller(unsigned long a0)
 {
 	struct task_struct *curr = current;
 	unsigned long ip;
@@ -2051,8 +2051,12 @@ void notrace trace_hardirqs_on(void)
 	curr->hardirq_enable_event = ++curr->irq_events;
 	debug_atomic_inc(&hardirqs_on_events);
 #ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
-	time_hardirqs_on(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+	time_hardirqs_on(a0, 0 /* CALLER_ADDR1 */);
 #endif
+}
+
+void notrace trace_hardirqs_on(void) {
+	trace_hardirqs_on_caller(CALLER_ADDR0);
 }
 
 EXPORT_SYMBOL(trace_hardirqs_on);
@@ -2060,7 +2064,7 @@ EXPORT_SYMBOL(trace_hardirqs_on);
 /*
  * Hardirqs were disabled:
  */
-void notrace trace_hardirqs_off(void)
+void notrace trace_hardirqs_off_caller(unsigned long a0)
 {
 	struct task_struct *curr = current;
 
@@ -2079,10 +2083,14 @@ void notrace trace_hardirqs_off(void)
 		curr->hardirq_disable_event = ++curr->irq_events;
 		debug_atomic_inc(&hardirqs_off_events);
 #ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
-		time_hardirqs_off(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+		time_hardirqs_off(a0, 0 /* CALLER_ADDR1 */);
 #endif
 	} else
 		debug_atomic_inc(&redundant_hardirqs_off);
+}
+
+void notrace trace_hardirqs_off(void) {
+	trace_hardirqs_off_caller(CALLER_ADDR0);
 }
 
 EXPORT_SYMBOL(trace_hardirqs_off);

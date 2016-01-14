@@ -91,7 +91,7 @@ static inline int DEBUG_WARN_ON(int cond)
 #ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
 # ifdef CONFIG_CRITICAL_PREEMPT_TIMING
    static DEFINE_PER_CPU(int, trace_cpu_idle);
-#  define irqs_off_preempt_count() (!__get_cpu_var(trace_cpu_idle) && preempt_count())
+#  define irqs_off_preempt_count() (preempt_count() && !__get_cpu_var(trace_cpu_idle))
 # else
 #  define irqs_off_preempt_count() 0
 # endif

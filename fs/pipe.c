@@ -1014,9 +1014,17 @@ struct file *create_write_pipe(void)
 
 void free_write_pipe(struct file *f)
 {
+	struct path path;
+
 	free_pipe_info(f->f_dentry->d_inode);
-	path_put(&f->f_path);
+	/*
+	 * file_kill() looks at the file's inode (for barrier logic)
+	 * hence make sure we free the inode before the file.
+	 */
+	path = f->f_path;
+	memset(&f->f_path, 0, sizeof(f->f_path));
 	put_filp(f);
+	path_put(&path);
 }
 
 struct file *create_read_pipe(struct file *wrf)

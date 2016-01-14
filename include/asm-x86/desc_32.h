@@ -78,14 +78,14 @@ static inline void pack_gate(__u32 *a, __u32 *b,
 #define write_idt_entry(dt, entry, a, b) write_dt_entry(dt, entry, a, b)
 #endif
 
-static inline void write_dt_entry(struct desc_struct *dt,
+static inline fastcall void write_dt_entry(struct desc_struct *dt,
 				  int entry, u32 entry_low, u32 entry_high)
 {
 	dt[entry].a = entry_low;
 	dt[entry].b = entry_high;
 }
 
-static inline void native_set_ldt(const void *addr, unsigned int entries)
+static fastcall inline void native_set_ldt(const void *addr, unsigned int entries)
 {
 	if (likely(entries == 0))
 		__asm__ __volatile__("lldt %w0"::"q" (0));
@@ -102,39 +102,39 @@ static inline void native_set_ldt(const void *addr, unsigned int entries)
 }
 
 
-static inline void native_load_tr_desc(void)
+static fastcall inline void native_load_tr_desc(void)
 {
 	asm volatile("ltr %w0"::"q" (GDT_ENTRY_TSS*8));
 }
 
-static inline void native_load_gdt(const struct Xgt_desc_struct *dtr)
+static fastcall inline void native_load_gdt(const struct Xgt_desc_struct *dtr)
 {
 	asm volatile("lgdt %0"::"m" (*dtr));
 }
 
-static inline void native_load_idt(const struct Xgt_desc_struct *dtr)
+static fastcall inline void native_load_idt(const struct Xgt_desc_struct *dtr)
 {
 	asm volatile("lidt %0"::"m" (*dtr));
 }
 
-static inline void native_store_gdt(struct Xgt_desc_struct *dtr)
+static fastcall inline void native_store_gdt(struct Xgt_desc_struct *dtr)
 {
 	asm ("sgdt %0":"=m" (*dtr));
 }
 
-static inline void native_store_idt(struct Xgt_desc_struct *dtr)
+static fastcall inline void native_store_idt(struct Xgt_desc_struct *dtr)
 {
 	asm ("sidt %0":"=m" (*dtr));
 }
 
-static inline unsigned long native_store_tr(void)
+static fastcall inline unsigned long native_store_tr(void)
 {
 	unsigned long tr;
 	asm ("str %0":"=r" (tr));
 	return tr;
 }
 
-static inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
+static fastcall inline void native_load_tls(struct thread_struct *t, unsigned int cpu)
 {
 	unsigned int i;
 	struct desc_struct *gdt = get_cpu_gdt_table(cpu);

@@ -75,6 +75,28 @@ DF_MASK		= 0x00000400
 NT_MASK		= 0x00004000
 VM_MASK		= 0x00020000
 
+#ifdef CONFIG_MCOUNT
+.globl mcount
+mcount:
+	cmpl $0, mcount_enabled
+	jz out
+
+	/* taken from glibc */
+	pushl %eax
+	pushl %ecx
+	pushl %edx
+	movl 0xc(%esp), %edx
+	movl 0x4(%ebp), %eax
+
+	call   *mcount_trace_function
+
+	popl %edx
+	popl %ecx
+	popl %eax
+out:
+	ret
+#endif
+
 #ifdef CONFIG_PREEMPT
 #define preempt_stop(clobbers)	DISABLE_INTERRUPTS(clobbers); TRACE_IRQS_OFF
 #else

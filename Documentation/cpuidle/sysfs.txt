@@ -1,0 +1,27 @@
+
+
+		Supporting multiple CPU idle levels in kernel
+
+				cpuidle sysfs
+
+System global cpuidle information are under
+/sys/devices/system/cpu/cpuidle
+
+The current interfaces in this directory has self-explanatory names:
+* available_drivers
+* available_governors
+* current_driver
+* current_governor
+
+Per logical CPU specific cpuidle information are under
+/sys/devices/system/cpu/cpuX/cpuidle
+for each online cpu X
+
+Under this percpu directory, there is a directory for each idle state supported
+by the driver, which in turn has
+* latency
+* power
+* time
+* usage
+
+

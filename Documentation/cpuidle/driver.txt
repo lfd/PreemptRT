@@ -1,0 +1,24 @@
+
+
+		Supporting multiple CPU idle levels in kernel
+
+				cpuidle drivers
+
+
+
+
+cpuidle driver supports capability detection for a particular system. The
+init and exit routines will be called for each online CPU, with a percpu
+cpuidle_driver object and driver should fill in cpuidle_states inside
+cpuidle_driver depending on the CPU capability.
+
+Driver can handle dynamic state changes (like battery<->AC), by calling
+force_redetect interface.
+
+It is possible to have more than one driver registered at the same time and
+user can switch between drivers using /sysfs interface.
+
+Interfaces:
+int cpuidle_register_driver(struct cpuidle_driver *drv);
+void cpuidle_unregister_driver(struct cpuidle_driver *drv);
+int cpuidle_force_redetect(struct cpuidle_device *dev);

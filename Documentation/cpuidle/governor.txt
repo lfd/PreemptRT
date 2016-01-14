@@ -1,0 +1,24 @@
+
+
+
+		Supporting multiple CPU idle levels in kernel
+
+				cpuidle governors
+
+
+
+
+cpuidle governor is policy routine that decides what idle state to enter at
+any given time. cpuidle core uses different callbacks to governor while
+handling idle entry.
+* select_state callback where governor can determine next idle state to enter
+* prepare_idle callback is called before entering an idle state
+* scan callback is called after a driver forces redetection of the states
+
+More than one governor can be registered at the same time and
+user can switch between drivers using /sysfs interface.
+
+Interfaces:
+int cpuidle_register_governor(struct cpuidle_governor *gov);
+void cpuidle_unregister_governor(struct cpuidle_governor *gov);
+

@@ -42,7 +42,7 @@ static int last_ftrace_enabled;
  */
 static int ftrace_disabled __read_mostly;
 
-static DEFINE_SPINLOCK(ftrace_lock);
+static DEFINE_RAW_SPINLOCK(ftrace_lock);
 static DEFINE_MUTEX(ftrace_sysctl_lock);
 
 static struct ftrace_ops ftrace_list_end __read_mostly =
@@ -194,7 +194,7 @@ static struct hlist_head ftrace_hash[FTRACE_HASHSIZE];
 
 static DEFINE_PER_CPU(int, ftrace_shutdown_disable_cpu);
 
-static DEFINE_SPINLOCK(ftrace_shutdown_lock);
+static DEFINE_RAW_SPINLOCK(ftrace_shutdown_lock);
 static DEFINE_MUTEX(ftraced_lock);
 static DEFINE_MUTEX(ftrace_regex_lock);
 

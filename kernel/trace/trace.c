@@ -669,7 +669,7 @@ static unsigned map_pid_to_cmdline[PID_MAX_DEFAULT+1];
 static unsigned map_cmdline_to_pid[SAVED_CMDLINES];
 static char saved_cmdlines[SAVED_CMDLINES][TASK_COMM_LEN];
 static int cmdline_idx;
-static DEFINE_SPINLOCK(trace_cmdline_lock);
+static DEFINE_RAW_SPINLOCK(trace_cmdline_lock);
 
 /* temporary disable recording */
 atomic_t trace_record_cmdline_disabled __read_mostly;

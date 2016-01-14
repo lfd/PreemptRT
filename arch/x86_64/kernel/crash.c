@@ -62,11 +62,6 @@ static int crash_nmi_callback(struct notifier_block *self,
 	return 1;
 }
 
-static void smp_send_nmi_allbutself(void)
-{
-	send_IPI_allbutself(NMI_VECTOR);
-}
-
 /*
  * This code is a best effort heuristic to get the
  * other cpus to stop executing. So races with

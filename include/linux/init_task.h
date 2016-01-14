@@ -67,6 +67,17 @@ extern struct nsproxy init_nsproxy;
 	.signalfd_wqh	= __WAIT_QUEUE_HEAD_INITIALIZER(sighand.signalfd_wqh),	\
 }
 
+#ifdef CONFIG_PREEMPT_RCU_BOOST
+#define INIT_RCU_BOOST_PRIO .rcu_prio	= MAX_PRIO,
+#define INIT_PREEMPT_RCU_BOOST(tsk)					\
+	.rcub_rbdp	= NULL,						\
+	.rcub_state	= RCU_BOOST_IDLE,				\
+	.rcub_entry	= LIST_HEAD_INIT(tsk.rcub_entry),
+#else /* #ifdef CONFIG_PREEMPT_RCU_BOOST */
+#define INIT_RCU_BOOST_PRIO
+#define INIT_PREEMPT_RCU_BOOST(tsk)
+#endif /* #else #ifdef CONFIG_PREEMPT_RCU_BOOST */
+
 extern struct group_info init_groups;
 
 #define INIT_STRUCT_PID {						\
@@ -128,6 +139,7 @@ extern struct group_info init_groups;
 	.static_prio	= MAX_PRIO-20,					\
 	.normal_prio	= MAX_PRIO-20,					\
 	.policy		= SCHED_NORMAL,					\
+	INIT_RCU_BOOST_PRIO						\
 	.cpus_allowed	= CPU_MASK_ALL,					\
 	.mm		= NULL,						\
 	.active_mm	= &init_mm,					\
@@ -179,6 +191,7 @@ extern struct group_info init_groups;
 	INIT_IDS							\
 	INIT_TRACE_IRQFLAGS						\
 	INIT_LOCKDEP							\
+	INIT_PREEMPT_RCU_BOOST(tsk)					\
 }
 
 

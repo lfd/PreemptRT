@@ -94,7 +94,6 @@ extern atomic_t ipi_sent;
 #endif
 
 #ifdef CONFIG_PPC64
-EXPORT_SYMBOL(irq_desc);
 
 int distribute_irqs = 1;
 

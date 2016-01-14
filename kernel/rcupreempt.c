@@ -259,7 +259,27 @@ void rcu_check_callbacks(int cpu, int user)
 	}
 }
 
-static void rcu_process_callbacks(unsigned long data)
+/*
+ * Needed by dynticks, to make sure all RCU processing has finished
+ * when we go idle:
+ */
+void rcu_advance_callbacks(int cpu, int user)
+{
+	unsigned long oldirq;
+
+	if (rcu_ctrlblk.completed == rcu_data.completed) {
+		rcu_try_flip();
+		if (rcu_ctrlblk.completed == rcu_data.completed) {
+			return;
+		}
+	}
+	spin_lock_irqsave(&rcu_data.lock, oldirq);
+	RCU_TRACE(rcupreempt_trace_check_callbacks, &rcu_data.trace);
+	__rcu_advance_callbacks();
+	spin_unlock_irqrestore(&rcu_data.lock, oldirq);
+}
+
+void rcu_process_callbacks(unsigned long unused)
 {
 	unsigned long flags;
 	struct rcu_head *next, *list;

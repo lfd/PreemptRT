@@ -36,7 +36,14 @@ int debug_locks_silent;
 int debug_locks_off(void)
 {
 	if (xchg(&debug_locks, 0)) {
+#ifdef CONFIG_DEBUG_RT_MUTEXES
+		if (spin_is_locked(&current->pi_lock))
+			spin_unlock(&current->pi_lock);
+#endif
 		if (!debug_locks_silent) {
+			stop_trace();
+			user_trace_stop();
+			printk("stopped custom tracer.\n");
 			console_verbose();
 			return 1;
 		}

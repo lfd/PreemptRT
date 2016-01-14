@@ -623,6 +623,20 @@ static int execdomains_read_proc(char *page, char **start, off_t off,
 	return proc_calc_metrics(page, start, off, count, eof, len);
 }
 
+#ifdef CONFIG_EVENT_TRACE
+extern struct seq_operations latency_trace_op;
+static int latency_trace_open(struct inode *inode, struct file *file)
+{
+	return seq_open(file, &latency_trace_op);
+}
+static struct file_operations proc_latency_trace_operations = {
+	.open		= latency_trace_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= seq_release,
+};
+#endif
+
 #ifdef CONFIG_MAGIC_SYSRQ
 /*
  * writing 'C' to /proc/sysrq-trigger is like sysrq-C
@@ -715,6 +729,9 @@ void __init proc_misc_init(void)
 #endif
 #ifdef CONFIG_SCHEDSTATS
 	create_seq_entry("schedstat", 0, &proc_schedstat_operations);
+#endif
+#ifdef CONFIG_EVENT_TRACE
+	create_seq_entry("latency_trace", 0, &proc_latency_trace_operations);
 #endif
 #ifdef CONFIG_PROC_KCORE
 	proc_root_kcore = create_proc_entry("kcore", S_IRUSR, NULL);

@@ -122,10 +122,20 @@ static void native_smp_send_reschedule(int cpu)
 }
 
 /*
+ * this function sends a 'reschedule' IPI to all other CPUs.
+ * This is used when RT tasks are starving and other CPUs
+ * might be able to run them:
+ */
+void smp_send_reschedule_allbutself(void)
+{
+	send_IPI_allbutself(RESCHEDULE_VECTOR);
+}
+
+/*
  * Structure and data for smp_call_function(). This is designed to minimise
  * static memory requirements. It also looks cleaner.
  */
-static DEFINE_SPINLOCK(call_lock);
+static DEFINE_RAW_SPINLOCK(call_lock);
 
 struct call_data_struct {
 	void (*func) (void *info);

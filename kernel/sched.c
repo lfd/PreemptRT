@@ -1858,7 +1858,7 @@ out_set_cpu:
 			 * nevertheless, maybe one of them can take
 			 * this task:
 			 */
-			smp_send_reschedule_allbutself();
+			smp_send_reschedule_allbutself_cpumask(p->cpus_allowed);
 
 		schedstat_inc(this_rq, rto_wakeup);
 	}
@@ -2116,7 +2116,7 @@ static inline void finish_task_switch(struct rq *rq, struct task_struct *prev)
 	 */
 	if (unlikely(rt_task(current) && prev->se.on_rq && rt_task(prev))) {
 		schedstat_inc(rq, rto_schedule);
-		smp_send_reschedule_allbutself();
+		smp_send_reschedule_allbutself_cpumask(current->cpus_allowed);
 	}
 #endif
 	prev_state = prev->state;

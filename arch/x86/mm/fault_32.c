@@ -293,8 +293,8 @@ int show_unhandled_signals = 1;
  *	bit 3 == 1 means use of reserved bit detected
  *	bit 4 == 1 means fault was an instruction fetch
  */
-fastcall void __kprobes do_page_fault(struct pt_regs *regs,
-				      unsigned long error_code)
+notrace fastcall void __kprobes do_page_fault(struct pt_regs *regs,
+					      unsigned long error_code)
 {
 	struct task_struct *tsk;
 	struct mm_struct *mm;

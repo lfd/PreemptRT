@@ -1036,7 +1036,7 @@ find_usage_forwards(struct lock_class *source, unsigned int depth)
  * Return 1 otherwise and keep <backwards_match> unchanged.
  * Return 0 on error.
  */
-static noinline int
+static noinline notrace int
 find_usage_backwards(struct lock_class *source, unsigned int depth)
 {
 	struct lock_list *entry;
@@ -1586,7 +1586,7 @@ static inline int validate_chain(struct task_struct *curr,
  * We are building curr_chain_key incrementally, so double-check
  * it from scratch, to make sure that it's done correctly:
  */
-static void check_chain_key(struct task_struct *curr)
+static void notrace check_chain_key(struct task_struct *curr)
 {
 #ifdef CONFIG_DEBUG_LOCKDEP
 	struct held_lock *hlock, *prev_hlock = NULL;
@@ -2009,7 +2009,7 @@ void early_boot_irqs_on(void)
 /*
  * Hardirqs will be enabled:
  */
-void trace_hardirqs_on(void)
+void notrace trace_hardirqs_on(void)
 {
 	struct task_struct *curr = current;
 	unsigned long ip;
@@ -2050,6 +2050,9 @@ void trace_hardirqs_on(void)
 	curr->hardirq_enable_ip = ip;
 	curr->hardirq_enable_event = ++curr->irq_events;
 	debug_atomic_inc(&hardirqs_on_events);
+#ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
+	time_hardirqs_on(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+#endif
 }
 
 EXPORT_SYMBOL(trace_hardirqs_on);
@@ -2057,7 +2060,7 @@ EXPORT_SYMBOL(trace_hardirqs_on);
 /*
  * Hardirqs were disabled:
  */
-void trace_hardirqs_off(void)
+void notrace trace_hardirqs_off(void)
 {
 	struct task_struct *curr = current;
 
@@ -2075,6 +2078,9 @@ void trace_hardirqs_off(void)
 		curr->hardirq_disable_ip = _RET_IP_;
 		curr->hardirq_disable_event = ++curr->irq_events;
 		debug_atomic_inc(&hardirqs_off_events);
+#ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
+		time_hardirqs_off(CALLER_ADDR0, 0 /* CALLER_ADDR1 */);
+#endif
 	} else
 		debug_atomic_inc(&redundant_hardirqs_off);
 }
@@ -2241,8 +2247,8 @@ static inline int separate_irq_context(struct task_struct *curr,
 /*
  * Mark a lock with a usage bit, and validate the state transition:
  */
-static int mark_lock(struct task_struct *curr, struct held_lock *this,
-		     enum lock_usage_bit new_bit)
+static int notrace mark_lock(struct task_struct *curr, struct held_lock *this,
+			     enum lock_usage_bit new_bit)
 {
 	unsigned int new_mask = 1 << new_bit, ret = 1;
 
@@ -2301,6 +2307,7 @@ static int mark_lock(struct task_struct *curr, struct held_lock *this,
 	 * We must printk outside of the graph_lock:
 	 */
 	if (ret == 2) {
+		user_trace_stop();
 		printk("\nmarked lock as {%s}:\n", usage_str[new_bit]);
 		print_lock(this);
 		print_irqtrace_events(curr);
@@ -2648,7 +2655,7 @@ __lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 /*
  * Check whether we follow the irq-flags state precisely:
  */
-static void check_flags(unsigned long flags)
+static notrace void check_flags(unsigned long flags)
 {
 #if defined(CONFIG_DEBUG_LOCKDEP) && defined(CONFIG_TRACE_IRQFLAGS)
 	if (!debug_locks)
@@ -2680,8 +2687,9 @@ static void check_flags(unsigned long flags)
  * We are not always called with irqs disabled - do that here,
  * and also avoid lockdep recursion:
  */
-void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
-		  int trylock, int read, int check, unsigned long ip)
+void notrace
+lock_acquire(struct lockdep_map *lock, unsigned int subclass,
+	     int trylock, int read, int check, unsigned long ip)
 {
 	unsigned long flags;
 
@@ -2692,9 +2700,9 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 		return;
 
 	raw_local_irq_save(flags);
+	current->lockdep_recursion = 1;
 	check_flags(flags);
 
-	current->lockdep_recursion = 1;
 	__lock_acquire(lock, subclass, trylock, read, check,
 		       irqs_disabled_flags(flags), ip);
 	current->lockdep_recursion = 0;
@@ -2703,7 +2711,8 @@ void lock_acquire(struct lockdep_map *lock, unsigned int subclass,
 
 EXPORT_SYMBOL_GPL(lock_acquire);
 
-void lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
+void notrace
+lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 {
 	unsigned long flags;
 
@@ -2714,8 +2723,8 @@ void lock_release(struct lockdep_map *lock, int nested, unsigned long ip)
 		return;
 
 	raw_local_irq_save(flags);
-	check_flags(flags);
 	current->lockdep_recursion = 1;
+	check_flags(flags);
 	__lock_release(lock, nested, ip);
 	current->lockdep_recursion = 0;
 	raw_local_irq_restore(flags);

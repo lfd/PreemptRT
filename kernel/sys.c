@@ -2160,6 +2160,14 @@ asmlinkage long sys_prctl(int option, unsigned long arg2, unsigned long arg3,
 {
 	long error;
 
+#ifdef CONFIG_EVENT_TRACE
+	if (option == PR_SET_TRACING) {
+		if (arg2)
+			return user_trace_start();
+		return user_trace_stop();
+	}
+#endif
+
 	error = security_task_prctl(option, arg2, arg3, arg4, arg5);
 	if (error)
 		return error;

@@ -366,9 +366,13 @@ static int timekeeping_suspend(struct sys_device *dev, pm_message_t state)
 {
 	unsigned long flags;
 
+	/*
+	 * Read the CMOS outside the raw xtime_lock:
+	 */
+	timekeeping_suspend_time = read_persistent_clock();
+
 	write_seqlock_irqsave(&xtime_lock, flags);
 	timekeeping_suspended = 1;
-	timekeeping_suspend_time = read_persistent_clock();
 	write_sequnlock_irqrestore(&xtime_lock, flags);
 
 	clockevents_notify(CLOCK_EVT_NOTIFY_SUSPEND, NULL);

@@ -710,7 +710,7 @@ do {									\
 	unsigned long long __val;					\
 	unsigned long __flags;						\
 									\
-	local_irq_save(__flags);					\
+	local_irq_save(flags);					\
 	if (sel == 0)							\
 		__asm__ __volatile__(					\
 			".set\tmips64\n\t"				\

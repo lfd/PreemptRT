@@ -12,12 +12,14 @@
  */
 
 #include <linux/clockchips.h>
+#include <linux/interrupt.h>
 #include <linux/hrtimer.h>
 #include <linux/init.h>
 #include <linux/module.h>
 #include <linux/notifier.h>
 #include <linux/smp.h>
 #include <linux/sysdev.h>
+#include <linux/sched.h>
 
 /* The registered clock event devices */
 static LIST_HEAD(clockevent_devices);
@@ -84,6 +86,8 @@ int clockevents_program_event(struct clock_event_device *dev, ktime_t expires,
 	}
 
 	delta = ktime_to_ns(ktime_sub(expires, now));
+
+	hrtimer_trace(expires, (unsigned long) delta);
 
 	if (delta <= 0)
 		return -ETIME;

@@ -3,6 +3,24 @@
  * policies)
  */
 
+static cpumask_t rt_overload_mask;
+static inline int rt_overloaded(struct task_struct *p)
+{
+	return !cpus_empty(rt_overload_mask);
+}
+static inline cpumask_t *rt_overload(struct task_struct *p)
+{
+	return &rt_overload_mask;
+}
+static inline void rt_set_overload(struct task_struct *p, int cpu)
+{
+	cpu_set(cpu, rt_overload_mask);
+}
+static inline void rt_clear_overload(struct task_struct *p, int cpu)
+{
+	cpu_clear(cpu, rt_overload_mask);
+}
+
 /*
  * Update the current task's runtime statistics. Skip current tasks that
  * are not in our scheduling class.
@@ -32,6 +50,8 @@ static inline void inc_rt_tasks(struct task_struct *p, struct rq *rq)
 #ifdef CONFIG_SMP
 	if (p->prio < rq->rt.highest_prio)
 		rq->rt.highest_prio = p->prio;
+	if (rq->rt.rt_nr_running > 1)
+		rt_set_overload(p, rq->cpu);
 #endif /* CONFIG_SMP */
 }
 
@@ -53,6 +73,8 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 		} /* otherwise leave rq->highest prio alone */
 	} else
 		rq->rt.highest_prio = MAX_RT_PRIO;
+	if (rq->rt.rt_nr_running < 2)
+		rt_clear_overload(p, rq->cpu);
 #endif /* CONFIG_SMP */
 }
 

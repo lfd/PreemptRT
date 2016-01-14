@@ -76,16 +76,10 @@ static struct clocksource *clock; /* pointer to current clocksource */
  */
 static inline s64 __get_nsec_offset(void)
 {
-	cycle_t cycle_now, cycle_delta;
+	cycle_t cycle_delta;
 	s64 ns_offset;
 
-	/* read clocksource: */
-	cycle_now = clocksource_read(clock);
-
-	/* calculate the delta since the last update_wall_time: */
-	cycle_delta = (cycle_now - clock->cycle_last) & clock->mask;
-
-	/* convert to nanoseconds: */
+	cycle_delta = clocksource_get_cycles(clock, clocksource_read(clock));
 	ns_offset = cyc2ns(clock, cycle_delta);
 
 	return ns_offset;
@@ -232,7 +226,7 @@ static void change_clocksource(void)
 
 	clock = new;
 	clock->cycle_last = now;
-
+	clock->cycle_accumulated = 0;
 	clock->error = 0;
 	clock->xtime_nsec = 0;
 	clocksource_calculate_interval(clock, NTP_INTERVAL_LENGTH);
@@ -244,9 +238,15 @@ static void change_clocksource(void)
 	       clock->name);
 #endif
 }
+
+void timekeeping_accumulate(void)
+{
+	clocksource_accumulate(clock, clocksource_read(clock));
+}
 #else
 static inline void change_clocksource(void) { }
 static inline s64 __get_nsec_offset(void) { return 0; }
+void timekeeping_accumulate(void) { }
 #endif
 
 /**
@@ -341,6 +341,7 @@ static int timekeeping_resume(struct sys_device *dev)
 	timespec_add_ns(&xtime, timekeeping_suspend_nsecs);
 	/* re-base the last cycle value */
 	clock->cycle_last = clocksource_read(clock);
+	clock->cycle_accumulated = 0;
 	clock->error = 0;
 	timekeeping_suspended = 0;
 	write_sequnlock_irqrestore(&xtime_lock, flags);
@@ -487,27 +488,28 @@ static void clocksource_adjust(s64 offset)
  */
 void update_wall_time(void)
 {
-	cycle_t offset;
+	cycle_t cycle_now;
 
 	/* Make sure we're fully resumed: */
 	if (unlikely(timekeeping_suspended))
 		return;
 
 #ifdef CONFIG_GENERIC_TIME
-	offset = (clocksource_read(clock) - clock->cycle_last) & clock->mask;
+	cycle_now = clocksource_read(clock);
 #else
-	offset = clock->cycle_interval;
+	cycle_now = clock->cycle_last + clock->cycle_interval;
 #endif
+	clocksource_accumulate(clock, cycle_now);
+
 	clock->xtime_nsec += (s64)xtime.tv_nsec << clock->shift;
 
 	/* normally this loop will run just once, however in the
 	 * case of lost or late ticks, it will accumulate correctly.
 	 */
-	while (offset >= clock->cycle_interval) {
+	while (clock->cycle_accumulated >= clock->cycle_interval) {
 		/* accumulate one interval */
 		clock->xtime_nsec += clock->xtime_interval;
-		clock->cycle_last += clock->cycle_interval;
-		offset -= clock->cycle_interval;
+		clock->cycle_accumulated -= clock->cycle_interval;
 
 		if (clock->xtime_nsec >= (u64)NSEC_PER_SEC << clock->shift) {
 			clock->xtime_nsec -= (u64)NSEC_PER_SEC << clock->shift;
@@ -521,7 +523,7 @@ void update_wall_time(void)
 	}
 
 	/* correct the clock when NTP error is too big */
-	clocksource_adjust(offset);
+	clocksource_adjust(clock->cycle_accumulated);
 
 	/* store full nanoseconds into xtime */
 	xtime.tv_nsec = (s64)clock->xtime_nsec >> clock->shift;

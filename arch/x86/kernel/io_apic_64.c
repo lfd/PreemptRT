@@ -1734,7 +1734,6 @@ static inline void __init check_timer(void)
 		 */
 		unmask_IO_APIC_irq(0);
 		if (!no_timer_check && timer_irq_works()) {
-			nmi_watchdog_default();
 			if (nmi_watchdog == NMI_IO_APIC) {
 				disable_8259A_irq(0);
 				setup_nmi();
@@ -1760,7 +1759,6 @@ static inline void __init check_timer(void)
 		setup_ExtINT_IRQ0_pin(apic2, pin2, cfg->vector);
 		if (timer_irq_works()) {
 			apic_printk(APIC_VERBOSE," works.\n");
-			nmi_watchdog_default();
 			if (nmi_watchdog == NMI_IO_APIC) {
 				setup_nmi();
 			}

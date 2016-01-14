@@ -239,6 +239,7 @@ static inline void show_state(void)
 }
 
 extern void show_regs(struct pt_regs *);
+extern void irq_show_regs_callback(int cpu, struct pt_regs *regs);
 
 /*
  * TASK is a pointer to the task whose backtrace we want to see (or NULL for current
@@ -275,6 +276,107 @@ static inline void touch_all_softlockup_watchdogs(void)
 }
 #endif
 
+#if defined(CONFIG_PREEMPT_TRACE) || defined(CONFIG_EVENT_TRACE)
+  extern void print_traces(struct task_struct *task);
+#else
+# define print_traces(task)			do { } while (0)
+#endif
+
+#ifdef CONFIG_FRAME_POINTER
+# ifndef CONFIG_ARM
+#  define CALLER_ADDR0 ((unsigned long)__builtin_return_address(0))
+#  define CALLER_ADDR1 ((unsigned long)__builtin_return_address(1))
+#  define CALLER_ADDR2 ((unsigned long)__builtin_return_address(2))
+#  define CALLER_ADDR3 ((unsigned long)__builtin_return_address(3))
+#  define CALLER_ADDR4 ((unsigned long)__builtin_return_address(4))
+#  define CALLER_ADDR5 ((unsigned long)__builtin_return_address(5))
+# else
+   extern unsigned long arm_return_addr(int level);
+#  define CALLER_ADDR0 arm_return_addr(0)
+#  define CALLER_ADDR1 arm_return_addr(1)
+#  define CALLER_ADDR2 arm_return_addr(2)
+#  define CALLER_ADDR3 arm_return_addr(3)
+#  define CALLER_ADDR4 arm_return_addr(4)
+#  define CALLER_ADDR5 arm_return_addr(5)
+#endif
+#else
+# define CALLER_ADDR0 ((unsigned long)__builtin_return_address(0))
+# define CALLER_ADDR1 0UL
+# define CALLER_ADDR2 0UL
+# define CALLER_ADDR3 0UL
+# define CALLER_ADDR4 0UL
+# define CALLER_ADDR5 0UL
+#endif
+
+#ifdef CONFIG_MCOUNT
+  extern void notrace mcount(void);
+#else
+# define mcount() do { } while (0)
+#endif
+
+#ifdef CONFIG_EVENT_TRACE
+  extern int mcount_enabled, trace_enabled, trace_user_triggered,
+		trace_user_trigger_irq, trace_freerunning, trace_verbose,
+		trace_print_on_crash, trace_all_cpus, print_functions,
+		syscall_tracing, stackframe_tracing, trace_use_raw_cycles,
+		trace_all_runnable;
+  extern void notrace trace_special(unsigned long v1, unsigned long v2, unsigned long v3);
+  extern void notrace trace_special_pid(int pid, unsigned long v1, unsigned long v2);
+  extern void notrace trace_special_u64(unsigned long long v1, unsigned long v2);
+  extern void notrace trace_special_sym(void);
+  extern void stop_trace(void);
+# define start_trace() do { trace_enabled = 1; } while (0)
+  extern void print_last_trace(void);
+  extern void nmi_trace(unsigned long eip, unsigned long parent_eip,
+			unsigned long flags);
+  extern long user_trace_start(void);
+  extern long user_trace_stop(void);
+  extern void trace_cmdline(void);
+  extern void init_tracer(void);
+#else
+# define mcount_enabled				0
+# define trace_enabled				0
+# define syscall_tracing			0
+# define stackframe_tracing			0
+# define trace_user_triggered			0
+# define trace_freerunning			0
+# define trace_all_cpus				0
+# define trace_verbose				0
+# define trace_special(v1,v2,v3)		do { } while (0)
+# define trace_special_pid(pid,v1,v2)		do { } while (0)
+# define trace_special_u64(v1,v2)		do { } while (0)
+# define trace_special_sym()			do { } while (0)
+# define stop_trace()				do { } while (0)
+# define start_trace()				do { } while (0)
+# define print_last_trace()			do { } while (0)
+# define nmi_trace(eip, parent_eip, flags)	do { } while (0)
+# define user_trace_start()			do { } while (0)
+# define user_trace_stop()			do { } while (0)
+# define trace_cmdline()			do { } while (0)
+# define init_tracer()				do { } while (0)
+#endif
+
+extern int timeofday_API_hacks(void *tv, void *tz);
+
+#ifdef CONFIG_WAKEUP_TIMING
+  extern int wakeup_timing;
+  extern void __trace_start_sched_wakeup(struct task_struct *p);
+  extern void trace_stop_sched_switched(struct task_struct *p);
+  extern void trace_change_sched_cpu(struct task_struct *p, int new_cpu);
+#else
+# define wakeup_timing 0
+# define __trace_start_sched_wakeup(p)		do { } while (0)
+# define trace_stop_sched_switched(p)		do { } while (0)
+# define trace_change_sched_cpu(p, cpu)		do { } while (0)
+#endif
+
+#ifdef CONFIG_CRITICAL_IRQSOFF_TIMING
+  extern void notrace time_hardirqs_on(unsigned long a0, unsigned long a1);
+  extern void notrace time_hardirqs_off(unsigned long a0, unsigned long a1);
+#else
+# define time_hardirqs_on(a0, a1)		do { } while (0)
+# define time_hardirqs_off(a0, a1)		do { } while (0)
+#endif
 
 /* Attach to any functions which should be ignored in wchan output. */
 #define __sched		__attribute__((__section__(".sched.text")))
@@ -1080,6 +1182,13 @@ struct task_struct {
 	int lockdep_depth;
 	struct held_lock held_locks[MAX_LOCK_DEPTH];
 	unsigned int lockdep_recursion;
+#endif
+
+#define MAX_PREEMPT_TRACE 16
+
+#ifdef CONFIG_PREEMPT_TRACE
+	unsigned long preempt_trace_eip[MAX_PREEMPT_TRACE];
+	unsigned long preempt_trace_parent_eip[MAX_PREEMPT_TRACE];
 #endif
 
 /* journalling filesystem info */

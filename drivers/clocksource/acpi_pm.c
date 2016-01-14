@@ -30,13 +30,13 @@
  */
 u32 pmtmr_ioport __read_mostly;
 
-static inline u32 read_pmtmr(void)
+static notrace inline u32 read_pmtmr(void)
 {
 	/* mask the output to 24 bits */
 	return inl(pmtmr_ioport) & ACPI_PM_MASK;
 }
 
-u32 acpi_pm_read_verified(void)
+u32 notrace acpi_pm_read_verified(void)
 {
 	u32 v1 = 0, v2 = 0, v3 = 0;
 
@@ -56,12 +56,12 @@ u32 acpi_pm_read_verified(void)
 	return v2;
 }
 
-static cycle_t acpi_pm_read_slow(void)
+static notrace cycle_t acpi_pm_read_slow(void)
 {
 	return (cycle_t)acpi_pm_read_verified();
 }
 
-static cycle_t acpi_pm_read(void)
+static notrace cycle_t acpi_pm_read(void)
 {
 	return (cycle_t)read_pmtmr();
 }

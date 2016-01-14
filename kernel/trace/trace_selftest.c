@@ -9,11 +9,12 @@ static inline int trace_valid_entry(struct trace_entry *entry)
 	case TRACE_FN:
 	case TRACE_CTX:
 	case TRACE_WAKE:
-	case TRACE_CONT:
 	case TRACE_STACK:
 	case TRACE_PRINT:
 	case TRACE_SPECIAL:
 	case TRACE_BRANCH:
+	case TRACE_GRAPH_ENT:
+	case TRACE_GRAPH_RET:
 		return 1;
 	}
 	return 0;
@@ -125,9 +126,9 @@ int trace_selftest_startup_dynamic_tracing(struct tracer *trace,
 	func();
 
 	/*
-	 * Some archs *cough*PowerPC*cough* add charachters to the
+	 * Some archs *cough*PowerPC*cough* add characters to the
 	 * start of the function names. We simply put a '*' to
-	 * accomodate them.
+	 * accommodate them.
 	 */
 	func_name = "*" STR(DYN_FTRACE_TEST_NAME);
 
@@ -135,7 +136,7 @@ int trace_selftest_startup_dynamic_tracing(struct tracer *trace,
 	ftrace_set_filter(func_name, strlen(func_name), 1);
 
 	/* enable tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		goto out;
@@ -209,7 +210,7 @@ trace_selftest_startup_function(struct tracer *trace, struct trace_array *tr)
 	ftrace_enabled = 1;
 	tracer_enabled = 1;
 
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		goto out;
@@ -247,6 +248,54 @@ trace_selftest_startup_function(struct tracer *trace, struct trace_array *tr)
 }
 #endif /* CONFIG_FUNCTION_TRACER */
 
+
+#ifdef CONFIG_FUNCTION_GRAPH_TRACER
+/*
+ * Pretty much the same than for the function tracer from which the selftest
+ * has been borrowed.
+ */
+int
+trace_selftest_startup_function_graph(struct tracer *trace,
+					struct trace_array *tr)
+{
+	int ret;
+	unsigned long count;
+
+	ret = tracer_init(trace, tr);
+	if (ret) {
+		warn_failed_init_tracer(trace, ret);
+		goto out;
+	}
+
+	/* Sleep for a 1/10 of a second */
+	msleep(100);
+
+	tracing_stop();
+
+	/* check the trace buffer */
+	ret = trace_test_buffer(tr, &count);
+
+	trace->reset(tr);
+	tracing_start();
+
+	if (!ret && !count) {
+		printk(KERN_CONT ".. no entries found ..");
+		ret = -1;
+		goto out;
+	}
+
+	/* Don't test dynamic tracing, the function tracer already did */
+
+out:
+	/* Stop it if we failed */
+	if (ret)
+		ftrace_graph_stop();
+
+	return ret;
+}
+#endif /* CONFIG_FUNCTION_GRAPH_TRACER */
+
+
 #ifdef CONFIG_IRQSOFF_TRACER
 int
 trace_selftest_startup_irqsoff(struct tracer *trace, struct trace_array *tr)
@@ -256,7 +305,7 @@ trace_selftest_startup_irqsoff(struct tracer *trace, struct trace_array *tr)
 	int ret;
 
 	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		return ret;
@@ -310,7 +359,7 @@ trace_selftest_startup_preemptoff(struct tracer *trace, struct trace_array *tr)
 	}
 
 	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		return ret;
@@ -364,7 +413,7 @@ trace_selftest_startup_preemptirqsoff(struct tracer *trace, struct trace_array *
 	}
 
 	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		goto out;
@@ -496,7 +545,7 @@ trace_selftest_startup_wakeup(struct tracer *trace, struct trace_array *tr)
 	wait_for_completion(&isrt);
 
 	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		return ret;
@@ -557,7 +606,7 @@ trace_selftest_startup_sched_switch(struct tracer *trace, struct trace_array *tr
 	int ret;
 
 	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		return ret;
@@ -589,34 +638,7 @@ trace_selftest_startup_sysprof(struct tracer *trace, struct trace_array *tr)
 	int ret;
 
 	/* start the tracing */
-	ret = trace->init(tr);
-	if (ret) {
-		warn_failed_init_tracer(trace, ret);
-		return 0;
-	}
-
-	/* Sleep for a 1/10 of a second */
-	msleep(100);
-	/* stop the tracing. */
-	tracing_stop();
-	/* check the trace buffer */
-	ret = trace_test_buffer(tr, &count);
-	trace->reset(tr);
-	tracing_start();
-
-	return ret;
-}
-#endif /* CONFIG_SYSPROF_TRACER */
-
-#ifdef CONFIG_BRANCH_TRACER
-int
-trace_selftest_startup_branch(struct tracer *trace, struct trace_array *tr)
-{
-	unsigned long count;
-	int ret;
-
-	/* start the tracing */
-	ret = trace->init(tr);
+	ret = tracer_init(trace, tr);
 	if (ret) {
 		warn_failed_init_tracer(trace, ret);
 		return ret;
@@ -630,6 +652,43 @@ trace_selftest_startup_branch(struct tracer *trace, struct trace_array *tr)
 	ret = trace_test_buffer(tr, &count);
 	trace->reset(tr);
 	tracing_start();
+
+	if (!ret && !count) {
+		printk(KERN_CONT ".. no entries found ..");
+		ret = -1;
+	}
+
+	return ret;
+}
+#endif /* CONFIG_SYSPROF_TRACER */
+
+#ifdef CONFIG_BRANCH_TRACER
+int
+trace_selftest_startup_branch(struct tracer *trace, struct trace_array *tr)
+{
+	unsigned long count;
+	int ret;
+
+	/* start the tracing */
+	ret = tracer_init(trace, tr);
+	if (ret) {
+		warn_failed_init_tracer(trace, ret);
+		return ret;
+	}
+
+	/* Sleep for a 1/10 of a second */
+	msleep(100);
+	/* stop the tracing. */
+	tracing_stop();
+	/* check the trace buffer */
+	ret = trace_test_buffer(tr, &count);
+	trace->reset(tr);
+	tracing_start();
+
+	if (!ret && !count) {
+		printk(KERN_CONT ".. no entries found ..");
+		ret = -1;
+	}
 
 	return ret;
 }

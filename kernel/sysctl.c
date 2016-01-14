@@ -69,6 +69,7 @@ extern int sysctl_overcommit_ratio;
 extern int sysctl_panic_on_oom;
 extern int sysctl_oom_kill_allocating_task;
 extern int sysctl_oom_dump_tasks;
+extern int futex_performance_hack;
 extern int max_threads;
 extern int core_uses_pid;
 extern int suid_dumpable;
@@ -358,6 +359,14 @@ static struct ctl_table kern_table[] = {
 		.proc_handler	= &proc_dointvec,
 	},
 #endif
+	{
+		.ctl_name	= CTL_UNNUMBERED,
+		.procname	= "futex_performance_hack",
+		.data		= &futex_performance_hack,
+		.maxlen		= sizeof(int),
+		.mode		= 0644,
+		.proc_handler	= &proc_dointvec,
+	},
 	{
 		.ctl_name	= CTL_UNNUMBERED,
 		.procname	= "prof_pid",

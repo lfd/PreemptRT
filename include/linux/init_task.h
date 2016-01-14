@@ -48,12 +48,11 @@ extern struct fs_struct init_fs;
 	.posix_timers	 = LIST_HEAD_INIT(sig.posix_timers),		\
 	.cpu_timers	= INIT_CPU_TIMERS(sig.cpu_timers),		\
 	.rlim		= INIT_RLIMITS,					\
-	.cputime	= { .totals = {					\
-		.utime = cputime_zero,					\
-		.stime = cputime_zero,					\
-		.sum_exec_runtime = 0,					\
-		.lock = __SPIN_LOCK_UNLOCKED(sig.cputime.totals.lock),	\
-	}, },								\
+	.cputimer	= { 						\
+		.cputime = INIT_CPUTIME,				\
+		.running = 0,						\
+		.lock = __SPIN_LOCK_UNLOCKED(sig.cputimer.lock),	\
+	},								\
 }
 
 extern struct nsproxy init_nsproxy;
@@ -121,6 +120,16 @@ extern struct group_info init_groups;
 
 extern struct cred init_cred;
 
+#ifdef CONFIG_PERF_COUNTERS
+# define INIT_PERF_COUNTERS(tsk)					\
+	.perf_counter_ctx.counter_list =				\
+		LIST_HEAD_INIT(tsk.perf_counter_ctx.counter_list),	\
+	.perf_counter_ctx.lock =					\
+		__SPIN_LOCK_UNLOCKED(tsk.perf_counter_ctx.lock),
+#else
+# define INIT_PERF_COUNTERS(tsk)
+#endif
+
 /*
  *  INIT_TASK is used to set up the first task table, touch at
  * your own risk!. Base=0, limit=0x1fffff (=2MB)
@@ -148,6 +157,7 @@ extern struct cred init_cred;
 		.nr_cpus_allowed = NR_CPUS,				\
 	},								\
 	.tasks		= LIST_HEAD_INIT(tsk.tasks),			\
+	.pushable_tasks = PLIST_NODE_INIT(tsk.pushable_tasks, MAX_PRIO), \
 	.ptraced	= LIST_HEAD_INIT(tsk.ptraced),			\
 	.ptrace_entry	= LIST_HEAD_INIT(tsk.ptrace_entry),		\
 	.real_parent	= &tsk,						\
@@ -185,6 +195,7 @@ extern struct cred init_cred;
 	INIT_IDS							\
 	INIT_TRACE_IRQFLAGS						\
 	INIT_LOCKDEP							\
+	INIT_PERF_COUNTERS(tsk)						\
 }
 
 

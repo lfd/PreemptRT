@@ -11,11 +11,12 @@
 
 #include <linux/init.h>
 #include <linux/debugfs.h>
-#include <linux/ftrace.h>
+#include <trace/power.h>
 #include <linux/kallsyms.h>
 #include <linux/module.h>
 
 #include "trace.h"
+#include "trace_output.h"
 
 static struct trace_array *power_trace;
 static int __read_mostly trace_power_enabled;
@@ -114,7 +115,6 @@ void trace_power_end(struct power_trace *it)
 	struct ring_buffer_event *event;
 	struct trace_power *entry;
 	struct trace_array_cpu *data;
-	unsigned long irq_flags;
 	struct trace_array *tr = power_trace;
 
 	if (!trace_power_enabled)
@@ -124,18 +124,13 @@ void trace_power_end(struct power_trace *it)
 	it->end = ktime_get();
 	data = tr->data[smp_processor_id()];
 
-	event = ring_buffer_lock_reserve(tr->buffer, sizeof(*entry),
-					 &irq_flags);
+	event = trace_buffer_lock_reserve(tr, TRACE_POWER,
+					  sizeof(*entry), 0, 0);
 	if (!event)
 		goto out;
 	entry	= ring_buffer_event_data(event);
-	tracing_generic_entry_update(&entry->ent, 0, 0);
-	entry->ent.type = TRACE_POWER;
 	entry->state_data = *it;
-	ring_buffer_unlock_commit(tr->buffer, event, irq_flags);
-
-	trace_wake_up();
-
+	trace_buffer_unlock_commit(tr, event, 0, 0);
  out:
 	preempt_enable();
 }
@@ -147,7 +142,6 @@ void trace_power_mark(struct power_trace *it, unsigned int type,
 	struct ring_buffer_event *event;
 	struct trace_power *entry;
 	struct trace_array_cpu *data;
-	unsigned long irq_flags;
 	struct trace_array *tr = power_trace;
 
 	if (!trace_power_enabled)
@@ -161,18 +155,13 @@ void trace_power_mark(struct power_trace *it, unsigned int type,
 	it->end = it->stamp;
 	data = tr->data[smp_processor_id()];
 
-	event = ring_buffer_lock_reserve(tr->buffer, sizeof(*entry),
-					 &irq_flags);
+	event = trace_buffer_lock_reserve(tr, TRACE_POWER,
+					  sizeof(*entry), 0, 0);
 	if (!event)
 		goto out;
 	entry	= ring_buffer_event_data(event);
-	tracing_generic_entry_update(&entry->ent, 0, 0);
-	entry->ent.type = TRACE_POWER;
 	entry->state_data = *it;
-	ring_buffer_unlock_commit(tr->buffer, event, irq_flags);
-
-	trace_wake_up();
-
+	trace_buffer_unlock_commit(tr, event, 0, 0);
  out:
 	preempt_enable();
 }

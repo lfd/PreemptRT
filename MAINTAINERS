@@ -1202,6 +1202,8 @@ S:	Supported
 CONTROL GROUPS (CGROUPS)
 P:	Paul Menage
 M:	menage@google.com
+P:	Li Zefan
+M:	lizf@cn.fujitsu.com
 L:	containers@lists.linux-foundation.org
 S:	Maintained
 
@@ -2614,6 +2616,20 @@ M:	jason.wessel@windriver.com
 L:	kgdb-bugreport@lists.sourceforge.net
 S:	Maintained
 
+KMEMCHECK
+P:	Vegard Nossum
+M:	vegardno@ifi.uio.no
+P	Pekka Enberg
+M:	penberg@cs.helsinki.fi
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+
+KMEMTRACE
+P:	Eduard - Gabriel Munteanu
+M:	eduard.munteanu@linux360.ro
+L:	linux-kernel@vger.kernel.org
+S:	Maintained
+
 KPROBES
 P:	Ananth N Mavinakayanahalli
 M:	ananth@in.ibm.com
@@ -3537,6 +3553,12 @@ S:	Maintained
 PXA MMCI DRIVER
 S:	Orphan
 
+PXA RTC DRIVER
+P:	Robert Jarzmik
+M:	robert.jarzmik@free.fr
+L:	rtc-linux@googlegroups.com
+S:	Maintained
+
 QLOGIC QLA2XXX FC-SCSI DRIVER
 P:	Andrew Vasquez
 M:	linux-driver@qlogic.com
@@ -4285,8 +4307,8 @@ P:	Rajiv Andrade
 M:	srajiv@linux.vnet.ibm.com
 W:	http://tpmdd.sourceforge.net
 P:	Marcel Selhorst
-M:	tpm@selhorst.net
-W:	http://www.prosec.rub.de/tpm/
+M:	m.selhorst@sirrix.com
+W:	http://www.sirrix.com
 L:	tpmdd-devel@lists.sourceforge.net (moderated for non-subscribers)
 S:	Maintained
 

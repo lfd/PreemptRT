@@ -14,6 +14,7 @@
 #include <linux/bug.h>
 #include <linux/nmi.h>
 #include <linux/sysfs.h>
+#include <linux/ftrace.h>
 
 #include <asm/stacktrace.h>
 
@@ -99,7 +100,7 @@ print_context_stack(struct thread_info *tinfo,
 				frame = frame->next_frame;
 				bp = (unsigned long) frame;
 			} else {
-				ops->address(data, addr, bp == 0);
+				ops->address(data, addr, 0);
 			}
 			print_ftrace_graph_addr(addr, data, ops, tinfo, graph);
 		}
@@ -194,6 +195,11 @@ unsigned __kprobes long oops_begin(void)
 {
 	int cpu;
 	unsigned long flags;
+
+	/* notify the hw-branch tracer so it may disable tracing and
+	   add the last trace to the trace buffer -
+	   the earlier this happens, the more useful the trace. */
+	trace_hw_branch_oops();
 
 	oops_enter();
 

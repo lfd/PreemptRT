@@ -375,6 +375,20 @@ static inline void tasklet_hi_schedule(struct tasklet_struct *t)
 		__tasklet_hi_schedule(t);
 }
 
+extern void __tasklet_hi_schedule_first(struct tasklet_struct *t);
+
+/*
+ * This version avoids touching any other tasklets. Needed for kmemcheck
+ * in order not to take any page faults while enqueueing this tasklet;
+ * consider VERY carefully whether you really need this or
+ * tasklet_hi_schedule()...
+ */
+static inline void tasklet_hi_schedule_first(struct tasklet_struct *t)
+{
+	if (!test_and_set_bit(TASKLET_STATE_SCHED, &t->state))
+		__tasklet_hi_schedule_first(t);
+}
+
 
 static inline void tasklet_disable_nosync(struct tasklet_struct *t)
 {
@@ -462,11 +476,18 @@ static inline void init_irq_proc(void)
 }
 #endif
 
+#if defined(CONFIG_GENERIC_HARDIRQS) && defined(CONFIG_DEBUG_SHIRQ)
+extern void debug_poll_all_shared_irqs(void);
+#else
+static inline void debug_poll_all_shared_irqs(void) { }
+#endif
+
 int show_interrupts(struct seq_file *p, void *v);
 
 struct irq_desc;
 
 extern int early_irq_init(void);
+extern int arch_probe_nr_irqs(void);
 extern int arch_early_irq_init(void);
 extern int arch_init_chip_data(struct irq_desc *desc, int cpu);
 

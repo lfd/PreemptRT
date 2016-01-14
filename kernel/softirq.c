@@ -21,6 +21,7 @@
 #include <linux/freezer.h>
 #include <linux/kthread.h>
 #include <linux/rcupdate.h>
+#include <linux/ftrace.h>
 #include <linux/smp.h>
 #include <linux/tick.h>
 
@@ -79,13 +80,23 @@ static void __local_bh_disable(unsigned long ip)
 	WARN_ON_ONCE(in_irq());
 
 	raw_local_irq_save(flags);
-	add_preempt_count(SOFTIRQ_OFFSET);
+	/*
+	 * The preempt tracer hooks into add_preempt_count and will break
+	 * lockdep because it calls back into lockdep after SOFTIRQ_OFFSET
+	 * is set and before current->softirq_enabled is cleared.
+	 * We must manually increment preempt_count here and manually
+	 * call the trace_preempt_off later.
+	 */
+	preempt_count() += SOFTIRQ_OFFSET;
 	/*
 	 * Were softirqs turned off above:
 	 */
 	if (softirq_count() == SOFTIRQ_OFFSET)
 		trace_softirqs_off(ip);
 	raw_local_irq_restore(flags);
+
+	if (preempt_count() == SOFTIRQ_OFFSET)
+		trace_preempt_off(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
 }
 #else /* !CONFIG_TRACE_IRQFLAGS */
 static inline void __local_bh_disable(unsigned long ip)
@@ -360,6 +371,17 @@ void __tasklet_hi_schedule(struct tasklet_struct *t)
 }
 
 EXPORT_SYMBOL(__tasklet_hi_schedule);
+
+void __tasklet_hi_schedule_first(struct tasklet_struct *t)
+{
+	BUG_ON(!irqs_disabled());
+
+	t->next = __get_cpu_var(tasklet_hi_vec).head;
+	__get_cpu_var(tasklet_hi_vec).head = t;
+	__raise_softirq_irqoff(HI_SOFTIRQ);
+}
+
+EXPORT_SYMBOL(__tasklet_hi_schedule_first);
 
 static void tasklet_action(struct softirq_action *a)
 {
@@ -791,6 +813,11 @@ EXPORT_SYMBOL(on_each_cpu);
  */
 
 int __init __weak early_irq_init(void)
+{
+	return 0;
+}
+
+int __init __weak arch_probe_nr_irqs(void)
 {
 	return 0;
 }

@@ -71,6 +71,7 @@ struct sched_param {
 #include <linux/fs_struct.h>
 #include <linux/compiler.h>
 #include <linux/completion.h>
+#include <linux/perf_counter.h>
 #include <linux/pid.h>
 #include <linux/percpu.h>
 #include <linux/topology.h>
@@ -136,6 +137,10 @@ extern unsigned long nr_running(void);
 extern unsigned long nr_uninterruptible(void);
 extern unsigned long nr_active(void);
 extern unsigned long nr_iowait(void);
+extern u64 cpu_nr_switches(int cpu);
+extern u64 cpu_nr_migrations(int cpu);
+
+extern unsigned long get_parent_ip(unsigned long addr);
 
 struct seq_file;
 struct cfs_rq;
@@ -297,15 +302,9 @@ extern int proc_dosoftlockup_thresh(struct ctl_table *table, int write,
 				    struct file *filp, void __user *buffer,
 				    size_t *lenp, loff_t *ppos);
 extern unsigned int  softlockup_panic;
-extern unsigned long sysctl_hung_task_check_count;
-extern unsigned long sysctl_hung_task_timeout_secs;
-extern unsigned long sysctl_hung_task_warnings;
 extern int softlockup_thresh;
 #else
 static inline void softlockup_tick(void)
-{
-}
-static inline void spawn_softlockup_task(void)
 {
 }
 static inline void touch_softlockup_watchdog(void)
@@ -316,6 +315,15 @@ static inline void touch_all_softlockup_watchdogs(void)
 }
 #endif
 
+#ifdef CONFIG_DETECT_HUNG_TASK
+extern unsigned int  sysctl_hung_task_panic;
+extern unsigned long sysctl_hung_task_check_count;
+extern unsigned long sysctl_hung_task_timeout_secs;
+extern unsigned long sysctl_hung_task_warnings;
+extern int proc_dohung_task_timeout_secs(struct ctl_table *table, int write,
+					 struct file *filp, void __user *buffer,
+					 size_t *lenp, loff_t *ppos);
+#endif
 
 /* Attach to any functions which should be ignored in wchan output. */
 #define __sched		__attribute__((__section__(".sched.text")))
@@ -331,7 +339,9 @@ extern signed long schedule_timeout(signed long timeout);
 extern signed long schedule_timeout_interruptible(signed long timeout);
 extern signed long schedule_timeout_killable(signed long timeout);
 extern signed long schedule_timeout_uninterruptible(signed long timeout);
+asmlinkage void __schedule(void);
 asmlinkage void schedule(void);
+extern int mutex_spin_on_owner(struct mutex *lock, struct thread_info *owner);
 
 struct nsproxy;
 struct user_namespace;
@@ -443,7 +453,6 @@ struct pacct_struct {
  * @utime:		time spent in user mode, in &cputime_t units
  * @stime:		time spent in kernel mode, in &cputime_t units
  * @sum_exec_runtime:	total time spent on the CPU, in nanoseconds
- * @lock:		lock for fields in this struct
  *
  * This structure groups together three kinds of CPU time that are
  * tracked for threads and thread groups.  Most things considering
@@ -454,23 +463,33 @@ struct task_cputime {
 	cputime_t utime;
 	cputime_t stime;
 	unsigned long long sum_exec_runtime;
-	spinlock_t lock;
 };
 /* Alternate field names when used to cache expirations. */
 #define prof_exp	stime
 #define virt_exp	utime
 #define sched_exp	sum_exec_runtime
 
+#define INIT_CPUTIME	\
+	(struct task_cputime) {					\
+		.utime = cputime_zero,				\
+		.stime = cputime_zero,				\
+		.sum_exec_runtime = 0,				\
+	}
+
 /**
- * struct thread_group_cputime - thread group interval timer counts
- * @totals:		thread group interval timers; substructure for
- *			uniprocessor kernel, per-cpu for SMP kernel.
+ * struct thread_group_cputimer - thread group interval timer counts
+ * @cputime:		thread group interval timers.
+ * @running:		non-zero when there are timers running and
+ * 			@cputime receives updates.
+ * @lock:		lock for fields in this struct.
  *
  * This structure contains the version of task_cputime, above, that is
- * used for thread group CPU clock calculations.
+ * used for thread group CPU timer calculations.
  */
-struct thread_group_cputime {
-	struct task_cputime totals;
+struct thread_group_cputimer {
+	struct task_cputime cputime;
+	int running;
+	spinlock_t lock;
 };
 
 /*
@@ -519,10 +538,10 @@ struct signal_struct {
 	cputime_t it_prof_incr, it_virt_incr;
 
 	/*
-	 * Thread group totals for process CPU clocks.
-	 * See thread_group_cputime(), et al, for details.
+	 * Thread group totals for process CPU timers.
+	 * See thread_group_cputimer(), et al, for details.
 	 */
-	struct thread_group_cputime cputime;
+	struct thread_group_cputimer cputimer;
 
 	/* Earliest-expiration cache. */
 	struct task_cputime cputime_expires;
@@ -559,13 +578,21 @@ struct signal_struct {
 	 * Live threads maintain their own counters and add to these
 	 * in __exit_signal, except for the group leader.
 	 */
-	cputime_t cutime, cstime;
+	cputime_t utime, stime, cutime, cstime;
 	cputime_t gtime;
 	cputime_t cgtime;
 	unsigned long nvcsw, nivcsw, cnvcsw, cnivcsw;
 	unsigned long min_flt, maj_flt, cmin_flt, cmaj_flt;
 	unsigned long inblock, oublock, cinblock, coublock;
 	struct task_io_accounting ioac;
+
+	/*
+	 * Cumulative ns of schedule CPU time fo dead threads in the
+	 * group, not including a zombie group leader, (This only differs
+	 * from jiffies_to_ns(utime + stime) if sched_clock uses something
+	 * other than jiffies.)
+	 */
+	unsigned long long sum_sched_runtime;
 
 	/*
 	 * We don't bother to synchronize most readers of this at all,
@@ -981,6 +1008,7 @@ struct sched_class {
 			      struct rq *busiest, struct sched_domain *sd,
 			      enum cpu_idle_type idle);
 	void (*pre_schedule) (struct rq *this_rq, struct task_struct *task);
+	int (*needs_post_schedule) (struct rq *this_rq);
 	void (*post_schedule) (struct rq *this_rq);
 	void (*task_wake_up) (struct rq *this_rq, struct task_struct *task);
 
@@ -1035,6 +1063,11 @@ struct sched_entity {
 	u64			last_wakeup;
 	u64			avg_overlap;
 
+	u64			nr_migrations;
+
+	u64			start_runtime;
+	u64			avg_wakeup;
+
 #ifdef CONFIG_SCHEDSTATS
 	u64			wait_start;
 	u64			wait_max;
@@ -1050,7 +1083,6 @@ struct sched_entity {
 	u64			exec_max;
 	u64			slice_max;
 
-	u64			nr_migrations;
 	u64			nr_migrations_cold;
 	u64			nr_failed_migrations_affine;
 	u64			nr_failed_migrations_running;
@@ -1147,6 +1179,7 @@ struct task_struct {
 #endif
 
 	struct list_head tasks;
+	struct plist_node pushable_tasks;
 
 	struct mm_struct *mm, *active_mm;
 
@@ -1161,10 +1194,9 @@ struct task_struct {
 	pid_t pid;
 	pid_t tgid;
 
-#ifdef CONFIG_CC_STACKPROTECTOR
 	/* Canary value for the -fstack-protector gcc feature */
 	unsigned long stack_canary;
-#endif
+
 	/* 
 	 * pointers to (original) parent process, youngest child, younger sibling,
 	 * older sibling, respectively.  (p->father can be replaced with 
@@ -1237,9 +1269,8 @@ struct task_struct {
 /* ipc stuff */
 	struct sysv_sem sysvsem;
 #endif
-#ifdef CONFIG_DETECT_SOFTLOCKUP
+#ifdef CONFIG_DETECT_HUNG_TASK
 /* hung task detection */
-	unsigned long last_switch_timestamp;
 	unsigned long last_switch_count;
 #endif
 /* CPU-specific state of this task */
@@ -1353,6 +1384,7 @@ struct task_struct {
 	struct list_head pi_state_list;
 	struct futex_pi_state *pi_state_cache;
 #endif
+	struct perf_counter_context perf_counter_ctx;
 #ifdef CONFIG_NUMA
 	struct mempolicy *mempolicy;
 	short il_next;
@@ -2070,6 +2102,19 @@ static inline int object_is_on_stack(void *obj)
 
 extern void thread_info_cache_init(void);
 
+#ifdef CONFIG_DEBUG_STACK_USAGE
+static inline unsigned long stack_not_used(struct task_struct *p)
+{
+	unsigned long *n = end_of_stack(p);
+
+	do { 	/* Skip over canary */
+		n++;
+	} while (!*n);
+
+	return (unsigned long)n - (unsigned long)end_of_stack(p);
+}
+#endif
+
 /* set thread flags in other task's structures
  * - see asm/thread_info.h for TIF_xxxx flags available
  */
@@ -2183,27 +2228,14 @@ static inline int spin_needbreak(spinlock_t *lock)
 /*
  * Thread group CPU time accounting.
  */
-
-static inline
-void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times)
-{
-	struct task_cputime *totals = &tsk->signal->cputime.totals;
-	unsigned long flags;
-
-	spin_lock_irqsave(&totals->lock, flags);
-	*times = *totals;
-	spin_unlock_irqrestore(&totals->lock, flags);
-}
+void thread_group_cputime(struct task_struct *tsk, struct task_cputime *times);
+void thread_group_cputimer(struct task_struct *tsk, struct task_cputime *times);
 
 static inline void thread_group_cputime_init(struct signal_struct *sig)
 {
-	sig->cputime.totals = (struct task_cputime){
-		.utime = cputime_zero,
-		.stime = cputime_zero,
-		.sum_exec_runtime = 0,
-	};
-
-	spin_lock_init(&sig->cputime.totals.lock);
+	sig->cputimer.cputime = INIT_CPUTIME;
+	spin_lock_init(&sig->cputimer.lock);
+	sig->cputimer.running = 0;
 }
 
 static inline void thread_group_cputime_free(struct signal_struct *sig)
@@ -2331,6 +2363,13 @@ static inline void inc_syscw(struct task_struct *tsk)
 #ifndef TASK_SIZE_OF
 #define TASK_SIZE_OF(tsk)	TASK_SIZE
 #endif
+
+/*
+ * Call the function if the target task is executing on a CPU right now:
+ */
+extern void task_oncpu_function_call(struct task_struct *p,
+				     void (*func) (void *info), void *info);
+
 
 #ifdef CONFIG_MM_OWNER
 extern void mm_update_next_owner(struct mm_struct *mm);

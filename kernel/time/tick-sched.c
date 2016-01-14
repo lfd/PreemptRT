@@ -180,6 +180,8 @@ void tick_nohz_stop_sched_tick(void)
 		goto end;
 
 	cpu = smp_processor_id();
+
+#ifndef CONFIG_PREEMPT_RT
 	if (unlikely(local_softirq_pending())) {
 		static int ratelimit;
 
@@ -189,6 +191,7 @@ void tick_nohz_stop_sched_tick(void)
 			ratelimit++;
 		}
 	}
+#endif
 
 	now = ktime_get();
 	/*

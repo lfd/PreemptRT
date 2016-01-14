@@ -49,6 +49,7 @@
 extern void __rcu_read_lock(void);
 extern void __rcu_read_unlock(void);
 extern int rcu_pending(int cpu);
+extern int rcu_needs_cpu(int cpu);
 
 #define __rcu_read_lock_bh()	{ rcu_read_lock(); local_bh_disable(); }
 #define __rcu_read_unlock_bh()	{ local_bh_enable(); rcu_read_unlock(); }
@@ -61,6 +62,8 @@ extern void __rcu_init(void);
 extern void rcu_check_callbacks(int cpu, int user);
 extern void rcu_restart_cpu(int cpu);
 extern long rcu_batches_completed(void);
+
+extern void rcu_process_callbacks(unsigned long unused);
 
 #endif /* __KERNEL__ */
 #endif /* __LINUX_RCUPREEMPT_H */

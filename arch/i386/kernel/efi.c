@@ -278,7 +278,7 @@ void efi_memmap_walk(efi_freemem_callback_t callback, void *arg)
 	struct range {
 		unsigned long start;
 		unsigned long end;
-	} prev, curr;
+	} prev = { } /* shut up gcc */ , curr = { } /* shut up gcc */ ;
 	efi_memory_desc_t *md;
 	unsigned long start, end;
 	void *p;

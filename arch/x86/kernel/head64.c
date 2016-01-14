@@ -10,6 +10,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include <linux/percpu.h>
+#include <linux/sched.h>
 
 #include <asm/processor.h>
 #include <asm/proto.h>
@@ -46,7 +47,7 @@ static void __init copy_bootdata(char *real_mode_data)
 	}
 }
 
-void __init x86_64_start_kernel(char * real_mode_data)
+void __init notrace x86_64_start_kernel(char * real_mode_data)
 {
 	int i;
 

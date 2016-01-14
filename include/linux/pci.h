@@ -198,6 +198,7 @@ struct pci_dev {
 	unsigned int	msix_enabled:1;
 	unsigned int	is_managed:1;
 	unsigned int	is_pcie:1;
+	int             cached_capabilities[PCI_CAP_LIST_NR_ENTRIES]; /* See pci_find_capability_cached */
 	pci_dev_flags_t dev_flags;
 	atomic_t	enable_cnt;	/* pci_enable_device has been called */
 
@@ -517,6 +518,7 @@ struct pci_dev __deprecated *pci_find_slot(unsigned int bus,
 #endif /* CONFIG_PCI_LEGACY */
 
 int pci_find_capability(struct pci_dev *dev, int cap);
+int pci_find_capability_cached(struct pci_dev *dev, int cap);
 int pci_find_next_capability(struct pci_dev *dev, u8 pos, int cap);
 int pci_find_ext_capability(struct pci_dev *dev, int cap);
 int pci_find_ht_capability(struct pci_dev *dev, int ht_cap);
@@ -872,6 +874,10 @@ static inline void pci_unregister_driver(struct pci_driver *drv)
 
 static inline int pci_find_capability(struct pci_dev *dev, int cap)
 {
+	return 0;
+}
+
+static inline int pci_find_capability_cached(struct pci_dev *dev, int cap) {
 	return 0;
 }
 

@@ -287,9 +287,15 @@ static void show_stack_log_lvl(struct task_struct *task, struct pt_regs *regs,
 			printk("\n%s       ", log_lvl);
 		printk("%08lx ", *stack++);
 	}
+
+	pause_on_oops_head();
+
 	printk("\n%sCall Trace:\n", log_lvl);
 	show_trace_log_lvl(task, regs, sp, bp, log_lvl);
 	debug_show_held_locks(task);
+
+	pause_on_oops_tail();
+
 }
 
 void show_stack(struct task_struct *task, unsigned long *sp)

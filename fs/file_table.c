@@ -253,7 +253,7 @@ struct filevec {
 	struct file *files[FILEVEC_SIZE];
 };
 
-static DEFINE_PER_CPU(struct filevec, sb_fvec);
+static DEFINE_PER_CPU_LOCKED(struct filevec, sb_fvec);
 
 static inline unsigned int filevec_size(struct filevec *fvec)
 {
@@ -334,20 +334,21 @@ static void __filevec_add(struct filevec *fvec)
 
 static void filevec_add_drain(void)
 {
-	struct filevec *fvec = &get_cpu_var(sb_fvec, &cpu);
+	int cpu;
+	struct filevec *fvec = &get_cpu_var_locked(sb_fvec, &cpu);
 	if (filevec_count(fvec))
 		__filevec_add(fvec);
-	put_cpu_var(sb_fvec, cpu);
+	put_cpu_var_locked(sb_fvec, cpu);
 }
 
-static void filevec_add_drain_per_cpu(struct work_struct *dummy)
+static void filevec_add_drain_per_cpu(void *dummy)
 {
 	filevec_add_drain();
 }
 
 int filevec_add_drain_all(void)
 {
-	return schedule_on_each_cpu(filevec_add_drain_per_cpu);
+	return schedule_on_each_cpu(filevec_add_drain_per_cpu, NULL);
 }
 EXPORT_SYMBOL_GPL(filevec_add_drain_all);
 
@@ -400,11 +401,12 @@ void file_move(struct file *file, struct list_head *list)
 
 	sb = file->f_mapping->host->i_sb;
 	if (list == &sb->s_files.head) {
-		struct filevec *fvec = &get_cpu_var(sb_fvec, &cpu);
+		int cpu;
+		struct filevec *fvec = &get_cpu_var_locked(sb_fvec, &cpu);
 		file_flag_set(file, F_SUPERBLOCK);
 		if (!filevec_add(fvec, file))
 			__filevec_add(fvec);
-		put_cpu_var(sb_fvec, cpu);
+		put_cpu_var_locked(sb_fvec, cpu);
 	} else {
 		file_list_lock();
 		list_add(&file->f_u.fu_list, list);

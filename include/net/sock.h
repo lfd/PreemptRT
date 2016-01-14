@@ -625,12 +625,12 @@ static inline void sk_refcnt_debug_release(const struct sock *sk)
 /* Called with local bh disabled */
 static __inline__ void sock_prot_inc_use(struct proto *prot)
 {
-	prot->stats[smp_processor_id()].inuse++;
+	prot->stats[raw_smp_processor_id()].inuse++;
 }
 
 static __inline__ void sock_prot_dec_use(struct proto *prot)
 {
-	prot->stats[smp_processor_id()].inuse--;
+	prot->stats[raw_smp_processor_id()].inuse--;
 }
 
 /* With per-bucket locks this operation is not-atomic, so that

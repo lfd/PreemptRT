@@ -608,10 +608,10 @@ static void schedule_tail_balance_rt(struct rq *rq)
 	 * first via finish_lock_switch and then reaquire it here.
 	 */
 	if (unlikely(rq->rt.rt_nr_running > 1)) {
-		spin_lock_irq(&rq->lock);
+		spin_lock(&rq->lock);
 		push_rt_tasks(rq);
 		schedstat_inc(rq, rto_schedule_tail);
-		spin_unlock_irq(&rq->lock);
+		spin_unlock(&rq->lock);
 	}
 }
 

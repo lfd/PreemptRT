@@ -12,6 +12,7 @@
  */
 
 #include <linux/bitops.h>
+#include <linux/kallsyms.h>
 #include <linux/module.h>
 #include <linux/types.h>
 #include <linux/kernel.h>
@@ -24,6 +25,7 @@
 #include <linux/init.h>
 #include <linux/rcupdate.h>
 #include <linux/list.h>
+#include <linux/delay.h>
 #include <net/pkt_sched.h>
 
 /* Main transmission queue. */
@@ -577,8 +579,12 @@ void dev_deactivate(struct net_device *dev)
 
 	/* Wait for outstanding qdisc_run calls. */
 	do {
+		/*
+		 * Wait for outstanding qdisc_run calls.
+		 * TODO: shouldnt this be wakeup-based, instead of polling it?
+		 */
 		while (test_bit(__LINK_STATE_QDISC_RUNNING, &dev->state))
-			yield();
+			msleep(1);
 
 		/*
 		 * Double-check inside queue lock to ensure that all effects

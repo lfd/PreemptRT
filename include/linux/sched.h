@@ -356,8 +356,6 @@ static inline void touch_all_softlockup_watchdogs(void)
 # define init_tracer()				do { } while (0)
 #endif
 
-extern int timeofday_API_hacks(void *tv, void *tz);
-
 #ifdef CONFIG_WAKEUP_TIMING
   extern int wakeup_timing;
   extern void __trace_start_sched_wakeup(struct task_struct *p);

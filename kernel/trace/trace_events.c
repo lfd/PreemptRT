@@ -46,7 +46,7 @@ sys_call(unsigned long nr, unsigned long p1, unsigned long p2, unsigned long p3)
 	unsigned long ip;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	tr = events_trace;
@@ -78,7 +78,7 @@ sys_ia32_call(unsigned long nr, unsigned long p1, unsigned long p2,
 	unsigned long ip;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	tr = events_trace;
@@ -108,7 +108,7 @@ sys_ret(unsigned long ret)
 	unsigned long ip;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	tr = events_trace;
@@ -137,7 +137,7 @@ event_irq_callback(int irq, int user, unsigned long ip)
 	int cpu;
 	long disable;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -164,7 +164,7 @@ event_fault_callback(unsigned long ip, unsigned long error, unsigned long addr)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	preempt_disable_notrace();
@@ -192,7 +192,7 @@ event_timer_set_callback(ktime_t *expires, struct hrtimer *timer)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -219,7 +219,7 @@ event_timer_triggered_callback(ktime_t *expires, struct hrtimer *timer)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -246,7 +246,7 @@ event_hrtimer_callback(ktime_t *time)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -273,7 +273,7 @@ event_program_event_callback(ktime_t *expires, int64_t *delta)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -301,7 +301,7 @@ event_task_activate_callback(struct task_struct *p, int rqcpu)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -328,7 +328,7 @@ event_task_deactivate_callback(struct task_struct *p, int rqcpu)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be off, we are in an interrupt */
@@ -355,7 +355,7 @@ event_wakeup_callback(struct rq *rq, struct task_struct *wakee)
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	/* interrupts should be disabled */
@@ -387,7 +387,7 @@ event_ctx_callback(struct rq *rq, struct task_struct *prev,
 	long disable;
 	int cpu;
 
-	if (!tracer_enabled)
+	if (!tracer_enabled || function_trace_stop)
 		return;
 
 	tracing_record_cmdline(prev);

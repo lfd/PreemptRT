@@ -297,8 +297,8 @@ int show_unhandled_signals = 1;
  *	bit 3 == 1 means use of reserved bit detected
  *	bit 4 == 1 means fault was an instruction fetch
  */
-fastcall void __kprobes do_page_fault(struct pt_regs *regs,
-				      unsigned long error_code)
+fastcall notrace void __kprobes do_page_fault(struct pt_regs *regs,
+					      unsigned long error_code)
 {
 	struct task_struct *tsk;
 	struct mm_struct *mm;
@@ -309,6 +309,7 @@ fastcall void __kprobes do_page_fault(struct pt_regs *regs,
 
 	/* get the address */
         address = read_cr2();
+	trace_special(regs->eip, error_code, address);
 
 	tsk = current;
 
@@ -498,6 +499,8 @@ bad_area_nosemaphore:
 
 		if (nr == 6) {
 		stop_trace();
+		user_trace_stop();
+		zap_rt_locks();
 			do_invalid_op(regs, 0);
 			return;
 		}

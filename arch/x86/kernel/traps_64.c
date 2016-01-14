@@ -575,7 +575,7 @@ int __kprobes __die(const char * str, struct pt_regs * regs, long err)
 {
 	static int die_counter;
 
-	ftrace_stop();
+	ftrace_halt();
 
 	printk(KERN_EMERG "%s: %04lx [%u] ", str, err & 0xffff,++die_counter);
 #ifdef CONFIG_PREEMPT

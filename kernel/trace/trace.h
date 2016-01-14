@@ -164,7 +164,7 @@ void update_max_tr_single(struct trace_array *tr,
 
 static inline notrace cycle_t now(int cpu)
 {
-	return cpu_clock(cpu);
+	return sched_clock();
 }
 
 #ifdef CONFIG_SCHED_TRACER

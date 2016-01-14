@@ -44,6 +44,7 @@
 #include <linux/seq_file.h>
 #include <linux/err.h>
 #include <linux/debugobjects.h>
+#include <linux/ftrace.h>
 
 #include <asm/uaccess.h>
 
@@ -840,6 +841,8 @@ static void enqueue_hrtimer(struct hrtimer *timer,
 
 	debug_hrtimer_activate(timer);
 
+	trace_event_timer_set(&timer->expires, timer);
+
 	/*
 	 * Find the right place in the rbtree:
 	 */
@@ -1293,6 +1296,7 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 
  retry:
 	now = ktime_get();
+	trace_event_timestamp(&now);
 
 	expires_next.tv64 = KTIME_MAX;
 
@@ -1320,6 +1324,8 @@ void hrtimer_interrupt(struct clock_event_device *dev)
 					expires_next = expires;
 				break;
 			}
+
+			trace_event_timer_triggered(&timer->expires, timer);
 
 			/* Move softirq callbacks to the pending list */
 			if (timer->cb_mode == HRTIMER_CB_SOFTIRQ) {

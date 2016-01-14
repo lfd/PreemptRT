@@ -1099,6 +1099,14 @@ struct sched_rt_entity {
 #endif
 };
 
+#ifdef CONFIG_PREEMPT_RT
+struct rw_mutex;
+struct reader_lock_struct {
+	struct rw_mutex *lock;
+	int count;
+};
+
+#endif
 struct task_struct {
 	volatile long state;	/* -1 unrunnable, 0 runnable, >0 stopped */
 	void *stack;
@@ -1326,6 +1334,12 @@ struct task_struct {
 #endif
 
 #define MAX_PREEMPT_TRACE 25
+#define MAX_RWLOCK_DEPTH 5
+
+#ifdef CONFIG_PREEMPT_RT
+	int reader_lock_count;
+	struct reader_lock_struct owned_read_locks[MAX_RWLOCK_DEPTH];
+#endif
 
 #ifdef CONFIG_PREEMPT_TRACE
 	unsigned long preempt_trace_eip[MAX_PREEMPT_TRACE];

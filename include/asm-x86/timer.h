@@ -43,12 +43,12 @@ DECLARE_PER_CPU(unsigned long, cyc2ns);
 
 #define CYC2NS_SCALE_FACTOR 10 /* 2^10, carefully chosen */
 
-static inline unsigned long long __cycles_2_ns(unsigned long long cyc)
+static inline notrace unsigned long long __cycles_2_ns(unsigned long long cyc)
 {
 	return cyc * per_cpu(cyc2ns, smp_processor_id()) >> CYC2NS_SCALE_FACTOR;
 }
 
-static inline unsigned long long cycles_2_ns(unsigned long long cyc)
+static inline notrace unsigned long long cycles_2_ns(unsigned long long cyc)
 {
 	unsigned long long ns;
 	unsigned long flags;

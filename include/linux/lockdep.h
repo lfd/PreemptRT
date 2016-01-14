@@ -347,8 +347,8 @@ do {								\
 	if (!f_try(&(_lock)->lock)) {				\
 		lock_contended(&(_lock)->dep_map, _RET_IP_);	\
 		f_lock(&(_lock)->lock);				\
-		lock_acquired(&(_lock)->dep_map);		\
 	}							\
+	lock_acquired(&(_lock)->dep_map);			\
 } while (0)
 
 
@@ -358,9 +358,9 @@ do {								\
 	if (!f_try(&(_lock)->lock)) {				\
 		lock_contended(&(_lock)->dep_map, _RET_IP_);	\
 		ret = f_lock(&(_lock)->lock);			\
- 		if (!ret)					\
-			lock_acquired(&(_lock)->dep_map);	\
 	}							\
+	if (!ret)						\
+		lock_acquired(&(_lock)->dep_map);		\
  	ret;							\
 })
 

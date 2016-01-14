@@ -44,7 +44,7 @@ union smp_flush_state {
 		cpumask_t flush_cpumask;
 		struct mm_struct *flush_mm;
 		unsigned long flush_va;
-		spinlock_t tlbstate_lock;
+		raw_spinlock_t tlbstate_lock;
 	};
 	char pad[SMP_CACHE_BYTES];
 } ____cacheline_aligned;

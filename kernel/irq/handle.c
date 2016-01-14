@@ -54,12 +54,13 @@ struct irq_desc irq_desc[NR_IRQS] __cacheline_aligned_in_smp = {
 		.chip = &no_irq_chip,
 		.handle_irq = handle_bad_irq,
 		.depth = 1,
-		.lock = __SPIN_LOCK_UNLOCKED(irq_desc->lock),
+		.lock = RAW_SPIN_LOCK_UNLOCKED(irq_desc),
 #ifdef CONFIG_SMP
 		.affinity = CPU_MASK_ALL
 #endif
 	}
 };
+EXPORT_SYMBOL_GPL(irq_desc);
 
 /*
  * What should we do if we get a hw irq event on an illegal vector?
@@ -151,6 +152,7 @@ irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action)
 
 		ret = action->handler(irq, action->dev_id);
 		if (preempt_count() != preempt_count) {
+			stop_trace();
 			print_symbol("BUG: unbalanced irq-handler preempt count in %s!\n", (unsigned long) action->handler);
 			printk("entered with %08x, exited with %08x.\n", preempt_count, preempt_count());
 			dump_stack();
@@ -225,7 +227,7 @@ int redirect_hardirq(struct irq_desc *desc)
  * This is the original x86 implementation which is used for every
  * interrupt type.
  */
-fastcall unsigned int __do_IRQ(unsigned int irq)
+fastcall notrace unsigned int __do_IRQ(unsigned int irq)
 {
 	struct irq_desc *desc = irq_desc + irq;
 	struct irqaction *action;
@@ -246,6 +248,13 @@ fastcall unsigned int __do_IRQ(unsigned int irq)
 		desc->chip->end(irq);
 		return 1;
 	}
+	/*
+	 * If the task is currently running in user mode, don't
+	 * detect soft lockups.  If CONFIG_DETECT_SOFTLOCKUP is not
+	 * configured, this should be optimized out.
+	 */
+	if (user_mode(get_irq_regs()))
+		touch_softlockup_watchdog();
 
 	spin_lock(&desc->lock);
 	if (desc->chip->ack)

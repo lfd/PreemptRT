@@ -50,7 +50,7 @@ static unsigned long mcount_addr = MCOUNT_ADDR;
  */
 static int ftrace_disabled __read_mostly;
 
-static DEFINE_SPINLOCK(ftrace_lock);
+static DEFINE_RAW_SPINLOCK(ftrace_lock);
 static DEFINE_MUTEX(ftrace_sysctl_lock);
 
 static struct ftrace_ops ftrace_list_end __read_mostly =
@@ -191,7 +191,7 @@ void ftrace_enable(void)
  * callers are dynamic. That is, by the caller themselves and
  * not recorded via the compilation.
  */
-static DEFINE_SPINLOCK(ftrace_hash_lock);
+static DEFINE_RAW_SPINLOCK(ftrace_hash_lock);
 #define ftrace_hash_lock(flags)	  spin_lock_irqsave(&ftrace_hash_lock, flags)
 #define ftrace_hash_unlock(flags) \
 			spin_unlock_irqrestore(&ftrace_hash_lock, flags)

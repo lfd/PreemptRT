@@ -89,55 +89,55 @@ __asm__ __volatile__ ("movw %%dx,%1\n\t" \
 	asm volatile("mov %%" #seg ",%0":"=rm" (value))
 
 
-static inline void native_clts(void)
+static fastcall inline void native_clts(void)
 {
 	asm volatile ("clts");
 }
 
-static inline unsigned long native_read_cr0(void)
+static fastcall inline unsigned long native_read_cr0(void)
 {
 	unsigned long val;
 	asm volatile("movl %%cr0,%0\n\t" :"=r" (val));
 	return val;
 }
 
-static inline void native_write_cr0(unsigned long val)
+static fastcall inline void native_write_cr0(unsigned long val)
 {
 	asm volatile("movl %0,%%cr0": :"r" (val));
 }
 
-static inline unsigned long native_read_cr2(void)
+static fastcall inline unsigned long native_read_cr2(void)
 {
 	unsigned long val;
 	asm volatile("movl %%cr2,%0\n\t" :"=r" (val));
 	return val;
 }
 
-static inline void native_write_cr2(unsigned long val)
+static fastcall inline void native_write_cr2(unsigned long val)
 {
 	asm volatile("movl %0,%%cr2": :"r" (val));
 }
 
-static inline unsigned long native_read_cr3(void)
+static fastcall inline unsigned long native_read_cr3(void)
 {
 	unsigned long val;
 	asm volatile("movl %%cr3,%0\n\t" :"=r" (val));
 	return val;
 }
 
-static inline void native_write_cr3(unsigned long val)
+static fastcall inline void native_write_cr3(unsigned long val)
 {
 	asm volatile("movl %0,%%cr3": :"r" (val));
 }
 
-static inline unsigned long native_read_cr4(void)
+static fastcall inline unsigned long native_read_cr4(void)
 {
 	unsigned long val;
 	asm volatile("movl %%cr4,%0\n\t" :"=r" (val));
 	return val;
 }
 
-static inline unsigned long native_read_cr4_safe(void)
+static fastcall inline unsigned long native_read_cr4_safe(void)
 {
 	unsigned long val;
 	/* This could fault if %cr4 does not exist */
@@ -150,12 +150,12 @@ static inline unsigned long native_read_cr4_safe(void)
 	return val;
 }
 
-static inline void native_write_cr4(unsigned long val)
+static fastcall inline void native_write_cr4(unsigned long val)
 {
 	asm volatile("movl %0,%%cr4": :"r" (val));
 }
 
-static inline void native_wbinvd(void)
+static fastcall inline void native_wbinvd(void)
 {
 	asm volatile("wbinvd": : :"memory");
 }

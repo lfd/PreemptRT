@@ -1454,6 +1454,8 @@ static void __resched_task(struct task_struct *p, int tif_bit)
 
 	set_tsk_thread_flag(p, tif_bit);
 
+	trace_sched_resched_task(p, task_cpu(p));
+
 	cpu = task_cpu(p);
 	if (cpu == smp_processor_id())
 		return;

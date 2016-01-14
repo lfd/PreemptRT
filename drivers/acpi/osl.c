@@ -1050,6 +1050,17 @@ unsigned int max_cstate = ACPI_PROCESSOR_MAX_POWER;
 
 EXPORT_SYMBOL(max_cstate);
 
+void (*acpi_do_set_cstate_limit)(void);
+EXPORT_SYMBOL(acpi_do_set_cstate_limit);
+
+void acpi_set_cstate_limit(unsigned int new_limit)
+{
+	max_cstate = new_limit;
+	if (acpi_do_set_cstate_limit)
+		acpi_do_set_cstate_limit();
+}
+EXPORT_SYMBOL(acpi_set_cstate_limit);
+
 /*
  * Acquire a spinlock.
  *

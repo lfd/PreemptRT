@@ -44,6 +44,9 @@ struct sched_param {
 	int sched_priority;
 };
 
+#define DEFINE_PER_CPU_SHARED_ALIGNED(x, y) \
+		DEFINE_PER_CPU(x, y) ____cacheline_aligned_in_smp
+
 #include <asm/param.h>	/* for HZ */
 
 #include <linux/capability.h>
@@ -2044,10 +2047,6 @@ extern void set_task_cpu(struct task_struct *p, unsigned int cpu);
 static inline unsigned int task_cpu(const struct task_struct *p)
 {
 	return 0;
-}
-
-static inline void __set_task_cpu(struct task_struct *p, unsigned int cpu)
-{
 }
 
 static inline void set_task_cpu(struct task_struct *p, unsigned int cpu)

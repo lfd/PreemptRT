@@ -16,8 +16,6 @@
 #include <linux/kallsyms.h>
 #include <linux/utsname.h>
 
-typedef void (*print_fn_t)(struct seq_file *m, unsigned int *classes);
-
 /*
  * This allows printing both to /proc/sched_debug and
  * to the console
@@ -173,7 +171,7 @@ static int sched_debug_show(struct seq_file *m, void *v)
 	u64 now = ktime_to_ns(ktime_get());
 	int cpu;
 
-	SEQ_printf(m, "Sched Debug Version: v0.04, cfs-v20, %s %.*s\n",
+	SEQ_printf(m, "Sched Debug Version: v0.05, %s %.*s\n",
 		init_utsname()->release,
 		(int)strcspn(init_utsname()->version, " "),
 		init_utsname()->version);
@@ -264,7 +262,8 @@ void proc_sched_show_task(struct task_struct *p, struct seq_file *m)
 
 		t0 = sched_clock();
 		t1 = sched_clock();
-		SEQ_printf(m, "%-25s:%20Ld\n", "clock-delta", (long long)(t1-t0));
+		SEQ_printf(m, "%-25s:%20Ld\n",
+			   "clock-delta", (long long)(t1-t0));
 	}
 }
 

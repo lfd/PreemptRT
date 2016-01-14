@@ -4,7 +4,7 @@
 #include <linux/efi.h>
 #include "mach_time.h"
 
-static inline unsigned long native_get_wallclock(void)
+static fastcall inline unsigned long native_get_wallclock(void)
 {
 	unsigned long retval;
 
@@ -16,7 +16,7 @@ static inline unsigned long native_get_wallclock(void)
 	return retval;
 }
 
-static inline int native_set_wallclock(unsigned long nowtime)
+static fastcall inline int native_set_wallclock(unsigned long nowtime)
 {
 	int retval;
 

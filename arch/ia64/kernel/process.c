@@ -94,6 +94,9 @@ show_stack (struct task_struct *task, unsigned long *sp)
 void
 dump_stack (void)
 {
+	if (irqs_disabled()) {
+		printk("Uh oh.. entering dump_stack() with irqs disabled.\n");
+	}
 	show_stack(NULL, NULL);
 }
 
@@ -197,7 +200,7 @@ void
 default_idle (void)
 {
 	local_irq_enable();
-	while (!need_resched()) {
+	while (!need_resched() && !need_resched_delayed()) {
 		if (can_do_pal_halt)
 			safe_halt();
 		else
@@ -281,7 +284,7 @@ cpu_idle (void)
 			current_thread_info()->status |= TS_POLLING;
 		}
 
-		if (!need_resched()) {
+		if (!need_resched() && !need_resched_delayed()) {
 			void (*idle)(void);
 #ifdef CONFIG_SMP
 			min_xtp();
@@ -303,10 +306,11 @@ cpu_idle (void)
 			normal_xtp();
 #endif
 		}
-		preempt_enable_no_resched();
-		schedule();
+		__preempt_enable_no_resched();
+		__schedule();
+
 		preempt_disable();
-		check_pgt_cache();
+
 		if (cpu_is_offline(cpu))
 			play_dead();
 	}

@@ -28,6 +28,10 @@ config GENERIC_TIME
 	bool
 	default y
 
+config GENERIC_CLOCKEVENTS_MIGR
+	bool
+	default y
+
 config GENERIC_TIME_VSYSCALL
 	bool
 	default y
@@ -137,6 +141,8 @@ source "init/Kconfig"
 
 
 menu "Processor type and features"
+
+source "kernel/time/Kconfig"
 
 choice
 	prompt "Subarchitecture Type"

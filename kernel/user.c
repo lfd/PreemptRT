@@ -108,15 +108,16 @@ void free_uid(struct user_struct *up)
 	if (!up)
 		return;
 
-	local_irq_save(flags);
+	local_irq_save_nort(flags);
 	if (atomic_dec_and_lock(&up->__count, &uidhash_lock)) {
 		uid_hash_remove(up);
-		spin_unlock_irqrestore(&uidhash_lock, flags);
+		spin_unlock(&uidhash_lock);
+		local_irq_restore_nort(flags);
 		key_put(up->uid_keyring);
 		key_put(up->session_keyring);
 		kmem_cache_free(uid_cachep, up);
 	} else {
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 	}
 }
 

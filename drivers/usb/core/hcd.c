@@ -523,13 +523,11 @@ error:
 	}
 
 	/* any errors get returned through the urb completion */
-	local_irq_save (flags);
-	spin_lock (&urb->lock);
+	spin_lock_irqsave(&urb->lock, flags);
 	if (urb->status == -EINPROGRESS)
 		urb->status = status;
-	spin_unlock (&urb->lock);
+	spin_unlock_irqrestore(&urb->lock, flags);
 	usb_hcd_giveback_urb (hcd, urb);
-	local_irq_restore (flags);
 	return 0;
 }
 
@@ -559,8 +557,7 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 	if (length > 0) {
 
 		/* try to complete the status urb */
-		local_irq_save (flags);
-		spin_lock(&hcd_root_hub_lock);
+		spin_lock_irqsave(&hcd_root_hub_lock, flags);
 		urb = hcd->status_urb;
 		if (urb) {
 			spin_lock(&urb->lock);
@@ -576,14 +573,13 @@ void usb_hcd_poll_rh_status(struct usb_hcd *hcd)
 			spin_unlock(&urb->lock);
 		} else
 			length = 0;
-		spin_unlock(&hcd_root_hub_lock);
+		spin_unlock_irqrestore(&hcd_root_hub_lock, flags);
 
 		/* local irqs are always blocked in completions */
 		if (length > 0)
 			usb_hcd_giveback_urb (hcd, urb);
 		else
 			hcd->poll_pending = 1;
-		local_irq_restore (flags);
 	}
 
 	/* The USB 2.0 spec says 256 ms.  This is close enough and won't
@@ -657,17 +653,15 @@ static int usb_rh_urb_dequeue (struct usb_hcd *hcd, struct urb *urb)
 	} else {				/* Status URB */
 		if (!hcd->uses_new_polling)
 			del_timer (&hcd->rh_timer);
-		local_irq_save (flags);
-		spin_lock (&hcd_root_hub_lock);
+		spin_lock_irqsave(&hcd_root_hub_lock, flags);
 		if (urb == hcd->status_urb) {
 			hcd->status_urb = NULL;
 			urb->hcpriv = NULL;
 		} else
 			urb = NULL;		/* wasn't fully queued */
-		spin_unlock (&hcd_root_hub_lock);
+		spin_unlock_irqrestore(&hcd_root_hub_lock, flags);
 		if (urb)
 			usb_hcd_giveback_urb (hcd, urb);
-		local_irq_restore (flags);
 	}
 
 	return 0;
@@ -1200,13 +1194,13 @@ void usb_hcd_endpoint_disable (struct usb_device *udev,
 {
 	struct usb_hcd		*hcd;
 	struct urb		*urb;
+	unsigned long		flags;
 
 	hcd = bus_to_hcd(udev->bus);
-	local_irq_disable ();
 
 	/* ep is already gone from udev->ep_{in,out}[]; no more submits */
 rescan:
-	spin_lock(&hcd_urb_list_lock);
+	spin_lock_irqsave(&hcd_urb_list_lock, flags);
 	list_for_each_entry (urb, &ep->urb_list, urb_list) {
 		int	tmp;
 
@@ -1243,8 +1237,7 @@ rescan:
 		/* list contents may have changed */
 		goto rescan;
 	}
-	spin_unlock(&hcd_urb_list_lock);
-	local_irq_enable ();
+	spin_unlock_irqrestore(&hcd_urb_list_lock, flags);
 
 	/* synchronize with the hardware, so old configuration state
 	 * clears out immediately (and will be freed).

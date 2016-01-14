@@ -685,7 +685,7 @@ static unsigned map_pid_to_cmdline[PID_MAX_DEFAULT+1];
 static unsigned map_cmdline_to_pid[SAVED_CMDLINES];
 static char saved_cmdlines[SAVED_CMDLINES][TASK_COMM_LEN];
 static int cmdline_idx;
-static DEFINE_SPINLOCK(trace_cmdline_lock);
+static DEFINE_RAW_SPINLOCK(trace_cmdline_lock);
 
 /* temporary disable recording */
 atomic_t trace_record_cmdline_disabled __read_mostly;
@@ -3483,7 +3483,7 @@ static __init void tracer_init_debugfs(void)
 
 int __ftrace_printk(unsigned long ip, const char *fmt, ...)
 {
-	static DEFINE_SPINLOCK(trace_buf_lock);
+	static DEFINE_RAW_SPINLOCK(trace_buf_lock);
 	static char trace_buf[TRACE_BUF_SIZE];
 
 	struct trace_array *tr = &global_trace;
@@ -3612,7 +3612,7 @@ trace_printk_seq(struct trace_seq *s)
 
 void ftrace_dump(void)
 {
-	static DEFINE_SPINLOCK(ftrace_dump_lock);
+	static DEFINE_RAW_SPINLOCK(ftrace_dump_lock);
 	/* use static because iter can be a bit big for the stack */
 	static struct trace_iterator iter;
 	struct trace_array_cpu *data;

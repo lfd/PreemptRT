@@ -1415,8 +1415,17 @@ static int try_to_wake_up(struct task_struct *p, unsigned int state, int sync)
 	schedstat_inc(rq, ttwu_cnt);
 	if (cpu == this_cpu)
 		schedstat_inc(rq, ttwu_local);
-	else
-		schedstat_inc(rq->sd, ttwu_wake_remote);
+	else {
+#ifdef CONFIG_SCHEDSTATS
+		struct sched_domain *sd;
+		for_each_domain(this_cpu, sd) {
+			if (cpu_isset(cpu, sd->span)) {
+				schedstat_inc(sd, ttwu_wake_remote);
+				break;
+			}
+		}
+#endif /* CONFIG_SCHEDSTATES */
+	}
 
 	new_cpu = p->sched_class->select_task_rq(p, sync);
 	if (new_cpu != cpu) {

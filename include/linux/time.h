@@ -126,6 +126,7 @@ s64 __get_nsec_offset(void);
 extern struct timespec timespec_trunc(struct timespec t, unsigned gran);
 extern int timekeeping_is_continuous(void);
 extern void update_wall_time(void);
+extern void warp_check_clock_was_changed(void);
 
 /**
  * timespec_to_ns - Convert timespec to nanoseconds

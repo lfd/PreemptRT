@@ -1,6 +1,2 @@
-#ifndef __ASM_I8253_H__
-#define __ASM_I8253_H__
-
-extern spinlock_t i8253_lock;
-
-#endif	/* __ASM_I8253_H__ */
+#include <asm-i386/i8253.h>
+#include <asm/8253pit.h>

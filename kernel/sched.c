@@ -1499,6 +1499,14 @@ static void balance_rt_tasks(struct rq *this_rq, int this_cpu)
 			 * in another runqueue. (low likelyhood
 			 * but possible)
 			 */
+
+			/*
+			 * Update next so that we won't pick a task
+			 * on another cpu with a priority lower (or equal)
+			 * than the one we just picked.
+			 */
+			next = p;
+
 		}
 		spin_unlock(&src_rq->lock);
 	}

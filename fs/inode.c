@@ -244,7 +244,7 @@ void clear_inode(struct inode *inode)
 	might_sleep();
 	invalidate_inode_buffers(inode);
        
-	BUG_ON(inode->i_data.nrpages);
+	BUG_ON(mapping_nrpages(&inode->i_data));
 	BUG_ON(!(inode->i_state & I_FREEING));
 	BUG_ON(inode->i_state & I_CLEAR);
 	wait_on_inode(inode);
@@ -277,7 +277,7 @@ static void dispose_list(struct list_head *head)
 		inode = list_first_entry(head, struct inode, i_list);
 		list_del(&inode->i_list);
 
-		if (inode->i_data.nrpages)
+		if (mapping_nrpages(&inode->i_data))
 			truncate_inode_pages(&inode->i_data, 0);
 		clear_inode(inode);
 
@@ -369,7 +369,7 @@ static int can_unuse(struct inode *inode)
 		return 0;
 	if (atomic_read(&inode->i_count))
 		return 0;
-	if (inode->i_data.nrpages)
+	if (mapping_nrpages(&inode->i_data))
 		return 0;
 	return 1;
 }
@@ -408,7 +408,7 @@ static void prune_icache(int nr_to_scan)
 			list_move(&inode->i_list, &inode_unused);
 			continue;
 		}
-		if (inode_has_buffers(inode) || inode->i_data.nrpages) {
+		if (inode_has_buffers(inode) || mapping_nrpages(&inode->i_data)) {
 			__iget(inode);
 			spin_unlock(&inode_lock);
 			if (remove_inode_buffers(inode))
@@ -1073,7 +1073,7 @@ static void generic_forget_inode(struct inode *inode)
 	inode->i_state |= I_FREEING;
 	inodes_stat.nr_inodes--;
 	spin_unlock(&inode_lock);
-	if (inode->i_data.nrpages)
+	if (mapping_nrpages(&inode->i_data))
 		truncate_inode_pages(&inode->i_data, 0);
 	clear_inode(inode);
 	wake_up_inode(inode);

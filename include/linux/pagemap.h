@@ -64,6 +64,28 @@ static inline void mapping_set_gfp_mask(struct address_space *m, gfp_t mask)
 #define page_cache_release(page)	put_page(page)
 void release_pages(struct page **pages, int nr, int cold);
 
+static inline void set_page_no_new_refs(struct page *page)
+{
+	VM_BUG_ON(PageNoNewRefs(page));
+	preempt_disable();
+	SetPageNoNewRefs(page);
+	smp_wmb();
+}
+
+static inline void end_page_no_new_refs(struct page *page)
+{
+	VM_BUG_ON(!PageNoNewRefs(page));
+	smp_wmb();
+	ClearPageNoNewRefs(page);
+	preempt_enable();
+}
+
+static inline void wait_on_new_refs(struct page *page)
+{
+	while (unlikely(PageNoNewRefs(page)))
+		cpu_relax();
+}
+
 /*
  * speculatively take a reference to a page.
  * If the page is free (_count == 0), then _count is untouched, and 0
@@ -139,8 +161,7 @@ static inline int page_cache_get_speculative(struct page *page)
 	 * page refcount has been raised. See below comment.
 	 */
 
-	while (unlikely(PageNoNewRefs(page)))
-		cpu_relax();
+	wait_on_new_refs(page);
 
 	/*
 	 * smp_rmb is to ensure the load of page->flags (for PageNoNewRefs())

@@ -133,7 +133,7 @@ void pgtable_free_tlb(struct mmu_gather *tlb, pgtable_free_t pgf)
 void hpte_need_flush(struct mm_struct *mm, unsigned long addr,
 		     pte_t *ptep, unsigned long pte, int huge)
 {
-	struct ppc64_tlb_batch *batch = &__get_cpu_var(ppc64_tlb_batch);
+	struct ppc64_tlb_batch *batch = &get_cpu_var(ppc64_tlb_batch);
 	unsigned long vsid, vaddr;
 	unsigned int psize;
 	real_pte_t rpte;
@@ -180,6 +180,7 @@ void hpte_need_flush(struct mm_struct *mm, unsigned long addr,
 	 */
 	if (!batch->active) {
 		flush_hash_page(vaddr, rpte, psize, 0);
+		put_cpu_var(ppc64_tlb_batch);
 		return;
 	}
 
@@ -212,12 +213,14 @@ void hpte_need_flush(struct mm_struct *mm, unsigned long addr,
 	 */
 	if (machine_is(celleb)) {
 		__flush_tlb_pending(batch);
+		put_cpu_var(ppc64_tlb_batch);
 		return;
 	}
 #endif /* CONFIG_PREEMPT_RT */
 
 	if (i >= PPC64_TLB_BATCH_NR)
 		__flush_tlb_pending(batch);
+	put_cpu_var(ppc64_tlb_batch);
 }
 
 /*

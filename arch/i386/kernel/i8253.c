@@ -13,7 +13,6 @@
 #include <asm/delay.h>
 #include <asm/i8253.h>
 #include <asm/io.h>
-#include <asm/timer.h>
 
 DEFINE_SPINLOCK(i8253_lock);
 EXPORT_SYMBOL(i8253_lock);

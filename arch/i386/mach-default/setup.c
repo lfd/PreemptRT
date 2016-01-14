@@ -35,7 +35,7 @@ void __init pre_intr_init_hook(void)
 /*
  * IRQ2 is cascade interrupt to second interrupt controller
  */
-static struct irqaction irq2 = { no_action, 0, CPU_MASK_NONE, "cascade", NULL, NULL};
+static struct irqaction irq2 = { no_action, IRQF_NODELAY, CPU_MASK_NONE, "cascade", NULL, NULL};
 
 /**
  * intr_init_hook - post gate setup interrupt initialisation
@@ -81,7 +81,7 @@ void __init trap_init_hook(void)
 
 static struct irqaction irq0  = {
 	.handler = timer_interrupt,
-	.flags = IRQF_DISABLED | IRQF_NOBALANCING | IRQF_IRQPOLL,
+	.flags = IRQF_DISABLED | IRQF_NOBALANCING | IRQF_IRQPOLL | IRQF_NODELAY,
 	.mask = CPU_MASK_NONE,
 	.name = "timer"
 };

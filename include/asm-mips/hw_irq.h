@@ -10,6 +10,7 @@
 
 #include <linux/profile.h>
 #include <asm/atomic.h>
+#include <linux/irqflags.h>
 
 extern void disable_8259A_irq(unsigned int irq);
 extern void enable_8259A_irq(unsigned int irq);

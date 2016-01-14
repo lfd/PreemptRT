@@ -137,6 +137,7 @@ static inline void warp_clock(void)
 	wall_to_monotonic.tv_sec -= sys_tz.tz_minuteswest * 60;
 	xtime.tv_sec += sys_tz.tz_minuteswest * 60;
 	time_interpolator_reset();
+	warp_check_clock_was_changed();
 	write_sequnlock_irq(&xtime_lock);
 	clock_was_set();
 }
@@ -351,6 +352,7 @@ int do_settimeofday (struct timespec *tv)
 		time_esterror = NTP_PHASE_LIMIT;
 		time_interpolator_reset();
 	}
+	warp_check_clock_was_changed();
 	write_sequnlock_irq(&xtime_lock);
 	clock_was_set();
 	return 0;

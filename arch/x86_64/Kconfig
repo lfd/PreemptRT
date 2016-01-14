@@ -721,6 +721,10 @@ config GENERIC_PENDING_IRQ
 	depends on GENERIC_HARDIRQS && SMP
 	default y
 
+config HARDIRQS_SW_RESEND
+	bool
+	default y
+
 menu "Power management options"
 
 source kernel/power/Kconfig

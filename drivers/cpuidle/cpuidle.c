@@ -25,7 +25,6 @@ DEFINE_MUTEX(cpuidle_lock);
 LIST_HEAD(cpuidle_detected_devices);
 static void (*pm_idle_old)(void);
 
-
 /**
  * cpuidle_idle_call - the main idle loop
  *

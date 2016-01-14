@@ -2904,7 +2904,10 @@ static void decache_vcpus_on_cpu(int cpu)
 	struct kvm_vcpu *vcpu;
 	int i;
 
+/* hack for now: */
+#ifndef CONFIG_PREEMPT_RT
 	spin_lock(&kvm_lock);
+#endif
 	list_for_each_entry(vm, &vm_list, vm_list)
 		for (i = 0; i < KVM_MAX_VCPUS; ++i) {
 			vcpu = &vm->vcpus[i];
@@ -2924,7 +2927,9 @@ static void decache_vcpus_on_cpu(int cpu)
 				mutex_unlock(&vcpu->mutex);
 			}
 		}
+#ifndef CONFIG_PREEMPT_RT
 	spin_unlock(&kvm_lock);
+#endif
 }
 
 static void hardware_enable(void *junk)

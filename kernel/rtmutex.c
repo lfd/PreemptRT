@@ -1790,6 +1790,12 @@ rt_read_slowunlock(struct rw_mutex *rwm, int mtx)
 
 	wakeup_next_waiter(mutex, savestate);
 
+	if (rt_mutex_has_waiters(mutex)) {
+		waiter = rt_mutex_top_waiter(mutex);
+		rwm->prio = waiter->task->prio;
+	} else
+		rwm->prio = MAX_PRIO;
+
  out:
 	spin_unlock_irqrestore(&mutex->wait_lock, flags);
 
@@ -1930,7 +1936,11 @@ rt_write_slowunlock(struct rw_mutex *rwm, int mtx)
 		plist_del(&next->pi_list_entry, &pendowner->pi_waiters);
 		/* add back in as top waiter */
 		plist_add(&next->pi_list_entry, &pendowner->pi_waiters);
-	}
+
+		rwm->prio = next->task->prio;
+	} else
+		rwm->prio = MAX_PRIO;
+
 	spin_unlock(&pendowner->pi_lock);
 
  out:

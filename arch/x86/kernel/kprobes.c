@@ -451,7 +451,7 @@ static void __kprobes setup_singlestep(struct kprobe *p, struct pt_regs *regs,
 		/* Boost up -- we can execute copied instructions directly */
 		reset_current_kprobe();
 		regs->ip = (unsigned long)p->ainsn.insn;
-		preempt_enable_no_resched();
+		preempt_enable();
 		return;
 	}
 #endif
@@ -477,7 +477,7 @@ static int __kprobes reenter_kprobe(struct kprobe *p, struct pt_regs *regs,
 		arch_disarm_kprobe(p);
 		regs->ip = (unsigned long)p->addr;
 		reset_current_kprobe();
-		preempt_enable_no_resched();
+		preempt_enable();
 		break;
 #endif
 	case KPROBE_HIT_ACTIVE:
@@ -573,7 +573,7 @@ static int __kprobes kprobe_handler(struct pt_regs *regs)
 		}
 	} /* else: not a kprobe fault; let the kernel handle it */
 
-	preempt_enable_no_resched();
+	preempt_enable();
 	return 0;
 }
 
@@ -874,7 +874,7 @@ static int __kprobes post_kprobe_handler(struct pt_regs *regs)
 	}
 	reset_current_kprobe();
 out:
-	preempt_enable_no_resched();
+	preempt_enable();
 
 	/*
 	 * if somebody else is singlestepping across a probe point, flags
@@ -908,7 +908,7 @@ int __kprobes kprobe_fault_handler(struct pt_regs *regs, int trapnr)
 			restore_previous_kprobe(kcb);
 		else
 			reset_current_kprobe();
-		preempt_enable_no_resched();
+		preempt_enable();
 		break;
 	case KPROBE_HIT_ACTIVE:
 	case KPROBE_HIT_SSDONE:
@@ -1049,7 +1049,7 @@ int __kprobes longjmp_break_handler(struct kprobe *p, struct pt_regs *regs)
 		memcpy((kprobe_opcode_t *)(kcb->jprobe_saved_sp),
 		       kcb->jprobes_stack,
 		       MIN_STACK_SIZE(kcb->jprobe_saved_sp));
-		preempt_enable_no_resched();
+		preempt_enable();
 		return 1;
 	}
 	return 0;

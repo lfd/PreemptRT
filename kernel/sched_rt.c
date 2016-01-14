@@ -115,6 +115,7 @@ static void sched_rt_rq_dequeue(struct rt_rq *rt_rq)
 
 static inline int rt_rq_throttled(struct rt_rq *rt_rq)
 {
+	return 0;
 	return rt_rq->rt_throttled && !rt_rq->rt_nr_boosted;
 }
 
@@ -174,6 +175,7 @@ static inline void sched_rt_rq_dequeue(struct rt_rq *rt_rq)
 
 static inline int rt_rq_throttled(struct rt_rq *rt_rq)
 {
+	return 0;
 	return rt_rq->rt_throttled;
 }
 #endif
@@ -194,6 +196,7 @@ static int sched_rt_runtime_exceeded(struct rt_rq *rt_rq)
 {
 	u64 runtime = sched_rt_runtime(rt_rq);
 
+	return 0;
 	if (runtime == RUNTIME_INF)
 		return 0;
 
@@ -220,6 +223,7 @@ static void update_sched_rt_period(struct rq *rq)
 	struct rt_rq *rt_rq;
 	u64 period;
 
+	return;
 	while (rq->clock > rq->rt_period_expire) {
 		period = (u64)sysctl_sched_rt_period * NSEC_PER_USEC;
 		rq->rt_period_expire += period;
@@ -262,7 +266,7 @@ static void update_curr_rt(struct rq *rq)
 	curr->se.exec_start = rq->clock;
 	cpuacct_charge(curr, delta_exec);
 
-	rt_rq->rt_time += delta_exec;
+//	rt_rq->rt_time += delta_exec;
 	if (sched_rt_runtime_exceeded(rt_rq))
 		resched_task(curr);
 }

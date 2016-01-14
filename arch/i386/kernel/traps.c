@@ -280,6 +280,12 @@ void dump_stack(void)
 
 EXPORT_SYMBOL(dump_stack);
 
+#if defined(CONFIG_DEBUG_STACKOVERFLOW) && defined(CONFIG_EVENT_TRACE)
+extern unsigned long worst_stack_left;
+#else
+# define worst_stack_left -1L
+#endif
+
 void show_registers(struct pt_regs *regs)
 {
 	int i;
@@ -308,8 +314,12 @@ void show_registers(struct pt_regs *regs)
 		regs->eax, regs->ebx, regs->ecx, regs->edx);
 	printk(KERN_EMERG "esi: %08lx   edi: %08lx   ebp: %08lx   esp: %08lx\n",
 		regs->esi, regs->edi, regs->ebp, esp);
-	printk(KERN_EMERG "ds: %04x   es: %04x   fs: %04x  gs: %04x  ss: %04x\n",
-	       regs->xds & 0xffff, regs->xes & 0xffff, regs->xfs & 0xffff, gs, ss);
+
+	printk(KERN_EMERG "ds: %04x   es: %04x   fs: %04x  gs: %04x  ss: %04x "
+	       " preempt:%08x\n",
+	       regs->xds & 0xffff, regs->xes & 0xffff, regs->xfs & 0xffff, gs,
+	       ss, preempt_count());
+
 	printk(KERN_EMERG "Process %.*s (pid: %d, ti=%p task=%p task.ti=%p)",
 		TASK_COMM_LEN, current->comm, current->pid,
 		current_thread_info(), current, task_thread_info(current));
@@ -369,11 +379,11 @@ int is_valid_bugaddr(unsigned long eip)
 void die(const char * str, struct pt_regs * regs, long err)
 {
 	static struct {
-		spinlock_t lock;
+		raw_spinlock_t lock;
 		u32 lock_owner;
 		int lock_owner_depth;
 	} die = {
-		.lock =			__SPIN_LOCK_UNLOCKED(die.lock),
+		.lock =			RAW_SPIN_LOCK_UNLOCKED(die.lock),
 		.lock_owner =		-1,
 		.lock_owner_depth =	0
 	};
@@ -479,6 +489,11 @@ static void __kprobes do_trap(int trapnr, int signr, char *str, int vm86,
 
 	if (!user_mode(regs))
 		goto kernel_trap;
+
+#ifdef CONFIG_PREEMPT_RT
+	local_irq_enable();
+	preempt_check_resched();
+#endif
 
 	trap_signal: {
 		/*
@@ -736,10 +751,11 @@ void __kprobes die_nmi(struct pt_regs *regs, const char *msg)
 		crash_kexec(regs);
 	}
 
+	nmi_exit();
 	do_exit(SIGSEGV);
 }
 
-static __kprobes void default_do_nmi(struct pt_regs * regs)
+static notrace __kprobes void default_do_nmi(struct pt_regs * regs)
 {
 	unsigned char reason = 0;
 
@@ -779,11 +795,12 @@ static __kprobes void default_do_nmi(struct pt_regs * regs)
 
 static int ignore_nmis;
 
-fastcall __kprobes void do_nmi(struct pt_regs * regs, long error_code)
+fastcall notrace __kprobes void do_nmi(struct pt_regs * regs, long error_code)
 {
 	int cpu;
 
 	nmi_enter();
+	nmi_trace((unsigned long)do_nmi, regs->eip, regs->eflags);
 
 	cpu = smp_processor_id();
 

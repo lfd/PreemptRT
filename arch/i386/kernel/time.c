@@ -124,7 +124,7 @@ static int set_rtc_mmss(unsigned long nowtime)
 
 int timer_ack;
 
-unsigned long profile_pc(struct pt_regs *regs)
+unsigned long notrace profile_pc(struct pt_regs *regs)
 {
 	unsigned long pc = instruction_pointer(regs);
 

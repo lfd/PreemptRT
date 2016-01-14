@@ -564,7 +564,6 @@ static void proc_kill_inodes(struct proc_dir_entry *de)
 	/*
 	 * Actually it's a partial revoke().
 	 */
-	filevec_add_drain_all();
 	lock_list_for_each_entry(filp, &sb->s_files, f_u.fu_llist) {
 		struct dentry * dentry = filp->f_path.dentry;
 		struct inode * inode;
@@ -724,6 +723,8 @@ void remove_proc_entry(const char *name, struct proc_dir_entry *parent)
 	if (!parent && xlate_proc_name(name, &parent, &fn) != 0)
 		goto out;
 	len = strlen(fn);
+
+	filevec_add_drain_all();
 
 	spin_lock(&proc_subdir_lock);
 	for (p = &parent->subdir; *p; p=&(*p)->next ) {

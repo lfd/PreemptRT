@@ -34,6 +34,7 @@
 #include <linux/workqueue.h>
 #include <linux/profile.h>
 #include <linux/rcupdate.h>
+#include <linux/posix-timers.h>
 #include <linux/moduleparam.h>
 #include <linux/kallsyms.h>
 #include <linux/writeback.h>
@@ -738,6 +739,7 @@ static void __init do_pre_smp_initcalls(void)
 
 	migration_init();
 #endif
+	posix_cpu_thread_init();
 	spawn_ksoftirqd();
 	spawn_softlockup_task();
 }

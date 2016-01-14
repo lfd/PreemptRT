@@ -139,7 +139,7 @@ unsigned long __lockfunc __spin_lock_irqsave(raw_spinlock_t *lock)
 	 * _raw_spin_lock_flags() code, because lockdep assumes
 	 * that interrupts are not re-enabled during lock-acquire:
 	 */
-#ifdef CONFIG_PROVE_LOCKING
+#ifdef CONFIG_LOCKDEP
 	_raw_spin_lock(lock);
 #else
 	_raw_spin_lock_flags(lock, &flags);
@@ -359,7 +359,7 @@ __spin_lock_irqsave_nested(raw_spinlock_t *lock, int subclass)
 	 * _raw_spin_lock_flags() code, because lockdep assumes
 	 * that interrupts are not re-enabled during lock-acquire:
 	 */
-#ifdef CONFIG_PROVE_SPIN_LOCKING
+#ifdef CONFIG_LOCKDEP
 	_raw_spin_lock(lock);
 #else
 	_raw_spin_lock_flags(lock, &flags);

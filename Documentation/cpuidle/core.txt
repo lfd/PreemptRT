@@ -12,6 +12,6 @@ idle policy (governor) from idle mechanism (driver) and provides a
 standardized infrastructure to support independent development of
 governors and drivers.
 
-cpuidle resides under /drivers/cpuidle.
+cpuidle resides under drivers/cpuidle.
 
 

@@ -4,14 +4,22 @@
 
 				cpuidle sysfs
 
-System global cpuidle information are under
+System global cpuidle related information and tunables are under
 /sys/devices/system/cpu/cpuidle
 
 The current interfaces in this directory has self-explanatory names:
+* current_driver_ro
+* current_governor_ro
+
+With cpuidle_sysfs_switch boot option (meant for developer testing)
+following objects are visible instead.
 * available_drivers
 * available_governors
 * current_driver
 * current_governor
+In this case user can switch the driver, governor at run time by writing
+onto current_driver and current_governor.
+
 
 Per logical CPU specific cpuidle information are under
 /sys/devices/system/cpu/cpuX/cpuidle
@@ -19,9 +27,9 @@ for each online cpu X
 
 Under this percpu directory, there is a directory for each idle state supported
 by the driver, which in turn has
-* latency
-* power
-* time
-* usage
+* latency : Latency to exit out of this idle state (in microseconds)
+* power : Power consumed while in this idle state (in milliwatts)
+* time : Total time spent in this idle state (in microseconds)
+* usage : Number of times this state was entered (count)
 
 

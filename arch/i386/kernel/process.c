@@ -179,7 +179,6 @@ void cpu_idle(void)
 
 	/* endless idle loop with no priority at all */
 	while (1) {
-		tick_nohz_stop_sched_tick();
 		while (!need_resched()) {
 			void (*idle)(void);
 
@@ -187,6 +186,7 @@ void cpu_idle(void)
 				__get_cpu_var(cpu_idle_state) = 0;
 
 			check_pgt_cache();
+			tick_nohz_stop_sched_tick();
 			rmb();
 			idle = pm_idle;
 

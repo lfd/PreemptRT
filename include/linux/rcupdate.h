@@ -198,9 +198,9 @@ struct rcu_head {
  * and may be nested.
  */
 #ifdef CONFIG_CLASSIC_RCU
-#define call_rcu(head, func) call_rcu_classic(head, func)
+#define call_rcu call_rcu_classic
 #else /* #ifdef CONFIG_CLASSIC_RCU */
-#define call_rcu(head, func) call_rcu_preempt(head, func)
+#define call_rcu call_rcu_preempt
 #endif /* #else #ifdef CONFIG_CLASSIC_RCU */
 
 /**

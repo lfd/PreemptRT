@@ -3510,6 +3510,8 @@ need_resched_nonpreemptible:
 		switch_count = &prev->nvcsw;
 	}
 
+	schedule_balance_rt(rq, prev);
+
 	if (unlikely(!rq->nr_running))
 		idle_balance(cpu, rq);
 

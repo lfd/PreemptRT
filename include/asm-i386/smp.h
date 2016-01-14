@@ -179,4 +179,6 @@ static __inline int logical_smp_processor_id(void)
 #endif
 #endif
 
+#define HAVE_RESCHEDULE_ALLBUTSELF_CPUMASK 1
+
 #endif

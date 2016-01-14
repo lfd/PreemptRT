@@ -773,7 +773,7 @@ void update_vsyscall(struct timespec *wall_time, struct clocksource *clock)
 	stamp_xsec = (u64) xtime.tv_nsec * XSEC_PER_SEC;
 	do_div(stamp_xsec, 1000000000);
 	stamp_xsec += (u64) xtime.tv_sec * XSEC_PER_SEC;
-	update_gtod(clock->cycle_last, stamp_xsec, t2x);
+	update_gtod(clock->cycle_last-clock->cycle_accumulated, stamp_xsec, t2x);
 }
 
 void update_vsyscall_tz(void)

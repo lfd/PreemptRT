@@ -1137,6 +1137,9 @@ ENTRY(mcount)
 END(mcount)
 
 ENTRY(ftrace_caller)
+	cmpl $0, function_trace_stop
+	jne  ftrace_stub
+
 	pushl %eax
 	pushl %ecx
 	pushl %edx
@@ -1160,6 +1163,9 @@ END(ftrace_caller)
 #else /* ! CONFIG_DYNAMIC_FTRACE */
 
 ENTRY(mcount)
+	cmpl $0, function_trace_stop
+	jne  ftrace_stub
+
 	cmpl $ftrace_stub, ftrace_trace_function
 	jnz trace
 .globl ftrace_stub

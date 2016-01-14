@@ -44,6 +44,9 @@ static int last_ftrace_enabled;
  */
 static unsigned long mcount_addr = MCOUNT_ADDR;
 
+/* Quick disabling of function tracer. */
+int function_trace_stop;
+
 /*
  * ftrace_disabled is set when an anomaly is discovered.
  * ftrace_disabled is much stronger than ftrace_enabled.
@@ -1498,6 +1501,46 @@ ftraced_write(struct file *filp, const char __user *ubuf,
 	return cnt;
 }
 
+static ssize_t
+ftrace_stop_read(struct file *filp, char __user *ubuf,
+		     size_t cnt, loff_t *ppos)
+{
+	/* don't worry about races */
+	char *buf = function_trace_stop ? "1\n" : "0\n";
+	int r = strlen(buf);
+
+	return simple_read_from_buffer(ubuf, cnt, ppos, buf, r);
+}
+
+static ssize_t
+ftrace_stop_write(struct file *filp, const char __user *ubuf,
+		      size_t cnt, loff_t *ppos)
+{
+	char buf[64];
+	long val;
+	int ret;
+
+	if (cnt >= sizeof(buf))
+		return -EINVAL;
+
+	if (copy_from_user(&buf, ubuf, cnt))
+		return -EFAULT;
+
+	buf[cnt] = 0;
+
+	ret = strict_strtoul(buf, 10, &val);
+	if (ret < 0)
+		return ret;
+
+	val = !!val;
+
+	function_trace_stop = !!val;
+
+	filp->f_pos += cnt;
+
+	return cnt;
+}
+
 static struct file_operations ftrace_avail_fops = {
 	.open = ftrace_avail_open,
 	.read = seq_read,
@@ -1532,6 +1575,12 @@ static struct file_operations ftraced_fops = {
 	.open = tracing_open_generic,
 	.read = ftraced_read,
 	.write = ftraced_write,
+};
+
+static struct file_operations ftrace_stop_fops = {
+	.open = tracing_open_generic,
+	.read = ftrace_stop_read,
+	.write = ftrace_stop_write,
 };
 
 /**
@@ -1611,6 +1660,9 @@ static __init int ftrace_init_debugfs(void)
 	if (!entry)
 		pr_warning("Could not create debugfs "
 			   "'ftraced_enabled' entry\n");
+
+	entry = debugfs_create_file("function_trace_stop", 0644, d_tracer,
+				    NULL, &ftrace_stop_fops);
 	return 0;
 }
 

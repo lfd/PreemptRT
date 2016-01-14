@@ -86,6 +86,48 @@ static inline void dec_rt_tasks(struct task_struct *p, struct rq *rq)
 #endif /* CONFIG_SMP */
 }
 
+static inline void incr_rt_nr_uninterruptible(struct task_struct *p,
+					      struct rq *rq)
+{
+	rq->rt.rt_nr_uninterruptible++;
+}
+
+static inline void decr_rt_nr_uninterruptible(struct task_struct *p,
+					      struct rq *rq)
+{
+	rq->rt.rt_nr_uninterruptible--;
+}
+
+unsigned long rt_nr_running(void)
+{
+	unsigned long i, sum = 0;
+
+	for_each_online_cpu(i)
+		sum += cpu_rq(i)->rt.rt_nr_running;
+
+	return sum;
+}
+
+unsigned long rt_nr_running_cpu(int cpu)
+{
+	return cpu_rq(cpu)->rt.rt_nr_running;
+}
+
+unsigned long rt_nr_uninterruptible(void)
+{
+	unsigned long i, sum = 0;
+
+	for_each_online_cpu(i)
+		sum += cpu_rq(i)->rt.rt_nr_uninterruptible;
+
+	return sum;
+}
+
+unsigned long rt_nr_uninterruptible_cpu(int cpu)
+{
+	return cpu_rq(cpu)->rt.rt_nr_uninterruptible;
+}
+
 static void enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup)
 {
 	struct rt_prio_array *array = &rq->rt.active;
@@ -94,6 +136,9 @@ static void enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup)
 	__set_bit(p->prio, array->bitmap);
 
 	inc_rt_tasks(p, rq);
+
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		decr_rt_nr_uninterruptible(p, rq);
 }
 
 /*
@@ -104,6 +149,9 @@ static void dequeue_task_rt(struct rq *rq, struct task_struct *p, int sleep)
 	struct rt_prio_array *array = &rq->rt.active;
 
 	update_curr_rt(rq);
+
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		incr_rt_nr_uninterruptible(p, rq);
 
 	list_del(&p->run_list);
 	if (list_empty(array->queue + p->prio))

@@ -264,3 +264,31 @@ static __init int latency_hist_init(void)
 
 __initcall(latency_hist_init);
 
+
+#ifdef CONFIG_WAKEUP_LATENCY_HIST
+static void hist_reset(hist_data_t *hist)
+{
+	atomic_dec(&hist->hist_mode);
+
+	memset(hist->hist_array, 0, sizeof(hist->hist_array));
+	hist->beyond_hist_bound_samples = 0UL;
+	hist->min_lat = 0xFFFFFFFFUL;
+	hist->max_lat = 0UL;
+	hist->total_samples = 0UL;
+	hist->accumulate_lat = 0UL;
+	hist->avg_lat = 0UL;
+
+	atomic_inc(&hist->hist_mode);
+}
+
+void latency_hist_reset(void)
+{
+	int cpu;
+	hist_data_t *hist;
+
+	for_each_online_cpu(cpu) {
+		hist = &per_cpu(wakeup_latency_hist, cpu);
+		hist_reset(hist);
+	}
+}
+#endif

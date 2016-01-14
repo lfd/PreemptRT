@@ -4,7 +4,6 @@
 #ifdef CONFIG_FTRACE
 
 #include <linux/linkage.h>
-#include <linux/ktime.h>
 
 extern int ftrace_enabled;
 extern int
@@ -130,6 +129,9 @@ enum ftrace_event_enum {
 	FTRACE_EVENTS_TIMESTAMP,
 	FTRACE_EVENTS_TASK,
 };
+
+#include <linux/ktime.h>
+
 extern void ftrace_record_event(enum ftrace_event_enum event, ...);
 static inline void ftrace_event_irq(int irq, int user, unsigned long ip)
 {
@@ -174,5 +176,13 @@ static inline void ftrace_event_task(pid_t pid, int prio,
 # define ftrace_event_timestamp(now)		do { } while (0)
 # define ftrace_event_task(pid, prio, running)	do { } while (0)
 #endif /* CONFIG_TRACE_EVENTS */
+
+#ifdef CONFIG_TRACING
+extern void user_trace_start(void);
+extern void user_trace_stop(void);
+#else
+# define user_trace_start() do { } while (0)
+# define user_trace_stop() do { } while (0)
+#endif
 
 #endif /* _LINUX_FTRACE_H */

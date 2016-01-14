@@ -174,45 +174,45 @@ EXPORT_SYMBOL(mark_page_accessed);
  * lru_cache_add: add a page to the page lists
  * @page: the page to add
  */
-static DEFINE_PER_CPU(struct pagevec, lru_add_pvecs) = { 0, };
-static DEFINE_PER_CPU(struct pagevec, lru_add_active_pvecs) = { 0, };
+static DEFINE_PER_CPU_LOCKED(struct pagevec, lru_add_pvecs) = { 0, };
+static DEFINE_PER_CPU_LOCKED(struct pagevec, lru_add_active_pvecs) = { 0, };
 
 void fastcall lru_cache_add(struct page *page)
 {
-	struct pagevec *pvec = &get_cpu_var(lru_add_pvecs);
+	int cpu;
+	struct pagevec *pvec = &get_cpu_var_locked(lru_add_pvecs, &cpu);
 
 	page_cache_get(page);
 	if (!pagevec_add(pvec, page))
 		__pagevec_lru_add(pvec);
-	put_cpu_var(lru_add_pvecs);
+	put_cpu_var_locked(lru_add_pvecs, cpu);
 }
 
 void fastcall lru_cache_add_active(struct page *page)
 {
-	struct pagevec *pvec = &get_cpu_var(lru_add_active_pvecs);
+	int cpu;
+	struct pagevec *pvec = &get_cpu_var_locked(lru_add_active_pvecs, &cpu);
 
 	page_cache_get(page);
 	if (!pagevec_add(pvec, page))
 		__pagevec_lru_add_active(pvec);
-	put_cpu_var(lru_add_active_pvecs);
-}
-
-static void __lru_add_drain(int cpu)
-{
-	struct pagevec *pvec = &per_cpu(lru_add_pvecs, cpu);
-
-	/* CPU is dead, so no locking needed. */
-	if (pagevec_count(pvec))
-		__pagevec_lru_add(pvec);
-	pvec = &per_cpu(lru_add_active_pvecs, cpu);
-	if (pagevec_count(pvec))
-		__pagevec_lru_add_active(pvec);
+	put_cpu_var_locked(lru_add_active_pvecs, cpu);
 }
 
 void lru_add_drain(void)
 {
-	__lru_add_drain(get_cpu());
-	put_cpu();
+	struct pagevec *pvec;
+	int cpu;
+
+	pvec = &get_cpu_var_locked(lru_add_pvecs, &cpu);
+	if (pagevec_count(pvec))
+		__pagevec_lru_add(pvec);
+	put_cpu_var_locked(lru_add_pvecs, cpu);
+
+	pvec = &get_cpu_var_locked(lru_add_active_pvecs, &cpu);
+	if (pagevec_count(pvec))
+		__pagevec_lru_add_active(pvec);
+	put_cpu_var_locked(lru_add_active_pvecs, cpu);
 }
 
 #ifdef CONFIG_NUMA
@@ -491,7 +491,9 @@ static int cpu_swap_callback(struct notifier_block *nfb,
 	if (action == CPU_DEAD || action == CPU_DEAD_FROZEN) {
 		atomic_add(*committed, &vm_committed_space);
 		*committed = 0;
-		__lru_add_drain((long)hcpu);
+		/* FIXME: */
+//		__lru_add_drain((long)hcpu);
+		lru_add_drain();
 	}
 	return NOTIFY_OK;
 }

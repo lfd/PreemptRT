@@ -89,7 +89,7 @@ static int store_updates_sp(struct pt_regs *regs)
  * the error_code parameter is ESR for a data fault, 0 for an instruction
  * fault.
  */
-int do_page_fault(struct pt_regs *regs, unsigned long address,
+int notrace do_page_fault(struct pt_regs *regs, unsigned long address,
 		  unsigned long error_code)
 {
 	struct vm_area_struct * vma;

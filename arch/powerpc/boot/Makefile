@@ -31,6 +31,14 @@ endif
 
 BOOTCFLAGS	+= -I$(obj) -I$(srctree)/$(obj)
 
+ifdef CONFIG_MCOUNT
+# do not trace the boot loader
+nullstring	:=
+space		:= $(nullstring) # end of the line
+pg_flag		= $(nullstring) -pg # end of the line
+CFLAGS		:= $(subst ${pg_flag},${space},${CFLAGS})
+endif
+
 $(obj)/44x.o: BOOTCFLAGS += -mcpu=440
 $(obj)/ebony.o: BOOTCFLAGS += -mcpu=440
 
@@ -55,7 +63,7 @@ obj-wlib := $(addsuffix .o, $(basename $(addprefix $(obj)/, $(src-wlib))))
 obj-plat := $(addsuffix .o, $(basename $(addprefix $(obj)/, $(src-plat))))
 
 quiet_cmd_copy_zlib = COPY    $@
-      cmd_copy_zlib = sed "s@__attribute_used__@@;s@<linux/\([^>]*\).*@\"\1\"@" $< > $@
+      cmd_copy_zlib = sed "s@__attribute_used__@@;s@.include.<linux/module.h>@@;s@.include.<linux/spinlock.h>@@;s@.*spin.*lock.*@@;s@.*SPINLOCK.*@@;s@<linux/\([^>]*\).*@\"\1\"@" $< > $@
 
 quiet_cmd_copy_zlibheader = COPY    $@
       cmd_copy_zlibheader = sed "s@<linux/\([^>]*\).*@\"\1\"@" $< > $@

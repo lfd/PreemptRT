@@ -86,13 +86,6 @@ config ISA
 config SBUS
 	bool
 
-config RWSEM_GENERIC_SPINLOCK
-	bool
-	default y
-
-config RWSEM_XCHGADD_ALGORITHM
-	bool
-
 config GENERIC_HWEIGHT
 	bool
 	default y
@@ -368,6 +361,14 @@ config NUMA
 	 This code is recommended on all multiprocessor Opteron systems.
 	 If the system is EM64T, you should say N unless your system is EM64T 
 	 NUMA. 
+
+config RWSEM_GENERIC_SPINLOCK
+	bool
+	default y
+
+config RWSEM_XCHGADD_ALGORITHM
+	depends on !RWSEM_GENERIC_SPINLOCK && !PREEMPT_RT
+	bool
 
 config K8_NUMA
        bool "Old style AMD Opteron NUMA detection"

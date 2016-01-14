@@ -32,6 +32,8 @@ enqueue_task_rt(struct rq *rq, struct task_struct *p, int wakeup, u64 now)
 
 	list_add_tail(&p->run_list, array->queue + p->prio);
 	__set_bit(p->prio, array->bitmap);
+
+	inc_rt_tasks(p, rq);
 }
 
 /*
@@ -43,6 +45,8 @@ dequeue_task_rt(struct rq *rq, struct task_struct *p, int sleep, u64 now)
 	struct rt_prio_array *array = &rq->rt.active;
 
 	update_curr_rt(rq, now);
+
+	dec_rt_tasks(p, rq);
 
 	list_del(&p->run_list);
 	if (list_empty(array->queue + p->prio))

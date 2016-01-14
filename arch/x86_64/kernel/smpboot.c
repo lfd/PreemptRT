@@ -316,7 +316,7 @@ static inline void set_cpu_sibling_map(int cpu)
 /*
  * Setup code on secondary processor (after comming out of the trampoline)
  */
-void __cpuinit start_secondary(void)
+void __cpuinit notrace start_secondary(void)
 {
 	/*
 	 * Dont put anything before smp_callin(), SMP

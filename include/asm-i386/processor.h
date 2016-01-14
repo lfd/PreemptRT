@@ -128,7 +128,7 @@ extern void detect_ht(struct cpuinfo_x86 *c);
 static inline void detect_ht(struct cpuinfo_x86 *c) {}
 #endif
 
-static inline void native_cpuid(unsigned int *eax, unsigned int *ebx,
+static inline void fastcall native_cpuid(unsigned int *eax, unsigned int *ebx,
 					 unsigned int *ecx, unsigned int *edx)
 {
 	/* ecx is often an input as well as an output. */
@@ -595,7 +595,9 @@ static inline void load_esp0(struct tss_struct *tss, struct thread_struct *threa
  * clear %ecx since some cpus (Cyrix MII) do not set or clear %ecx
  * resulting in stale register contents being returned.
  */
-static inline void cpuid(unsigned int op, unsigned int *eax, unsigned int *ebx, unsigned int *ecx, unsigned int *edx)
+static inline void
+cpuid(unsigned int op, unsigned int *eax, unsigned int *ebx,
+      unsigned int *ecx, unsigned int *edx)
 {
 	*eax = op;
 	*ecx = 0;
@@ -603,8 +605,9 @@ static inline void cpuid(unsigned int op, unsigned int *eax, unsigned int *ebx, 
 }
 
 /* Some CPUID calls want 'count' to be placed in ecx */
-static inline void cpuid_count(int op, int count, int *eax, int *ebx, int *ecx,
-			       int *edx)
+static inline void
+cpuid_count(int op, int count, unsigned int *eax, unsigned int *ebx,
+	    unsigned int *ecx, unsigned int *edx)
 {
 	*eax = op;
 	*ecx = count;

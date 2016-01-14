@@ -445,6 +445,11 @@ static void update_queue (struct sem_array * sma)
 		if (error <= 0) {
 			struct sem_queue *n;
 			remove_from_queue(sma,q);
+			/*
+			 * make sure that the wakeup doesnt preempt
+			 * _this_ cpu prematurely. (on preempt_rt)
+			 */
+			preempt_disable();
 			q->status = IN_WAKEUP;
 			/*
 			 * Continue scanning. The next operation
@@ -467,6 +472,7 @@ static void update_queue (struct sem_array * sma)
 			 */
 			smp_wmb();
 			q->status = error;
+			preempt_enable();
 			q = n;
 		} else {
 			q = q->next;

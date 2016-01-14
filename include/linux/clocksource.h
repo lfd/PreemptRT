@@ -21,6 +21,9 @@
 typedef u64 cycle_t;
 struct clocksource;
 
+extern unsigned long preempt_max_latency;
+extern unsigned long preempt_thresh;
+
 /**
  * struct clocksource - hardware abstraction for a free running counter
  *	Provides mostly state-free accessors to the underlying hardware.
@@ -178,8 +181,20 @@ static inline cycle_t clocksource_read(struct clocksource *cs)
  */
 static inline s64 cyc2ns(struct clocksource *cs, cycle_t cycles)
 {
-	u64 ret = (u64)cycles;
-	ret = (ret * cs->mult) >> cs->shift;
+	return ((u64)cycles * cs->mult) >> cs->shift;
+}
+
+/**
+ * ns2cyc - converts nanoseconds to clocksource cycles
+ * @cs:		Pointer to clocksource
+ * @nsecs:	Nanoseconds
+ */
+static inline cycles_t ns2cyc(struct clocksource *cs, u64 nsecs)
+{
+	cycles_t ret = nsecs << cs->shift;
+
+	do_div(ret, cs->mult + 1);
+
 	return ret;
 }
 
@@ -226,5 +241,9 @@ static inline void update_vsyscall(struct timespec *ts, struct clocksource *c)
 {
 }
 #endif
+
+extern cycle_t get_monotonic_cycles(void);
+extern unsigned long cycles_to_usecs(cycle_t);
+extern cycle_t usecs_to_cycles(unsigned long);
 
 #endif /* _LINUX_CLOCKSOURCE_H */

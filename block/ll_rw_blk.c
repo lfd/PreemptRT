@@ -1549,7 +1549,7 @@ static int ll_merge_requests_fn(request_queue_t *q, struct request *req,
  */
 void blk_plug_device(request_queue_t *q)
 {
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	/*
 	 * don't plug a stopped queue, it must be paired with blk_start_queue()
@@ -1572,7 +1572,7 @@ EXPORT_SYMBOL(blk_plug_device);
  */
 int blk_remove_plug(request_queue_t *q)
 {
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	if (!test_and_clear_bit(QUEUE_FLAG_PLUGGED, &q->queue_flags))
 		return 0;
@@ -1664,7 +1664,7 @@ static void blk_unplug_timeout(unsigned long data)
  **/
 void blk_start_queue(request_queue_t *q)
 {
-	WARN_ON(!irqs_disabled());
+	WARN_ON_NONRT(!irqs_disabled());
 
 	clear_bit(QUEUE_FLAG_STOPPED, &q->queue_flags);
 

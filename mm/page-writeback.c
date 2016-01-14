@@ -821,19 +821,21 @@ int __set_page_dirty_nobuffers(struct page *page)
 			return 1;
 
 		lock_page_ref_irq(page);
-		spin_lock(&mapping->tree_lock);
 		mapping2 = page_mapping(page);
 		if (mapping2) { /* Race with truncate? */
+			DEFINE_RADIX_TREE_CONTEXT(ctx, &mapping->page_tree);
+
 			BUG_ON(mapping2 != mapping);
 			WARN_ON_ONCE(!PagePrivate(page) && !PageUptodate(page));
 			if (mapping_cap_account_dirty(mapping)) {
 				__inc_zone_page_state(page, NR_FILE_DIRTY);
 				task_io_account_write(PAGE_CACHE_SIZE);
 			}
-			radix_tree_tag_set(&mapping->page_tree,
+			radix_tree_lock(&ctx);
+			radix_tree_tag_set(ctx.tree,
 				page_index(page), PAGECACHE_TAG_DIRTY);
+			radix_tree_unlock(&ctx);
 		}
-		spin_unlock(&mapping->tree_lock);
 		unlock_page_ref_irq(page);
 		if (mapping->host) {
 			/* !PageAnon && !swapper_space */
@@ -980,13 +982,15 @@ int test_clear_page_writeback(struct page *page)
 		unsigned long flags;
 
 		lock_page_ref_irqsave(page, flags);
-		spin_lock(&mapping->tree_lock);
 		ret = TestClearPageWriteback(page);
-		if (ret)
-			radix_tree_tag_clear(&mapping->page_tree,
-						page_index(page),
+		if (ret) {
+			DEFINE_RADIX_TREE_CONTEXT(ctx, &mapping->page_tree);
+
+			radix_tree_lock(&ctx);
+			radix_tree_tag_clear(ctx.tree, page_index(page),
 						PAGECACHE_TAG_WRITEBACK);
-		spin_unlock(&mapping->tree_lock);
+			radix_tree_unlock(&ctx);
+		}
 		unlock_page_ref_irqrestore(page, flags);
 	} else {
 		ret = TestClearPageWriteback(page);
@@ -1003,19 +1007,22 @@ int test_set_page_writeback(struct page *page)
 
 	if (mapping) {
 		unsigned long flags;
+		DEFINE_RADIX_TREE_CONTEXT(ctx, &mapping->page_tree);
 
 		lock_page_ref_irqsave(page, flags);
-		spin_lock(&mapping->tree_lock);
 		ret = TestSetPageWriteback(page);
-		if (!ret)
-			radix_tree_tag_set(&mapping->page_tree,
-						page_index(page),
+		if (!ret) {
+			radix_tree_lock(&ctx);
+			radix_tree_tag_set(ctx.tree, page_index(page),
 						PAGECACHE_TAG_WRITEBACK);
-		if (!PageDirty(page))
-			radix_tree_tag_clear(&mapping->page_tree,
-						page_index(page),
+			radix_tree_unlock(&ctx);
+		}
+		if (!PageDirty(page)) {
+			radix_tree_lock(&ctx);
+			radix_tree_tag_clear(ctx.tree, page_index(page),
 						PAGECACHE_TAG_DIRTY);
-		spin_unlock(&mapping->tree_lock);
+			radix_tree_unlock(&ctx);
+		}
 		unlock_page_ref_irqrestore(page, flags);
 	} else {
 		ret = TestSetPageWriteback(page);

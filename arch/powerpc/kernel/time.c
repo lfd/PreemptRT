@@ -898,7 +898,7 @@ void div128_by_32(u64 dividend_high, u64 dividend_low,
 
 #include <linux/clocksource.h>
 
-static cycle_t timebase_read(void)
+static cycle_t notrace timebase_read(void)
 {
 	return (cycle_t)get_tb();
 }

@@ -291,6 +291,32 @@ event_program_event_callback(ktime_t *expires, int64_t *delta)
 	atomic_dec(&data->disabled);
 }
 
+static void
+event_resched_task_callback(struct task_struct *task, int task_cpu)
+{
+	struct trace_array *tr = events_trace;
+	struct trace_array_cpu *data;
+	unsigned long flags;
+	long disable;
+	int cpu;
+
+	if (!tracer_enabled || function_trace_stop)
+		return;
+
+	/* interrupts should be off, we are in an interrupt */
+	cpu = smp_processor_id();
+	data = tr->data[cpu];
+
+	disable = atomic_inc_return(&data->disabled);
+	if (disable != 1)
+		goto out;
+
+	local_save_flags(flags);
+	tracing_event_resched_task(tr, data, flags, CALLER_ADDR1, task, task_cpu);
+
+ out:
+	atomic_dec(&data->disabled);
+}
 
 static void
 event_task_activate_callback(struct task_struct *p, int rqcpu)
@@ -488,10 +514,19 @@ static void event_tracer_register(struct trace_array *tr)
 		goto out10;
 	}
 
+	ret = register_trace_sched_resched_task(event_resched_task_callback);
+	if (ret) {
+		pr_info("event trace: Couldn't activate tracepoint"
+			" probe to kernel_event_resched_task\n");
+		goto out11;
+	}
+
 	return;
 
- out10:
+ out11:
 	unregister_trace_event_program_event(event_program_event_callback);
+ out10:
+	unregister_trace_sched_switch(event_ctx_callback);
  out9:
 	unregister_trace_sched_wakeup_new(event_wakeup_callback);
  out8:
@@ -514,6 +549,7 @@ static void event_tracer_register(struct trace_array *tr)
 
 static void event_tracer_unregister(struct trace_array *tr)
 {
+	unregister_trace_sched_resched_task(event_resched_task_callback);
 	unregister_trace_event_program_event(event_program_event_callback);
 	unregister_trace_sched_switch(event_ctx_callback);
 	unregister_trace_sched_wakeup_new(event_wakeup_callback);

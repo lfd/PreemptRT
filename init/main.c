@@ -592,6 +592,8 @@ asmlinkage void __init start_kernel(void)
 	if (panic_later)
 		panic(panic_later, panic_param);
 
+	init_tracer();
+
 	lockdep_info();
 
 	/*

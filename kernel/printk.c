@@ -324,12 +324,14 @@ static void __call_console_drivers(unsigned long start, unsigned long end)
 {
 	struct console *con;
 
+	touch_critical_timing();
 	for (con = console_drivers; con; con = con->next) {
 		if ((con->flags & CON_ENABLED) && con->write &&
 				(cpu_online(smp_processor_id()) ||
 				(con->flags & CON_ANYTIME)))
 			con->write(con, &LOG_BUF(start), end - start);
 	}
+	touch_critical_timing();
 }
 
 static int __read_mostly ignore_loglevel;

@@ -96,6 +96,7 @@ obj-$(CONFIG_TELCLOCK)		+= tlclk.o
 
 obj-$(CONFIG_BLOCKER)		+= blocker.o
 obj-$(CONFIG_LPPTEST)		+= lpptest.o
+obj-$(CONFIG_RMEM)		+= rmem.o
 
 obj-$(CONFIG_WATCHDOG)		+= watchdog/
 obj-$(CONFIG_MWAVE)		+= mwave/

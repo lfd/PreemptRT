@@ -101,6 +101,7 @@ struct inet_hashinfo {
 	 * TIME_WAIT sockets use a separate chain (twchain).
 	 */
 	struct inet_ehash_bucket	*ehash;
+	unsigned long			*ebitmask;
 
 	/* Ok, let's try this, I give up, we do need a local binding
 	 * TCP hash as well as the others for fast bind/connect.
@@ -133,6 +134,13 @@ static inline struct inet_ehash_bucket *inet_ehash_bucket(
 	unsigned int hash)
 {
 	return &hashinfo->ehash[hash & (hashinfo->ehash_size - 1)];
+}
+
+static inline unsigned int inet_ehash_index(
+	struct inet_hashinfo *hashinfo,
+	unsigned int hash)
+{
+	return hash & (hashinfo->ehash_size - 1);
 }
 
 extern struct inet_bind_bucket *
@@ -207,11 +215,25 @@ static inline void inet_listen_unlock(struct inet_hashinfo *hashinfo)
 		wake_up(&hashinfo->lhash_wait);
 }
 
+static inline void __inet_hash_setbit(unsigned long *bitmask, unsigned int index)
+{
+	if (bitmask)
+		set_bit(index, bitmask);
+}
+
+static inline void __inet_hash_clearbit(unsigned long *bitmask, unsigned int index)
+{
+	if (bitmask)
+		clear_bit(index, bitmask);
+}
+
 static inline void __inet_hash(struct inet_hashinfo *hashinfo,
 			       struct sock *sk, const int listen_possible)
 {
 	struct hlist_head *list;
 	rwlock_t *lock;
+	unsigned long *bitmask = NULL;
+	unsigned int index = 0;
 
 	BUG_TRAP(sk_unhashed(sk));
 	if (listen_possible && sk->sk_state == TCP_LISTEN) {
@@ -221,12 +243,15 @@ static inline void __inet_hash(struct inet_hashinfo *hashinfo,
 	} else {
 		struct inet_ehash_bucket *head;
 		sk->sk_hash = inet_sk_ehashfn(sk);
+		index = inet_ehash_index(hashinfo, sk->sk_hash);
 		head = inet_ehash_bucket(hashinfo, sk->sk_hash);
 		list = &head->chain;
 		lock = &head->lock;
+		bitmask = hashinfo->ebitmask;
 		write_lock(lock);
 	}
 	__sk_add_node(sk, list);
+	__inet_hash_setbit(bitmask, index);
 	sock_prot_inc_use(sk->sk_prot);
 	write_unlock(lock);
 	if (listen_possible && sk->sk_state == TCP_LISTEN)
@@ -245,6 +270,8 @@ static inline void inet_hash(struct inet_hashinfo *hashinfo, struct sock *sk)
 static inline void inet_unhash(struct inet_hashinfo *hashinfo, struct sock *sk)
 {
 	rwlock_t *lock;
+	unsigned long *bitmask = NULL;
+	unsigned int index = 0;
 
 	if (sk_unhashed(sk))
 		goto out;
@@ -254,12 +281,16 @@ static inline void inet_unhash(struct inet_hashinfo *hashinfo, struct sock *sk)
 		inet_listen_wlock(hashinfo);
 		lock = &hashinfo->lhash_lock;
 	} else {
+		index = inet_ehash_index(hashinfo, sk->sk_hash);
 		lock = &inet_ehash_bucket(hashinfo, sk->sk_hash)->lock;
+		bitmask = hashinfo->ebitmask;
 		write_lock_bh(lock);
 	}
 
-	if (__sk_del_node_init(sk))
+	if (__sk_del_node_init(sk)) {
+		__inet_hash_clearbit(bitmask, index);
 		sock_prot_dec_use(sk->sk_prot);
+	}
 	write_unlock_bh(lock);
 out:
 	if (sk->sk_state == TCP_LISTEN)

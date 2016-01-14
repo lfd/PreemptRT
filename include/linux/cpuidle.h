@@ -130,10 +130,21 @@ struct cpuidle_driver {
 	struct module 		*owner;
 };
 
+#ifdef CONFIG_CPU_IDLE
+
 extern int cpuidle_register_driver(struct cpuidle_driver *drv);
 extern void cpuidle_unregister_driver(struct cpuidle_driver *drv);
 extern int cpuidle_force_redetect(struct cpuidle_device *dev);
 
+#else
+
+static inline int cpuidle_register_driver(struct cpuidle_driver *drv)
+{return 0;}
+static inline void cpuidle_unregister_driver(struct cpuidle_driver *drv) { }
+static inline int cpuidle_force_redetect(struct cpuidle_device *dev)
+{return 0;}
+
+#endif
 
 /******************************
  * CPUIDLE GOVERNOR INTERFACE *
@@ -153,8 +164,20 @@ struct cpuidle_governor {
 	struct module 		*owner;
 };
 
+#ifdef CONFIG_CPU_IDLE
+
 extern int cpuidle_register_governor(struct cpuidle_governor *gov);
 extern void cpuidle_unregister_governor(struct cpuidle_governor *gov);
 extern int cpuidle_get_bm_activity(void);
+
+#else
+
+static inline int cpuidle_register_governor(struct cpuidle_governor *gov)
+{return 0;}
+static inline void cpuidle_unregister_governor(struct cpuidle_governor *gov) { }
+static inline int cpuidle_get_bm_activity(void)
+{return 0;}
+
+#endif
 
 #endif /* _LINUX_CPUIDLE_H */

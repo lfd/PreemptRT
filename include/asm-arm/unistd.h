@@ -382,6 +382,10 @@
 #define __NR_timerfd_settime		(__NR_SYSCALL_BASE+353)
 #define __NR_timerfd_gettime		(__NR_SYSCALL_BASE+354)
 
+#ifndef __ASSEMBLY__
+#define NR_syscalls			(__NR_fallocate + 1 - __NR_SYSCALL_BASE)
+#endif
+
 /*
  * The following SWIs are ARM private.
  */

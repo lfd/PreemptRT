@@ -351,6 +351,7 @@ show_trace(struct task_struct *tsk, struct pt_regs *regs, unsigned long *stack)
 	printk("\nCall Trace:\n");
 	dump_trace(tsk, regs, stack, &print_trace_ops, NULL);
 	printk("\n");
+	print_traces(tsk);
 }
 
 static void

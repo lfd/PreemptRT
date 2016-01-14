@@ -142,7 +142,7 @@ struct dvb_fe_events {
 	int			  eventr;
 	int			  overflow;
 	wait_queue_head_t	  wait_queue;
-	struct semaphore	  sem;
+	struct compat_semaphore	  sem;
 };
 
 struct dvb_frontend {

@@ -1,6 +1,7 @@
 #ifndef _LINUX_RING_BUFFER_H
 #define _LINUX_RING_BUFFER_H
 
+#include <linux/kmemcheck.h>
 #include <linux/mm.h>
 #include <linux/seq_file.h>
 
@@ -8,10 +9,13 @@ struct ring_buffer;
 struct ring_buffer_iter;
 
 /*
- * Don't reference this struct directly, use functions below.
+ * Don't refer to this struct directly, use functions below.
  */
 struct ring_buffer_event {
-	u32		type:2, len:3, time_delta:27;
+	kmemcheck_define_bitfield(bitfield, {
+		u32		type:2, len:3, time_delta:27;
+	});
+
 	u32		array[];
 };
 
@@ -74,13 +78,10 @@ void ring_buffer_free(struct ring_buffer *buffer);
 
 int ring_buffer_resize(struct ring_buffer *buffer, unsigned long size);
 
-struct ring_buffer_event *
-ring_buffer_lock_reserve(struct ring_buffer *buffer,
-			 unsigned long length,
-			 unsigned long *flags);
+struct ring_buffer_event *ring_buffer_lock_reserve(struct ring_buffer *buffer,
+						   unsigned long length);
 int ring_buffer_unlock_commit(struct ring_buffer *buffer,
-			      struct ring_buffer_event *event,
-			      unsigned long flags);
+			      struct ring_buffer_event *event);
 int ring_buffer_write(struct ring_buffer *buffer,
 		      unsigned long length, void *data);
 
@@ -124,14 +125,13 @@ unsigned long ring_buffer_overrun_cpu(struct ring_buffer *buffer, int cpu);
 u64 ring_buffer_time_stamp(int cpu);
 void ring_buffer_normalize_time_stamp(int cpu, u64 *ts);
 
-void tracing_on(void);
-void tracing_off(void);
-void tracing_off_permanent(void);
+size_t ring_buffer_page_len(void *page);
+
 
 void *ring_buffer_alloc_read_page(struct ring_buffer *buffer);
 void ring_buffer_free_read_page(struct ring_buffer *buffer, void *data);
-int ring_buffer_read_page(struct ring_buffer *buffer,
-			  void **data_page, int cpu, int full);
+int ring_buffer_read_page(struct ring_buffer *buffer, void **data_page,
+			  size_t len, int cpu, int full);
 
 enum ring_buffer_flags {
 	RB_FL_OVERWRITE		= 1 << 0,

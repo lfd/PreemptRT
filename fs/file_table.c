@@ -112,7 +112,7 @@ struct file *get_empty_filp(void)
 		goto fail_sec;
 
 	tsk = current;
-	INIT_LIST_HEAD(&f->f_u.fu_list);
+	INIT_LOCK_LIST_HEAD(&f->f_u.fu_llist);
 	atomic_set(&f->f_count, 1);
 	rwlock_init(&f->f_owner.lock);
 	f->f_uid = tsk->fsuid;
@@ -244,32 +244,175 @@ void put_filp(struct file *file)
 	}
 }
 
-void file_move(struct file *file, struct list_head *list)
+enum {
+	FILEVEC_SIZE = 15
+};
+
+struct filevec {
+	unsigned long nr;
+	struct file *files[FILEVEC_SIZE];
+};
+
+static DEFINE_PER_CPU(struct filevec, sb_fvec);
+
+static inline unsigned int filevec_size(struct filevec *fvec)
 {
-	if (!list)
-		return;
-	file_list_lock();
-	list_move(&file->f_u.fu_list, list);
-	file_list_unlock();
+	return FILEVEC_SIZE - fvec->nr;
 }
+
+static inline unsigned int filevec_count(struct filevec *fvec)
+{
+	return fvec->nr;
+}
+
+static inline void filevec_reinit(struct filevec *fvec)
+{
+	fvec->nr = 0;
+}
+
+static inline unsigned int filevec_add(struct filevec *fvec, struct file *filp)
+{
+	rcu_assign_pointer(fvec->files[fvec->nr], filp);
+
+	/*
+	 * Here we do icky stuff in order to avoid flushing the per cpu filevec
+	 * on list removal.
+	 *
+	 * We store the location on the per cpu filevec in the as of yet unused
+	 * fu_llist.next field and toggle bit 0 to indicate we done so. This
+	 * allows the removal code to set the filevec entry to NULL, thereby
+	 * avoiding the list add.
+	 *
+	 * Abuse the fu_llist.lock for protection.
+	 */
+	spin_lock(&filp->f_u.fu_llist.lock);
+	filp->f_u.fu_llist.next = (void *)&fvec->files[fvec->nr];
+	__set_bit(0, (void *)&filp->f_u.fu_llist.next);
+	spin_unlock(&filp->f_u.fu_llist.lock);
+
+	fvec->nr++;
+	return filevec_size(fvec);
+}
+
+static void __filevec_add(struct filevec *fvec)
+{
+	int i;
+
+	for (i = 0; i < filevec_count(fvec); i++) {
+		struct file *filp;
+
+		/*
+		 * see the comment in filevec_add();
+		 * need RCU because a concurrent remove might have deleted
+		 * the entry from under us.
+		 */
+		rcu_read_lock();
+		filp = rcu_dereference(fvec->files[i]);
+		/*
+		 * the simple case, its gone - NEXT!
+		 */
+		if (!filp) {
+			rcu_read_unlock();
+			continue;
+		}
+
+		spin_lock(&filp->f_u.fu_llist.lock);
+		/*
+		 * If the entry really is still there, add it!
+		 */
+		if (rcu_dereference(fvec->files[i])) {
+			struct super_block *sb =
+				filp->f_mapping->host->i_sb;
+
+			__lock_list_add(&filp->f_u.fu_llist, &sb->s_files);
+		}
+		spin_unlock(&filp->f_u.fu_llist.lock);
+		rcu_read_unlock();
+	}
+	filevec_reinit(fvec);
+}
+
+static void filevec_add_drain(void)
+{
+	struct filevec *fvec = &get_cpu_var(sb_fvec, &cpu);
+	if (filevec_count(fvec))
+		__filevec_add(fvec);
+	put_cpu_var(sb_fvec, cpu);
+}
+
+static void filevec_add_drain_per_cpu(struct work_struct *dummy)
+{
+	filevec_add_drain();
+}
+
+int filevec_add_drain_all(void)
+{
+	return schedule_on_each_cpu(filevec_add_drain_per_cpu);
+}
+EXPORT_SYMBOL_GPL(filevec_add_drain_all);
 
 void file_kill(struct file *file)
 {
-	if (!list_empty(&file->f_u.fu_list)) {
+	if (file_flag(file, F_SUPERBLOCK)) {
+		void **ptr;
+
+		file_flag_clear(file, F_SUPERBLOCK);
+
+		/*
+		 * If bit 0 of the fu_llist.next pointer is set we're still
+		 * enqueued on a per cpu filevec, in that case clear the entry
+		 * and we're done.
+		 */
+		spin_lock(&file->f_u.fu_llist.lock);
+		ptr = (void **)file->f_u.fu_llist.next;
+		if (__test_and_clear_bit(0, (void *)&ptr)) {
+			rcu_assign_pointer(*ptr, NULL);
+			INIT_LIST_HEAD(&file->f_u.fu_llist.head);
+			spin_unlock(&file->f_u.fu_llist.lock);
+			return;
+		}
+		spin_unlock(&file->f_u.fu_llist.lock);
+
+		if (!list_empty(&file->f_u.fu_list))
+			lock_list_del_init(&file->f_u.fu_llist);
+
+	} else if (!list_empty(&file->f_u.fu_list)) {
 		file_list_lock();
 		list_del_init(&file->f_u.fu_list);
 		file_list_unlock();
 	}
 }
 
+void file_move(struct file *file, struct list_head *list)
+{
+	struct super_block *sb;
+
+	if (!list)
+		return;
+
+	file_kill(file);
+
+	sb = file->f_mapping->host->i_sb;
+	if (list == &sb->s_files.head) {
+		struct filevec *fvec = &get_cpu_var(sb_fvec, &cpu);
+		file_flag_set(file, F_SUPERBLOCK);
+		if (!filevec_add(fvec, file))
+			__filevec_add(fvec);
+		put_cpu_var(sb_fvec, cpu);
+	} else {
+		file_list_lock();
+		list_add(&file->f_u.fu_list, list);
+		file_list_unlock();
+	}
+}
+
 int fs_may_remount_ro(struct super_block *sb)
 {
-	struct list_head *p;
+	struct file *file;
 
 	/* Check that no files are currently opened for writing. */
-	file_list_lock();
-	list_for_each(p, &sb->s_files) {
-		struct file *file = list_entry(p, struct file, f_u.fu_list);
+	filevec_add_drain_all();
+	lock_list_for_each_entry(file, &sb->s_files, f_u.fu_llist) {
 		struct inode *inode = file->f_path.dentry->d_inode;
 
 		/* File with pending delete? */
@@ -280,10 +423,9 @@ int fs_may_remount_ro(struct super_block *sb)
 		if (S_ISREG(inode->i_mode) && (file->f_mode & FMODE_WRITE))
 			goto too_bad;
 	}
-	file_list_unlock();
 	return 1; /* Tis' cool bro. */
 too_bad:
-	file_list_unlock();
+	lock_list_for_each_entry_stop(file, f_u.fu_llist);
 	return 0;
 }
 

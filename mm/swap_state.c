@@ -74,6 +74,7 @@ static int __add_to_swap_cache(struct page *page, swp_entry_t entry,
 {
 	int error;
 
+	BUG_ON(!PageLocked(page));
 	BUG_ON(PageSwapCache(page));
 	BUG_ON(PagePrivate(page));
 	error = radix_tree_preload(gfp_mask);
@@ -83,7 +84,6 @@ static int __add_to_swap_cache(struct page *page, swp_entry_t entry,
 						entry.val, page);
 		if (!error) {
 			page_cache_get(page);
-			SetPageLocked(page);
 			SetPageSwapCache(page);
 			set_page_private(page, entry.val);
 			total_swapcache_pages++;
@@ -338,6 +338,7 @@ struct page *read_swap_cache_async(swp_entry_t entry,
 								vma, addr);
 			if (!new_page)
 				break;		/* Out of memory */
+			SetPageLocked(new_page);/* could be non-atomic op */
 		}
 
 		/*
@@ -361,7 +362,9 @@ struct page *read_swap_cache_async(swp_entry_t entry,
 		}
 	} while (err != -ENOENT && err != -ENOMEM);
 
-	if (new_page)
+	if (new_page) {
+		ClearPageLocked(new_page);
 		page_cache_release(new_page);
+	}
 	return found_page;
 }

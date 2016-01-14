@@ -127,7 +127,7 @@ static inline void do_identify (ide_drive_t *drive, u8 cmd)
 	hwif->ata_input_data(drive, id, SECTOR_WORDS);
 
 	drive->id_read = 1;
-	local_irq_enable();
+	local_irq_enable_nort();
 #ifdef DEBUG
 	printk(KERN_INFO "%s: dumping identify data\n", drive->name);
 	ide_dump_identify((u8 *)id);
@@ -315,14 +315,14 @@ static int actual_try_to_identify (ide_drive_t *drive, u8 cmd)
 		unsigned long flags;
 
 		/* local CPU only; some systems need this */
-		local_irq_save(flags);
+		local_irq_save_nort(flags);
 		/* drive returned ID */
 		do_identify(drive, cmd);
 		/* drive responded with ID */
 		rc = 0;
 		/* clear drive IRQ */
 		(void)ide_read_status(drive);
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 	} else {
 		/* drive refused ID */
 		rc = 2;
@@ -791,7 +791,7 @@ static int ide_probe_port(ide_hwif_t *hwif)
 		hwif->OUTB(8, hwif->io_ports[IDE_CONTROL_OFFSET]);
 		(void)ide_busy_sleep(hwif);
 	}
-	local_irq_restore(flags);
+	local_irq_restore_nort(flags);
 	/*
 	 * Use cached IRQ number. It might be (and is...) changed by probe
 	 * code above

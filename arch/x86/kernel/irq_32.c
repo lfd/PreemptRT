@@ -16,6 +16,8 @@
 #include <linux/cpu.h>
 #include <linux/delay.h>
 
+#include <linux/ftrace.h>
+
 #include <asm/apic.h>
 #include <asm/uaccess.h>
 
@@ -85,6 +87,7 @@ unsigned int do_IRQ(struct pt_regs *regs)
 
 	old_regs = set_irq_regs(regs);
 	irq_enter();
+	trace_event_irq(irq, user_mode(regs), regs->ip);
 #ifdef CONFIG_DEBUG_STACKOVERFLOW
 	/* Debugging check for stack overflow: is there less than 1KB free? */
 	{

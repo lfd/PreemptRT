@@ -112,6 +112,7 @@ static void set_cyc2ns_scale(unsigned long cpu_khz, int cpu)
 unsigned long long native_sched_clock(void)
 {
 	unsigned long long this_offset;
+	unsigned long long ret;
 
 	/*
 	 * Fall back to jiffies if there's no TSC available:
@@ -125,11 +126,17 @@ unsigned long long native_sched_clock(void)
 		/* No locking but a rare wrong value is not a big deal: */
 		return (jiffies_64 - INITIAL_JIFFIES) * (1000000000 / HZ);
 
+	preempt_disable_notrace();
+
 	/* read the Time Stamp Counter: */
 	rdtscll(this_offset);
 
 	/* return the value in ns */
-	return cycles_2_ns(this_offset);
+	ret = cycles_2_ns(this_offset);
+
+	preempt_enable_notrace();
+
+	return ret;
 }
 
 /* We need to define a real function for sched_clock, to override the

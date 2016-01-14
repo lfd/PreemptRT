@@ -51,11 +51,8 @@ static inline unsigned long long __cycles_2_ns(unsigned long long cyc)
 static inline unsigned long long cycles_2_ns(unsigned long long cyc)
 {
 	unsigned long long ns;
-	unsigned long flags;
 
-	local_irq_save(flags);
 	ns = __cycles_2_ns(cyc);
-	local_irq_restore(flags);
 
 	return ns;
 }

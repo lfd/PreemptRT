@@ -131,7 +131,8 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
 	if (__cpuidle_find_governor(gov->name) == NULL) {
 		ret = 0;
 		list_add_tail(&gov->governor_list, &cpuidle_governors);
-		if (!cpuidle_curr_governor)
+		if (!cpuidle_curr_governor ||
+		    cpuidle_curr_governor->rating < gov->rating)
 			cpuidle_switch_governor(gov);
 	}
 	mutex_unlock(&cpuidle_lock);
@@ -140,6 +141,29 @@ int cpuidle_register_governor(struct cpuidle_governor *gov)
 }
 
 EXPORT_SYMBOL_GPL(cpuidle_register_governor);
+
+/**
+ * cpuidle_replace_governor - find a replacement governor
+ * @exclude_rating: the rating that will be skipped while looking for
+ * new governor.
+ */
+struct cpuidle_governor *cpuidle_replace_governor(int exclude_rating)
+{
+	struct cpuidle_governor *gov;
+	struct cpuidle_governor *ret_gov = NULL;
+	unsigned int max_rating = 0;
+
+	list_for_each_entry(gov, &cpuidle_governors, governor_list) {
+		if (gov->rating == exclude_rating)
+			continue;
+		if (gov->rating > max_rating) {
+			max_rating = gov->rating;
+			ret_gov = gov;
+		}
+	}
+
+	return ret_gov;
+}
 
 /**
  * cpuidle_unregister_governor - unregisters a governor
@@ -151,8 +175,11 @@ void cpuidle_unregister_governor(struct cpuidle_governor *gov)
 		return;
 
 	mutex_lock(&cpuidle_lock);
-	if (gov == cpuidle_curr_governor)
-		cpuidle_switch_governor(NULL);
+	if (gov == cpuidle_curr_governor) {
+		struct cpuidle_governor *new_gov;
+		new_gov = cpuidle_replace_governor(gov->rating);
+		cpuidle_switch_governor(new_gov);
+	}
 	list_del(&gov->governor_list);
 	mutex_unlock(&cpuidle_lock);
 }

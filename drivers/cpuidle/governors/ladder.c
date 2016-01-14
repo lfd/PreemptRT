@@ -199,6 +199,7 @@ static void ladder_exit_device(struct cpuidle_device *dev)
 
 static struct cpuidle_governor ladder_governor = {
 	.name =		"ladder",
+	.rating =	10,
 	.init =		ladder_init_device,
 	.exit =		ladder_exit_device,
 	.scan =		ladder_scan_device,

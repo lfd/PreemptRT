@@ -159,6 +159,7 @@ static inline int cpuidle_force_redetect_devices(struct cpuidle_driver *drv)
 struct cpuidle_governor {
 	char			name[CPUIDLE_NAME_LEN];
 	struct list_head 	governor_list;
+	unsigned int		rating;
 
 	int  (*init)		(struct cpuidle_device *dev);
 	void (*exit)		(struct cpuidle_device *dev);

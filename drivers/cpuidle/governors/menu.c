@@ -153,6 +153,7 @@ static void menu_scan_device(struct cpuidle_device *dev)
 
 struct cpuidle_governor menu_governor = {
 	.name =		"menu",
+	.rating =	20,
 	.scan =		menu_scan_device,
 	.select =	menu_select,
 	.reflect =	menu_reflect,

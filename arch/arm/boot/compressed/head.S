@@ -836,6 +836,18 @@ memdump:	mov	r12, r0
 		mov	pc, r10
 #endif
 
+#ifdef CONFIG_MCOUNT
+/* CONFIG_MCOUNT causes boot header to be built with -pg requiring this
+ * trampoline
+ */
+		.text
+                .align 0
+                .type mcount %function
+                .global mcount
+mcount:
+		mov pc, lr	@ just return
+#endif
+
 		.ltorg
 reloc_end:
 

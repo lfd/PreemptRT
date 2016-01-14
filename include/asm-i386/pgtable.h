@@ -261,7 +261,7 @@ static inline pte_t pte_mkhuge(pte_t pte)	{ (pte).pte_low |= _PAGE_PSE; return p
 #endif
 
 /* local pte updates need not use xchg for locking */
-static inline pte_t native_local_ptep_get_and_clear(pte_t *ptep)
+static fastcall inline pte_t native_local_ptep_get_and_clear(pte_t *ptep)
 {
 	pte_t res = *ptep;
 

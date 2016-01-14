@@ -55,8 +55,6 @@ extern void disable_timer_nmi_watchdog(void);
 extern void enable_timer_nmi_watchdog(void);
 extern int nmi_watchdog_tick (struct pt_regs * regs, unsigned reason);
 
-extern void nmi_watchdog_default(void);
-
 extern atomic_t nmi_active;
 extern unsigned int nmi_watchdog;
 #define NMI_DISABLED    -1

@@ -869,7 +869,6 @@ static void __init smp_cpu_index_default(void)
  */
 void __init smp_prepare_cpus(unsigned int max_cpus)
 {
-	nmi_watchdog_default();
 	smp_cpu_index_default();
 	current_cpu_data = boot_cpu_data;
 	current_thread_info()->cpu = 0;  /* needed? */

@@ -92,7 +92,8 @@
 
 /* PG_owner_priv_1 users should have descriptive aliases */
 #define PG_checked		PG_owner_priv_1 /* Used by some filesystems */
-
+#define PG_nonewrefs		20	/* Block concurrent pagecache lookups
+					 * while testing refcount */
 #if (BITS_PER_LONG > 32)
 /*
  * 64-bit-only flags build down from bit 31
@@ -269,6 +270,11 @@ static inline void __ClearPageTail(struct page *page)
 #define PageUncached(page)	test_bit(PG_uncached, &(page)->flags)
 #define SetPageUncached(page)	set_bit(PG_uncached, &(page)->flags)
 #define ClearPageUncached(page)	clear_bit(PG_uncached, &(page)->flags)
+
+#define PageNoNewRefs(page)	test_bit(PG_nonewrefs, &(page)->flags)
+#define SetPageNoNewRefs(page)	set_bit(PG_nonewrefs, &(page)->flags)
+#define ClearPageNoNewRefs(page) clear_bit(PG_nonewrefs, &(page)->flags)
+#define __ClearPageNoNewRefs(page) __clear_bit(PG_nonewrefs, &(page)->flags)
 
 struct page;	/* forward declaration */
 

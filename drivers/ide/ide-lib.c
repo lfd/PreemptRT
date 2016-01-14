@@ -438,14 +438,15 @@ int ide_set_xfer_rate(ide_drive_t *drive, u8 rate)
 
 static void ide_dump_opcode(ide_drive_t *drive)
 {
+	unsigned long flags;
 	struct request *rq;
 	ide_task_t *task = NULL;
 
-	spin_lock(&ide_lock);
+	spin_lock_irqsave(&ide_lock, flags);
 	rq = NULL;
 	if (HWGROUP(drive))
 		rq = HWGROUP(drive)->rq;
-	spin_unlock(&ide_lock);
+	spin_unlock_irqrestore(&ide_lock, flags);
 	if (!rq)
 		return;
 
@@ -543,10 +544,8 @@ static void ide_dump_atapi_error(ide_drive_t *drive, u8 err)
 
 u8 ide_dump_status(ide_drive_t *drive, const char *msg, u8 stat)
 {
-	unsigned long flags;
 	u8 err = 0;
 
-	local_irq_save(flags);
 	printk("%s: %s: status=0x%02x { ", drive->name, msg, stat);
 	if (stat & BUSY_STAT)
 		printk("Busy ");
@@ -569,7 +568,6 @@ u8 ide_dump_status(ide_drive_t *drive, const char *msg, u8 stat)
 			ide_dump_atapi_error(drive, err);
 	}
 	ide_dump_opcode(drive);
-	local_irq_restore(flags);
 	return err;
 }
 

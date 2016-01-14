@@ -1171,9 +1171,9 @@ static int idefloppy_get_format_progress(ide_drive_t *drive, int __user *arg)
 		unsigned long flags;
 		u8 stat;
 
-		local_irq_save(flags);
+		local_irq_save_nort(flags);
 		stat = ide_read_status(drive);
-		local_irq_restore(flags);
+		local_irq_restore_nort(flags);
 
 		progress_indication = ((stat & SEEK_STAT) == 0) ? 0 : 0x10000;
 	}

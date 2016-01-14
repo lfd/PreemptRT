@@ -2182,6 +2182,8 @@ void notrace trace_preempt_exit_idle(void)
  */
 #ifdef CONFIG_WAKEUP_TIMING
 
+unsigned long last_preempt_max_latency;
+
 static void notrace
 check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 		    unsigned long *flags)
@@ -2208,6 +2210,19 @@ check_wakeup_timing(struct cpu_trace *tr, unsigned long parent_eip,
 
 	if (!report_latency(delta))
 		goto out;
+
+#ifdef CONFIG_WAKEUP_LATENCY_HIST
+	/*
+	 * Was preempt_max_latency reset?
+	 * If so, we reinitialize the latency histograms to keep them in sync.
+	 *
+	 * FIXME: Remove the poll and write our own procfs handler, so
+	 * we can trigger on the write to preempt_max_latency
+	 */
+	if (last_preempt_max_latency > 0 && preempt_max_latency == 0)
+		latency_hist_reset();
+	last_preempt_max_latency = preempt_max_latency;
+#endif
 
 	____trace(smp_processor_id(), TRACE_FN, tr, CALLER_ADDR0, parent_eip,
 		  0, 0, 0, *flags);

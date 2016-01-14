@@ -208,7 +208,7 @@ void init_IRQ(void)
 	paravirt_ops.init_IRQ();
 }
 
-static void native_flush_tlb(void)
+static fastcall void native_flush_tlb(void)
 {
 	__native_flush_tlb();
 }
@@ -217,12 +217,12 @@ static void native_flush_tlb(void)
  * Global pages have to be flushed a bit differently. Not a real
  * performance problem because this does not happen often.
  */
-static void native_flush_tlb_global(void)
+static fastcall void native_flush_tlb_global(void)
 {
 	__native_flush_tlb_global();
 }
 
-static void native_flush_tlb_single(unsigned long addr)
+static fastcall void native_flush_tlb_single(unsigned long addr)
 {
 	__native_flush_tlb_single(addr);
 }

@@ -161,6 +161,7 @@ struct acpi_processor_flags {
 	u8 bm_check:1;
 	u8 has_cst:1;
 	u8 power_setup_done:1;
+	u8 bm_rld_set:1;
 };
 
 struct acpi_processor {
@@ -279,6 +280,7 @@ int acpi_processor_power_init(struct acpi_processor *pr,
 int acpi_processor_cst_has_changed(struct acpi_processor *pr);
 int acpi_processor_power_exit(struct acpi_processor *pr,
 			      struct acpi_device *device);
+extern struct cpuidle_driver acpi_idle_driver;
 
 /* in processor_thermal.c */
 int acpi_processor_get_limit_info(struct acpi_processor *pr);

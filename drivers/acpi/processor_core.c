@@ -44,6 +44,7 @@
 #include <linux/seq_file.h>
 #include <linux/dmi.h>
 #include <linux/moduleparam.h>
+#include <linux/cpuidle.h>
 
 #include <asm/io.h>
 #include <asm/system.h>
@@ -1022,11 +1023,13 @@ static int __init acpi_processor_init(void)
 
 	acpi_processor_ppc_init();
 
+	cpuidle_register_driver(&acpi_idle_driver);
 	return 0;
 }
 
 static void __exit acpi_processor_exit(void)
 {
+	cpuidle_unregister_driver(&acpi_idle_driver);
 
 	acpi_processor_ppc_exit();
 

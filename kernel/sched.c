@@ -4059,7 +4059,8 @@ void scheduler_tick(void)
 }
 
 #if defined(CONFIG_PREEMPT) && (defined(CONFIG_DEBUG_PREEMPT) || \
-				defined(CONFIG_PREEMPT_TRACER))
+				defined(CONFIG_PREEMPT_TRACER) || \
+				defined(CONFIG_PREEMPT_TRACE))
 
 static inline unsigned long get_parent_ip(unsigned long addr)
 {
@@ -4073,6 +4074,9 @@ static inline unsigned long get_parent_ip(unsigned long addr)
 
 void __kprobes add_preempt_count(int val)
 {
+	unsigned long eip = CALLER_ADDR0;
+	unsigned long parent_eip = get_parent_ip(CALLER_ADDR1);
+
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Underflow?
@@ -4081,6 +4085,15 @@ void __kprobes add_preempt_count(int val)
 		return;
 #endif
 	preempt_count() += val;
+#ifdef CONFIG_PREEMPT_TRACE
+	if (val <= 10) {
+		unsigned int idx = preempt_count() & PREEMPT_MASK;
+		if (idx < MAX_PREEMPT_TRACE) {
+			current->preempt_trace_eip[idx] = eip;
+			current->preempt_trace_parent_eip[idx] = parent_eip;
+		}
+	}
+#endif
 #ifdef CONFIG_DEBUG_PREEMPT
 	/*
 	 * Spinlock count overflowing soon?
@@ -4089,7 +4102,7 @@ void __kprobes add_preempt_count(int val)
 				PREEMPT_MASK - 10);
 #endif
 	if (preempt_count() == val)
-		trace_preempt_off(CALLER_ADDR0, get_parent_ip(CALLER_ADDR1));
+		trace_preempt_off(eip, parent_eip);
 }
 EXPORT_SYMBOL(add_preempt_count);
 

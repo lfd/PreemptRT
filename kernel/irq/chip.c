@@ -302,10 +302,9 @@ handle_simple_irq(unsigned int irq, struct irq_desc *desc)
 	action = desc->action;
 	if (unlikely(!action || (desc->status & (IRQ_INPROGRESS |
 						 IRQ_DISABLED)))) {
-		if (desc->chip->mask)
-			desc->chip->mask(irq);
 		desc->status &= ~(IRQ_REPLAY | IRQ_WAITING);
-		desc->status |= IRQ_PENDING;
+		if (action && (desc->status & IRQ_INPROGRESS))
+			desc->status |= IRQ_PENDING;
 		goto out_unlock;
 	}
 

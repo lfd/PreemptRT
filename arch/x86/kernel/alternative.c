@@ -141,7 +141,7 @@ static const unsigned char *const p6_nops[ASM_NOP_MAX+1] = {
 #ifdef CONFIG_X86_64
 
 extern char __vsyscall_0;
-static inline const unsigned char*const * find_nop_table(void)
+const unsigned char *const *find_nop_table(void)
 {
 	return boot_cpu_data.x86_vendor != X86_VENDOR_INTEL ||
 	       boot_cpu_data.x86 < 6 ? k8_nops : p6_nops;
@@ -160,7 +160,7 @@ static const struct nop {
 	{ -1, NULL }
 };
 
-static const unsigned char*const * find_nop_table(void)
+const unsigned char *const *find_nop_table(void)
 {
 	const unsigned char *const *noptable = intel_nops;
 	int i;
@@ -177,7 +177,7 @@ static const unsigned char*const * find_nop_table(void)
 #endif /* CONFIG_X86_64 */
 
 /* Use this to add nops to a buffer, then text_poke the whole buffer. */
-static void add_nops(void *insns, unsigned int len)
+void add_nops(void *insns, unsigned int len)
 {
 	const unsigned char *const *noptable = find_nop_table();
 
@@ -190,6 +190,7 @@ static void add_nops(void *insns, unsigned int len)
 		len -= noplen;
 	}
 }
+EXPORT_SYMBOL_GPL(add_nops);
 
 extern struct alt_instr __alt_instructions[], __alt_instructions_end[];
 extern u8 *__smp_locks[], *__smp_locks_end[];

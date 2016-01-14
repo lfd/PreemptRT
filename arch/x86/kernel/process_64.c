@@ -106,7 +106,7 @@ void default_idle(void)
 	 */
 	smp_mb();
 	local_irq_disable();
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		ktime_t t0, t1;
 		u64 t0n, t1n;
 
@@ -169,7 +169,7 @@ void cpu_idle(void)
 	/* endless idle loop with no priority at all */
 	while (1) {
 		tick_nohz_stop_sched_tick();
-		while (!need_resched()) {
+		while (!need_resched() && !need_resched_delayed()) {
 			void (*idle)(void);
 
 			rmb();
@@ -196,9 +196,11 @@ void cpu_idle(void)
 		}
 
 		tick_nohz_restart_sched_tick();
-		preempt_enable_no_resched();
-		schedule();
+		local_irq_disable();
+		__preempt_enable_no_resched();
+		__schedule();
 		preempt_disable();
+		local_irq_enable();
 	}
 }
 
@@ -234,10 +236,10 @@ EXPORT_SYMBOL_GPL(cpu_idle_wait);
  */
 void mwait_idle_with_hints(unsigned long ax, unsigned long cx)
 {
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
-		if (!need_resched())
+		if (!need_resched() && !need_resched_delayed())
 			__mwait(ax, cx);
 	}
 }
@@ -245,10 +247,10 @@ void mwait_idle_with_hints(unsigned long ax, unsigned long cx)
 /* Default MONITOR/MWAIT with no hints, used for default C1 state */
 static void mwait_idle(void)
 {
-	if (!need_resched()) {
+	if (!need_resched() && !need_resched_delayed()) {
 		__monitor((void *)&current_thread_info()->flags, 0, 0);
 		smp_mb();
-		if (!need_resched())
+		if (!need_resched() && !need_resched_delayed())
 			__sti_mwait(0, 0);
 		else
 			local_irq_enable();
@@ -400,7 +402,7 @@ void exit_thread(void)
 	struct thread_struct *t = &me->thread;
 
 	if (me->thread.io_bitmap_ptr) {
-		struct tss_struct *tss = &per_cpu(init_tss, get_cpu());
+		struct tss_struct *tss;
 
 		kfree(t->io_bitmap_ptr);
 		t->io_bitmap_ptr = NULL;
@@ -408,6 +410,7 @@ void exit_thread(void)
 		/*
 		 * Careful, clear this in the TSS too:
 		 */
+		tss = &per_cpu(init_tss, get_cpu());
 		memset(tss->io_bitmap, 0xff, t->io_bitmap_max);
 		t->io_bitmap_max = 0;
 		put_cpu();

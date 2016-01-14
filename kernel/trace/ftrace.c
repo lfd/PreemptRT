@@ -417,8 +417,7 @@ ftrace_record_ip(unsigned long ip)
 	if (!ftrace_enabled || ftrace_disabled)
 		return;
 
-	resched = need_resched();
-	preempt_disable_notrace();
+	resched = ftrace_preempt_disable();
 
 	/*
 	 * We simply need to protect against recursion.
@@ -462,11 +461,7 @@ ftrace_record_ip(unsigned long ip)
  out:
 	per_cpu(ftrace_shutdown_disable_cpu, cpu)--;
 
-	/* prevent recursion with scheduler */
-	if (resched)
-		preempt_enable_no_resched_notrace();
-	else
-		preempt_enable_notrace();
+	ftrace_preempt_enable(resched);
 }
 
 #define FTRACE_ADDR ((long)(ftrace_caller))

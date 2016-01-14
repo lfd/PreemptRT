@@ -50,7 +50,7 @@ ATTRIB_NORET void cpu_idle(void)
 {
 	/* endless idle loop with no priority at all */
 	while (1) {
-		while (!need_resched()) {
+		while (!need_resched() && !need_resched_delayed()) {
 #ifdef CONFIG_SMTC_IDLE_HOOK_DEBUG
 			extern void smtc_idle_loop_hook(void);
 
@@ -59,9 +59,11 @@ ATTRIB_NORET void cpu_idle(void)
 			if (cpu_wait)
 				(*cpu_wait)();
 		}
-		preempt_enable_no_resched();
-		schedule();
+		local_irq_disable();
+		__preempt_enable_no_resched();
+		__schedule();
 		preempt_disable();
+		local_irq_enable();
 	}
 }
 

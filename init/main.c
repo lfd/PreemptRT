@@ -344,6 +344,9 @@ static int __init rdinit_setup(char *str)
 {
 	unsigned int i;
 
+#ifdef CONFIG_PREEMPT_RT
+	ftrace_disable_daemon();
+#endif
 	ramdisk_execute_command = str;
 	/* See "auto" comment in init_setup */
 	for (i = 1; i < MAX_INIT_ARGS; i++)

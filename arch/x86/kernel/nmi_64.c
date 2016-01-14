@@ -311,7 +311,7 @@ void touch_nmi_watchdog(void)
 }
 EXPORT_SYMBOL(touch_nmi_watchdog);
 
-int __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
+notrace int __kprobes nmi_watchdog_tick(struct pt_regs * regs, unsigned reason)
 {
 	int sum;
 	int touched = 0;

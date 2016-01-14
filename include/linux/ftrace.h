@@ -4,6 +4,7 @@
 #ifdef CONFIG_FTRACE
 
 #include <linux/linkage.h>
+#include <linux/ktime.h>
 
 extern int ftrace_enabled;
 extern int
@@ -119,5 +120,59 @@ static inline void tracer_disable(void)
 # define trace_preempt_on(a0, a1)		do { } while (0)
 # define trace_preempt_off(a0, a1)		do { } while (0)
 #endif
+
+#ifdef CONFIG_EVENT_TRACER
+extern int ftrace_events_enabled;
+enum ftrace_event_enum {
+	FTRACE_EVENTS_IRQ,
+	FTRACE_EVENTS_FAULT,
+	FTRACE_EVENTS_TIMER,
+	FTRACE_EVENTS_TIMESTAMP,
+	FTRACE_EVENTS_TASK,
+};
+extern void ftrace_record_event(enum ftrace_event_enum event, ...);
+static inline void ftrace_event_irq(int irq, int user, unsigned long ip)
+{
+	if (unlikely(ftrace_events_enabled))
+		ftrace_record_event(FTRACE_EVENTS_IRQ,
+				    irq, user, ip);
+}
+
+static inline void ftrace_event_fault(unsigned long ip, unsigned long error,
+				      unsigned long addr)
+{
+	if (unlikely(ftrace_events_enabled))
+		ftrace_record_event(FTRACE_EVENTS_FAULT,
+				    ip, error, addr);
+}
+
+static inline void ftrace_event_timer(void *p1, void *p2)
+{
+	if (unlikely(ftrace_events_enabled))
+		ftrace_record_event(FTRACE_EVENTS_TIMER,
+				    p1, p2);
+}
+
+static inline void ftrace_event_timestamp(ktime_t *time)
+{
+	if (unlikely(ftrace_events_enabled))
+		ftrace_record_event(FTRACE_EVENTS_TIMESTAMP,
+				    time);
+}
+
+static inline void ftrace_event_task(pid_t pid, int prio,
+				     unsigned long  running)
+{
+	if (unlikely(ftrace_events_enabled))
+		ftrace_record_event(FTRACE_EVENTS_TASK,
+				    pid, prio, running);
+}
+#else
+# define ftrace_event_irq(irq, user, ip)	do { } while (0)
+# define ftrace_event_fault(ip, error, addr)	do { } while (0)
+# define ftrace_event_timer(p1, p2)		do { } while (0)
+# define ftrace_event_timestamp(now)		do { } while (0)
+# define ftrace_event_task(pid, prio, running)	do { } while (0)
+#endif /* CONFIG_TRACE_EVENTS */
 
 #endif /* _LINUX_FTRACE_H */

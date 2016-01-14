@@ -16,7 +16,7 @@ extern void timer_interrupt(struct pt_regs *);
 #ifdef CONFIG_PPC64
 #include <asm/paca.h>
 
-static inline unsigned long local_get_flags(void)
+static inline unsigned long raw_local_get_flags(void)
 {
 	unsigned long flags;
 
@@ -39,18 +39,21 @@ static inline unsigned long raw_local_irq_disable(void)
 	return flags;
 }
 
-extern void raw_local_irq_restore(unsigned long);
 extern void iseries_handle_interrupts(void);
+extern unsigned long raw_local_get_flags(void);
+extern unsigned long raw_local_irq_disable(void);
+extern void raw_local_irq_restore(unsigned long);
 
 #define raw_local_irq_enable()		raw_local_irq_restore(1)
-#define raw_local_save_flags(flags)	((flags) = local_get_flags())
+#define raw_local_save_flags(flags)	((flags) = raw_local_get_flags())
 #define raw_local_irq_save(flags)	((flags) = raw_local_irq_disable())
 
-#define raw_irqs_disabled()		(local_get_flags() == 0)
+#define raw_irqs_disabled()		(raw_local_get_flags() == 0)
 #define raw_irqs_disabled_flags(flags)	((flags) == 0)
 
-#define __hard_irq_enable()	__mtmsrd(mfmsr() | MSR_EE, 1)
-#define __hard_irq_disable()	__mtmsrd(mfmsr() & ~MSR_EE, 1)
+
+#define __hard_irq_enable()		__mtmsrd(mfmsr() | MSR_EE, 1)
+#define __hard_irq_disable()		__mtmsrd(mfmsr() & ~MSR_EE, 1)
 
 #define  hard_irq_disable()			\
 	do {					\
@@ -59,17 +62,17 @@ extern void iseries_handle_interrupts(void);
 		get_paca()->hard_enabled = 0;	\
 	} while(0)
 
-#else
+#else  /* CONFIG_PPC64 */
 
 #if defined(CONFIG_BOOKE)
 #define SET_MSR_EE(x)	mtmsr(x)
-#define local_irq_restore(flags)	__asm__ __volatile__("wrtee %0" : : "r" (flags) : "memory")
+#define raw_local_irq_restore(flags)	__asm__ __volatile__("wrtee %0" : : "r" (flags) : "memory")
 #else
 #define SET_MSR_EE(x)	mtmsr(x)
-#define local_irq_restore(flags)	mtmsr(flags)
-#endif
+#define raw_local_irq_restore(flags)	mtmsr(flags)
+#endif /* CONFIG_BOOKE */
 
-static inline void local_irq_disable(void)
+static inline void raw_local_irq_disable(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 0": : :"memory");
@@ -81,7 +84,7 @@ static inline void local_irq_disable(void)
 #endif
 }
 
-static inline void local_irq_enable(void)
+static inline void raw_local_irq_enable(void)
 {
 #ifdef CONFIG_BOOKE
 	__asm__ __volatile__("wrteei 1": : :"memory");
@@ -93,7 +96,7 @@ static inline void local_irq_enable(void)
 #endif
 }
 
-static inline void local_irq_save_ptr(unsigned long *flags)
+static inline void raw_local_irq_save_ptr(unsigned long *flags)
 {
 	unsigned long msr;
 	msr = mfmsr();
@@ -106,12 +109,15 @@ static inline void local_irq_save_ptr(unsigned long *flags)
 	__asm__ __volatile__("": : :"memory");
 }
 
-#define local_save_flags(flags)	((flags) = mfmsr())
-#define local_irq_save(flags)	local_irq_save_ptr(&flags)
-#define irqs_disabled()		((mfmsr() & MSR_EE) == 0)
+#define raw_local_save_flags(flags)		((flags) = mfmsr())
+#define raw_local_irq_save(flags)		raw_local_irq_save_ptr(&flags)
+#define raw_irqs_disabled()			((mfmsr() & MSR_EE) == 0)
+#define raw_irqs_disabled_flags(flags)	((flags & MSR_EE) == 0)
 
 #define hard_irq_enable()	local_irq_enable()
 #define hard_irq_disable()	local_irq_disable()
+
+#include <linux/trace_irqflags.h>
 
 #endif /* CONFIG_PPC64 */
 

@@ -545,11 +545,26 @@ extern void raise_softirq(unsigned int nr);
 extern void softirq_check_pending_idle(void);
 
 DECLARE_PER_CPU(struct task_struct *, ksoftirqd);
+DECLARE_PER_CPU(struct task_struct *, ktimer_softirqd);
 
 static inline struct task_struct *this_cpu_ksoftirqd(void)
 {
 	return this_cpu_read(ksoftirqd);
 }
+
+#ifdef CONFIG_PREEMPT_RT_FULL
+static inline bool task_is_ktimer_softirqd(struct task_struct *tsk)
+{
+	return tsk == this_cpu_read(ktimer_softirqd);
+}
+
+#else
+static inline bool task_is_ktimer_softirqd(struct task_struct *tsk)
+{
+	return false;
+}
+
+#endif
 
 /* Tasklets --- multithreaded analogue of BHs.
 

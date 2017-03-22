@@ -1565,15 +1565,14 @@ static void mark_wake_futex(struct wake_q_head *wake_q, struct futex_q *q)
 	 * memory barrier is required here to prevent the following
 	 * store to lock_ptr from getting ahead of the plist_del.
 	 */
-	smp_wmb();
-	q->lock_ptr = NULL;
+	smp_store_release(&q->lock_ptr, NULL);
 }
 
-/*
- * Caller must hold a reference on @pi_state.
- */
-static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_pi_state *pi_state)
+static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_q *top_waiter,
+			 struct futex_hash_bucket *hb)
 {
+	struct task_struct *new_owner;
+	struct futex_pi_state *pi_state = top_waiter->pi_state;
 	u32 uninitialized_var(curval), newval;
 	struct task_struct *new_owner;
 	bool deboost = false;
@@ -1581,17 +1580,15 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_pi_state *pi_
 	int ret = 0;
 
 	new_owner = rt_mutex_next_owner(&pi_state->pi_mutex);
-	if (WARN_ON_ONCE(!new_owner)) {
-		/*
-		 * As per the comment in futex_unlock_pi() this should not happen.
-		 *
-		 * When this happens, give up our locks and try again, giving
-		 * the futex_lock_pi() instance time to complete, either by
-		 * waiting on the rtmutex or removing itself from the futex
-		 * queue.
-		 */
-		ret = -EAGAIN;
-		goto out_unlock;
+
+	/*
+	 * When this happens, give up our locks and try again, giving the
+	 * futex_lock_pi() instance time to complete, either by waiting on the
+	 * rtmutex or removing itself from the futex queue.
+	 */
+	if (!new_owner) {
+		raw_spin_unlock_irq(&pi_state->pi_mutex.wait_lock);
+		return -EAGAIN;
 	}
 
 	/*
@@ -3024,38 +3021,7 @@ retry:
 	 */
 	top_waiter = futex_top_waiter(hb, &key);
 	if (top_waiter) {
-		struct futex_pi_state *pi_state = top_waiter->pi_state;
-
-		ret = -EINVAL;
-		if (!pi_state)
-			goto out_unlock;
-
-		/*
-		 * If current does not own the pi_state then the futex is
-		 * inconsistent and user space fiddled with the futex value.
-		 */
-		if (pi_state->owner != current)
-			goto out_unlock;
-
-		get_pi_state(pi_state);
-		/*
-		 * Since modifying the wait_list is done while holding both
-		 * hb->lock and wait_lock, holding either is sufficient to
-		 * observe it.
-		 *
-		 * By taking wait_lock while still holding hb->lock, we ensure
-		 * there is no point where we hold neither; and therefore
-		 * wake_futex_pi() must observe a state consistent with what we
-		 * observed.
-		 */
-		raw_spin_lock_irq(&pi_state->pi_mutex.wait_lock);
-		spin_unlock(&hb->lock);
-
-		/* drops pi_state->pi_mutex.wait_lock */
-		ret = wake_futex_pi(uaddr, uval, pi_state);
-
-		put_pi_state(pi_state);
-
+		ret = wake_futex_pi(uaddr, uval, top_waiter, hb);
 		/*
 		 * Success, we're done! No tricky corner cases.
 		 */

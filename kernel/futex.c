@@ -1582,6 +1582,11 @@ static int wake_futex_pi(u32 __user *uaddr, u32 uval, struct futex_q *top_waiter
 	new_owner = rt_mutex_next_owner(&pi_state->pi_mutex);
 
 	/*
+	 * When we interleave with futex_lock_pi() where it does
+	 * rt_mutex_timed_futex_lock(), we might observe @this futex_q waiter,
+	 * but the rt_mutex's wait_list can be empty (either still, or again,
+	 * depending on which side we land).
+	 *
 	 * When this happens, give up our locks and try again, giving the
 	 * futex_lock_pi() instance time to complete, either by waiting on the
 	 * rtmutex or removing itself from the futex queue.
@@ -2629,39 +2634,6 @@ static int fixup_owner(u32 __user *uaddr, struct futex_q *q, int locked)
 		if (q->pi_state->owner != current)
 			return fixup_pi_state_owner(uaddr, q, current);
 		return 1;
-	}
-
-	/*
-	 * If we didn't get the lock; check if anybody stole it from us. In
-	 * that case, we need to fix up the uval to point to them instead of
-	 * us, otherwise bad things happen. [10]
-	 *
-	 * Another speculative read; pi_state->owner == current is unstable
-	 * but needs our attention.
-	 */
-	if (q->pi_state->owner == current) {
-		/*
-		 * Try to get the rt_mutex now. This might fail as some other
-		 * task acquired the rt_mutex after we removed ourself from the
-		 * rt_mutex waiters list.
-		 */
-		if (rt_mutex_futex_trylock(&q->pi_state->pi_mutex)) {
-			locked = 1;
-			goto out;
-		}
-
-		/*
-		 * pi_state is incorrect, some other task did a lock steal and
-		 * we returned due to timeout or signal without taking the
-		 * rt_mutex. Too late.
-		 */
-		raw_spin_lock_irq(&q->pi_state->pi_mutex.wait_lock);
-		owner = rt_mutex_owner(&q->pi_state->pi_mutex);
-		if (!owner)
-			owner = rt_mutex_next_owner(&q->pi_state->pi_mutex);
-		raw_spin_unlock_irq(&q->pi_state->pi_mutex.wait_lock);
-		ret = fixup_pi_state_owner(uaddr, q, owner);
-		goto out;
 	}
 
 	/*

@@ -244,3 +244,73 @@ void __write_rt_unlock(struct rt_rw_lock *lock)
 	raw_spin_lock_irqsave(&m->wait_lock, flags);
 	__write_unlock_common(lock, WRITER_BIAS, flags);
 }
+
+#ifdef CONFIG_RWLOCK_RT_READER_BIASED
+
+int __lockfunc rt_read_trylock(rwlock_t *rwlock)
+{
+	int ret;
+
+	migrate_disable();
+	ret = __read_rt_trylock(rwlock);
+	if (ret)
+		rwlock_acquire_read(&rwlock->dep_map, 0, 1, _RET_IP_);
+	else
+		migrate_enable();
+	return ret;
+}
+EXPORT_SYMBOL(rt_read_trylock);
+
+int __lockfunc rt_write_trylock(rwlock_t *rwlock)
+{
+	int ret;
+
+	migrate_disable();
+	ret = __write_rt_trylock(rwlock);
+	if (ret)
+		rwlock_acquire(&rwlock->dep_map, 0, 1, _RET_IP_);
+	else
+		migrate_enable();
+	return ret;
+}
+EXPORT_SYMBOL(rt_write_trylock);
+
+void __lockfunc rt_read_lock(rwlock_t *rwlock)
+{
+	migrate_disable();
+	rwlock_acquire_read(&rwlock->dep_map, 0, 0, _RET_IP_);
+	__read_rt_lock(rwlock);
+}
+EXPORT_SYMBOL(rt_read_lock);
+
+void __lockfunc rt_write_lock(rwlock_t *rwlock)
+{
+	migrate_disable();
+	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
+	__write_rt_lock(rwlock);
+}
+EXPORT_SYMBOL(rt_write_lock);
+
+void __lockfunc rt_read_unlock(rwlock_t *rwlock)
+{
+	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
+	__read_rt_unlock(rwlock);
+	migrate_enable();
+}
+EXPORT_SYMBOL(rt_read_unlock);
+
+void __lockfunc rt_write_unlock(rwlock_t *rwlock)
+{
+	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
+	__write_rt_unlock(rwlock);
+	migrate_enable();
+}
+EXPORT_SYMBOL(rt_write_unlock);
+
+void __rt_rwlock_init(rwlock_t *rwlock, char *name, struct lock_class_key *key)
+{
+	__rwlock_biased_rt_init(rwlock, name, key);
+}
+EXPORT_SYMBOL(__rt_rwlock_init);
+
+#endif

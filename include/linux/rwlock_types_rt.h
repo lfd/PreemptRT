@@ -5,6 +5,13 @@
 #error "Do not include directly. Include spinlock_types.h instead"
 #endif
 
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+# define RW_DEP_MAP_INIT(lockname)	.dep_map = { .name = #lockname }
+#else
+# define RW_DEP_MAP_INIT(lockname)
+#endif
+
+#ifndef CONFIG_RWLOCK_RT_READER_BIASED
 /*
  * rwlocks - rtmutex which allows single reader recursion
  */
@@ -16,12 +23,6 @@ typedef struct {
 #endif
 } rwlock_t;
 
-#ifdef CONFIG_DEBUG_LOCK_ALLOC
-# define RW_DEP_MAP_INIT(lockname)	.dep_map = { .name = #lockname }
-#else
-# define RW_DEP_MAP_INIT(lockname)
-#endif
-
 #define __RW_LOCK_UNLOCKED(name) \
 	{ .lock = __RT_MUTEX_INITIALIZER_SAVE_STATE(name.lock),	\
 	  RW_DEP_MAP_INIT(name) }
@@ -29,8 +30,16 @@ typedef struct {
 #define DEFINE_RWLOCK(name) \
 	rwlock_t name = __RW_LOCK_UNLOCKED(name)
 
-#define READER_BIAS	(1U << 31)
-#define WRITER_BIAS	(1U << 30)
+#else /* CONFIG_RWLOCK_RT_READER_BIASED */
+
+typedef struct rt_rw_lock rwlock_t;
+
+#define __RW_LOCK_UNLOCKED(name) __RWLOCK_RT_INITIALIZER(name)
+
+#define DEFINE_RWLOCK(name) \
+	rwlock_t name = __RW_LOCK_UNLOCKED(name)
+
+#endif /* !CONFIG_RWLOCK_RT_READER_BIASED */
 
 /*
  * A reader biased implementation primarily for CPU pinning.
@@ -45,6 +54,9 @@ struct rt_rw_lock {
 	struct lockdep_map	dep_map;
 #endif
 };
+
+#define READER_BIAS	(1U << 31)
+#define WRITER_BIAS	(1U << 30)
 
 #define __RWLOCK_RT_INITIALIZER(name)					\
 {									\
@@ -62,13 +74,5 @@ void __rwlock_biased_rt_init(struct rt_rw_lock *lock, const char *name,
 									\
 		__rwlock_biased_rt_init((rwlock), #rwlock, &__key);	\
 	} while (0)
-
-int __read_rt_trylock(struct rt_rw_lock *rwlock);
-void __read_rt_lock(struct rt_rw_lock *rwlock);
-void __read_rt_unlock(struct rt_rw_lock *rwlock);
-
-void __write_rt_lock(struct rt_rw_lock *rwlock);
-int __write_rt_trylock(struct rt_rw_lock *rwlock);
-void __write_rt_unlock(struct rt_rw_lock *rwlock);
 
 #endif

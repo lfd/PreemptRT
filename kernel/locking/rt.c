@@ -198,6 +198,7 @@ void __lockfunc _mutex_unlock(struct mutex *lock)
 }
 EXPORT_SYMBOL(_mutex_unlock);
 
+#ifndef CONFIG_RWLOCK_RT_READER_BIASED
 /*
  * rwlock_t functions
  */
@@ -280,6 +281,7 @@ void __rt_rwlock_init(rwlock_t *rwlock, char *name, struct lock_class_key *key)
 	rwlock->lock.save_state = 1;
 }
 EXPORT_SYMBOL(__rt_rwlock_init);
+#endif
 
 /**
  * atomic_dec_and_mutex_lock - return holding mutex if we dec to 0

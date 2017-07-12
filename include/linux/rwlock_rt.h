@@ -101,4 +101,14 @@ static inline int __write_trylock_rt_irqsave(rwlock_t *lock, unsigned long *flag
 		rt_write_unlock(lock);			\
 	} while (0)
 
+/*
+ * Internal functions made global for CPU pinning
+ */
+void __read_rt_lock(struct rt_rw_lock *lock);
+int __read_rt_trylock(struct rt_rw_lock *lock);
+void __write_rt_lock(struct rt_rw_lock *lock);
+int __write_rt_trylock(struct rt_rw_lock *lock);
+void __read_rt_unlock(struct rt_rw_lock *lock);
+void __write_rt_unlock(struct rt_rw_lock *lock);
+
 #endif

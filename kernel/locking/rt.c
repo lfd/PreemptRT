@@ -211,46 +211,28 @@ int __lockfunc rt_write_trylock(rwlock_t *rwlock)
 		rwlock_acquire(&rwlock->dep_map, 0, 1, _RET_IP_);
 	else
 		migrate_enable();
-
 	return ret;
 }
 EXPORT_SYMBOL(rt_write_trylock);
 
 int __lockfunc rt_write_trylock_irqsave(rwlock_t *rwlock, unsigned long *flags)
 {
-	int ret;
-
 	*flags = 0;
-	ret = rt_write_trylock(rwlock);
-	return ret;
+	return rt_write_trylock(rwlock);
 }
 EXPORT_SYMBOL(rt_write_trylock_irqsave);
 
 int __lockfunc rt_read_trylock(rwlock_t *rwlock)
 {
 	struct rt_mutex *lock = &rwlock->lock;
-	int ret = 1;
+	int ret;
 
-	/*
-	 * recursive read locks succeed when current owns the lock,
-	 * but not when read_depth == 0 which means that the lock is
-	 * write locked.
-	 */
-	if (rt_mutex_owner(lock) != current) {
-		migrate_disable();
-		ret = rt_mutex_trylock(lock);
-		if (ret)
-			rwlock_acquire(&rwlock->dep_map, 0, 1, _RET_IP_);
-		else
-			migrate_enable();
-
-	} else if (!rwlock->read_depth) {
-		ret = 0;
-	}
-
+	migrate_disable();
+	ret = rt_mutex_trylock(lock);
 	if (ret)
-		rwlock->read_depth++;
-
+		rwlock_acquire(&rwlock->dep_map, 0, 1, _RET_IP_);
+	else
+		migrate_enable();
 	return ret;
 }
 EXPORT_SYMBOL(rt_read_trylock);
@@ -266,17 +248,9 @@ void __lockfunc rt_read_lock(rwlock_t *rwlock)
 {
 	struct rt_mutex *lock = &rwlock->lock;
 
-
-	/*
-	 * recursive read locks succeed when current owns the lock
-	 */
-	if (rt_mutex_owner(lock) != current) {
-		rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
-		__rt_spin_lock(lock);
-	}
-	rwlock->read_depth++;
+	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
+	__rt_spin_lock(lock);
 }
-
 EXPORT_SYMBOL(rt_read_lock);
 
 void __lockfunc rt_write_unlock(rwlock_t *rwlock)
@@ -290,19 +264,15 @@ EXPORT_SYMBOL(rt_write_unlock);
 
 void __lockfunc rt_read_unlock(rwlock_t *rwlock)
 {
-	/* Release the lock only when read_depth is down to 0 */
-	if (--rwlock->read_depth == 0) {
-		rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
-		__rt_spin_unlock(&rwlock->lock);
-		migrate_enable();
-	}
+	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
+	__rt_spin_unlock(&rwlock->lock);
+	migrate_enable();
 }
 EXPORT_SYMBOL(rt_read_unlock);
 
 unsigned long __lockfunc rt_write_lock_irqsave(rwlock_t *rwlock)
 {
 	rt_write_lock(rwlock);
-
 	return 0;
 }
 EXPORT_SYMBOL(rt_write_lock_irqsave);
@@ -310,7 +280,6 @@ EXPORT_SYMBOL(rt_write_lock_irqsave);
 unsigned long __lockfunc rt_read_lock_irqsave(rwlock_t *rwlock)
 {
 	rt_read_lock(rwlock);
-
 	return 0;
 }
 EXPORT_SYMBOL(rt_read_lock_irqsave);
@@ -325,7 +294,6 @@ void __rt_rwlock_init(rwlock_t *rwlock, char *name, struct lock_class_key *key)
 	lockdep_init_map(&rwlock->dep_map, name, key, 0);
 #endif
 	rwlock->lock.save_state = 1;
-	rwlock->read_depth = 0;
 }
 EXPORT_SYMBOL(__rt_rwlock_init);
 

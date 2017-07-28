@@ -239,6 +239,7 @@ EXPORT_SYMBOL(rt_read_trylock);
 
 void __lockfunc rt_write_lock(rwlock_t *rwlock)
 {
+	migrate_disable();
 	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
 	__rt_spin_lock(&rwlock->lock);
 }
@@ -248,9 +249,11 @@ void __lockfunc rt_read_lock(rwlock_t *rwlock)
 {
 	struct rt_mutex *lock = &rwlock->lock;
 
+	migrate_disable();
 	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
 	__rt_spin_lock(lock);
 }
+
 EXPORT_SYMBOL(rt_read_lock);
 
 void __lockfunc rt_write_unlock(rwlock_t *rwlock)

@@ -245,14 +245,100 @@ void __write_rt_unlock(struct rt_rw_lock *lock)
 	__write_unlock_common(lock, WRITER_BIAS, flags);
 }
 
-#ifdef CONFIG_RWLOCK_RT_READER_BIASED
+#ifndef CONFIG_RWLOCK_RT_READER_BIASED
+/* Map the single reader implementation */
+static inline int do_read_rt_trylock(rwlock_t *rwlock)
+{
+	return rt_mutex_trylock(&rwlock->lock);
+}
 
+static inline int do_write_rt_trylock(rwlock_t *rwlock)
+{
+	return rt_mutex_trylock(&rwlock->lock);
+}
+
+static inline void do_read_rt_lock(rwlock_t *rwlock)
+{
+	__rt_spin_lock(&rwlock->lock);
+}
+
+static inline void do_write_rt_lock(rwlock_t *rwlock)
+{
+	__rt_spin_lock(&rwlock->lock);
+}
+
+static inline void do_read_rt_unlock(rwlock_t *rwlock)
+{
+	__rt_spin_unlock(&rwlock->lock);
+}
+
+static inline void do_write_rt_unlock(rwlock_t *rwlock)
+{
+	__rt_spin_unlock(&rwlock->lock);
+}
+
+static inline void do_rwlock_rt_init(rwlock_t *rwlock, const char *name,
+				     struct lock_class_key *key)
+{
+#ifdef CONFIG_DEBUG_LOCK_ALLOC
+	/*
+	 * Make sure we are not reinitializing a held lock:
+	 */
+	debug_check_no_locks_freed((void *)rwlock, sizeof(*rwlock));
+	lockdep_init_map(&rwlock->dep_map, name, key, 0);
+#endif
+	rt_mutex_init(&rwlock->lock);
+	rwlock->lock.save_state = 1;
+}
+
+#else
+/* Map the reader biased implementation */
+static inline int do_read_rt_trylock(rwlock_t *rwlock)
+{
+	return __read_rt_trylock(rwlock);
+}
+
+static inline int do_write_rt_trylock(rwlock_t *rwlock)
+{
+	return __write_rt_trylock(rwlock);
+}
+
+static inline void do_read_rt_lock(rwlock_t *rwlock)
+{
+	__read_rt_lock(rwlock);
+}
+
+static inline void do_write_rt_lock(rwlock_t *rwlock)
+{
+	__write_rt_lock(rwlock);
+}
+
+static inline void do_read_rt_unlock(rwlock_t *rwlock)
+{
+	__read_rt_unlock(rwlock);
+}
+
+static inline void do_write_rt_unlock(rwlock_t *rwlock)
+{
+	__write_rt_unlock(rwlock);
+}
+
+static inline void do_rwlock_rt_init(rwlock_t *rwlock, const char *name,
+				     struct lock_class_key *key)
+{
+	__rwlock_biased_rt_init(rwlock, name, key);
+}
+#endif
+
+/*
+ * The common functions which get wrapped into the rwlock API.
+ */
 int __lockfunc rt_read_trylock(rwlock_t *rwlock)
 {
 	int ret;
 
 	migrate_disable();
-	ret = __read_rt_trylock(rwlock);
+	ret = do_read_rt_trylock(rwlock);
 	if (ret)
 		rwlock_acquire_read(&rwlock->dep_map, 0, 1, _RET_IP_);
 	else
@@ -266,7 +352,7 @@ int __lockfunc rt_write_trylock(rwlock_t *rwlock)
 	int ret;
 
 	migrate_disable();
-	ret = __write_rt_trylock(rwlock);
+	ret = do_write_rt_trylock(rwlock);
 	if (ret)
 		rwlock_acquire(&rwlock->dep_map, 0, 1, _RET_IP_);
 	else
@@ -279,7 +365,7 @@ void __lockfunc rt_read_lock(rwlock_t *rwlock)
 {
 	migrate_disable();
 	rwlock_acquire_read(&rwlock->dep_map, 0, 0, _RET_IP_);
-	__read_rt_lock(rwlock);
+	do_read_rt_lock(rwlock);
 }
 EXPORT_SYMBOL(rt_read_lock);
 
@@ -287,14 +373,14 @@ void __lockfunc rt_write_lock(rwlock_t *rwlock)
 {
 	migrate_disable();
 	rwlock_acquire(&rwlock->dep_map, 0, 0, _RET_IP_);
-	__write_rt_lock(rwlock);
+	do_write_rt_lock(rwlock);
 }
 EXPORT_SYMBOL(rt_write_lock);
 
 void __lockfunc rt_read_unlock(rwlock_t *rwlock)
 {
 	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
-	__read_rt_unlock(rwlock);
+	do_read_rt_unlock(rwlock);
 	migrate_enable();
 }
 EXPORT_SYMBOL(rt_read_unlock);
@@ -302,15 +388,13 @@ EXPORT_SYMBOL(rt_read_unlock);
 void __lockfunc rt_write_unlock(rwlock_t *rwlock)
 {
 	rwlock_release(&rwlock->dep_map, 1, _RET_IP_);
-	__write_rt_unlock(rwlock);
+	do_write_rt_unlock(rwlock);
 	migrate_enable();
 }
 EXPORT_SYMBOL(rt_write_unlock);
 
 void __rt_rwlock_init(rwlock_t *rwlock, char *name, struct lock_class_key *key)
 {
-	__rwlock_biased_rt_init(rwlock, name, key);
+	do_rwlock_rt_init(rwlock, name, key);
 }
 EXPORT_SYMBOL(__rt_rwlock_init);
-
-#endif

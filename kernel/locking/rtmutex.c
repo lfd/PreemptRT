@@ -1146,13 +1146,6 @@ static void  noinline __sched rt_spin_lock_slowunlock(struct rt_mutex *lock)
 		rt_mutex_postunlock(&wake_q, &wake_sleeper_q);
 }
 
-void __lockfunc rt_spin_lock__no_mg(spinlock_t *lock)
-{
-	rt_spin_lock_fastlock(&lock->lock, rt_spin_lock_slowlock);
-	spin_acquire(&lock->dep_map, 0, 0, _RET_IP_);
-}
-EXPORT_SYMBOL(rt_spin_lock__no_mg);
-
 void __lockfunc rt_spin_lock(spinlock_t *lock)
 {
 	migrate_disable();
@@ -1163,34 +1156,18 @@ EXPORT_SYMBOL(rt_spin_lock);
 
 void __lockfunc __rt_spin_lock(struct rt_mutex *lock)
 {
-	migrate_disable();
 	rt_spin_lock_fastlock(lock, rt_spin_lock_slowlock);
 }
-EXPORT_SYMBOL(__rt_spin_lock);
-
-void __lockfunc __rt_spin_lock__no_mg(struct rt_mutex *lock)
-{
-	rt_spin_lock_fastlock(lock, rt_spin_lock_slowlock);
-}
-EXPORT_SYMBOL(__rt_spin_lock__no_mg);
 
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 void __lockfunc rt_spin_lock_nested(spinlock_t *lock, int subclass)
 {
 	migrate_disable();
-	rt_spin_lock_fastlock(&lock->lock, rt_spin_lock_slowlock);
 	spin_acquire(&lock->dep_map, subclass, 0, _RET_IP_);
+	rt_spin_lock_fastlock(&lock->lock, rt_spin_lock_slowlock);
 }
 EXPORT_SYMBOL(rt_spin_lock_nested);
 #endif
-
-void __lockfunc rt_spin_unlock__no_mg(spinlock_t *lock)
-{
-	/* NOTE: we always pass in '1' for nested, for simplicity */
-	spin_release(&lock->dep_map, 1, _RET_IP_);
-	rt_spin_lock_fastunlock(&lock->lock, rt_spin_lock_slowunlock);
-}
-EXPORT_SYMBOL(rt_spin_unlock__no_mg);
 
 void __lockfunc rt_spin_unlock(spinlock_t *lock)
 {
@@ -1218,17 +1195,6 @@ void __lockfunc rt_spin_unlock_wait(spinlock_t *lock)
 	spin_unlock(lock);
 }
 EXPORT_SYMBOL(rt_spin_unlock_wait);
-
-int __lockfunc rt_spin_trylock__no_mg(spinlock_t *lock)
-{
-	int ret;
-
-	ret = rt_mutex_trylock(&lock->lock);
-	if (ret)
-		spin_acquire(&lock->dep_map, 0, 1, _RET_IP_);
-	return ret;
-}
-EXPORT_SYMBOL(rt_spin_trylock__no_mg);
 
 int __lockfunc rt_spin_trylock(spinlock_t *lock)
 {

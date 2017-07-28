@@ -10,7 +10,6 @@
  */
 typedef struct {
 	struct rt_mutex		lock;
-	int			read_depth;
 	unsigned int		break_lock;
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	struct lockdep_map	dep_map;

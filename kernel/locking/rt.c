@@ -215,13 +215,6 @@ int __lockfunc rt_write_trylock(rwlock_t *rwlock)
 }
 EXPORT_SYMBOL(rt_write_trylock);
 
-int __lockfunc rt_write_trylock_irqsave(rwlock_t *rwlock, unsigned long *flags)
-{
-	*flags = 0;
-	return rt_write_trylock(rwlock);
-}
-EXPORT_SYMBOL(rt_write_trylock_irqsave);
-
 int __lockfunc rt_read_trylock(rwlock_t *rwlock)
 {
 	struct rt_mutex *lock = &rwlock->lock;
@@ -273,22 +266,10 @@ void __lockfunc rt_read_unlock(rwlock_t *rwlock)
 }
 EXPORT_SYMBOL(rt_read_unlock);
 
-unsigned long __lockfunc rt_write_lock_irqsave(rwlock_t *rwlock)
-{
-	rt_write_lock(rwlock);
-	return 0;
-}
-EXPORT_SYMBOL(rt_write_lock_irqsave);
-
-unsigned long __lockfunc rt_read_lock_irqsave(rwlock_t *rwlock)
-{
-	rt_read_lock(rwlock);
-	return 0;
-}
-EXPORT_SYMBOL(rt_read_lock_irqsave);
-
 void __rt_rwlock_init(rwlock_t *rwlock, char *name, struct lock_class_key *key)
 {
+	rt_mutex_init(&rwlock->lock);
+
 #ifdef CONFIG_DEBUG_LOCK_ALLOC
 	/*
 	 * Make sure we are not reinitializing a held lock:

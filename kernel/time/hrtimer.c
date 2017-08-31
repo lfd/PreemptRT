@@ -154,10 +154,11 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 }
 
 /*
- * With high resolution timers enabled we do not migrate the timer
- * when it is expiring before the next event on the target cpu because
- * we cannot reprogram the target cpu hardware and we would cause it
- * to fire late.
+ * We do not migrate the timer when it is expiring before the next
+ * event on the target cpu. When high resolution is enabled, we cannot
+ * reprogram the target cpu hardware and we would cause it to fire
+ * late. To keep it simple, we handle the high resolution enabled and
+ * disabled case similar.
  *
  * Called with cpu_base->lock of target cpu held.
  */
@@ -165,9 +166,6 @@ static int
 hrtimer_check_target(struct hrtimer *timer, struct hrtimer_clock_base *new_base)
 {
 	ktime_t expires;
-
-	if (!new_base->cpu_base->hres_active)
-		return 0;
 
 	expires = ktime_sub(hrtimer_get_expires(timer), new_base->offset);
 	return expires <= new_base->cpu_base->expires_next;
@@ -689,21 +687,24 @@ static void hrtimer_reprogram(struct hrtimer *timer,
 
 	/* Update the pointer to the next expiring timer */
 	hrtimer_update_next_timer(cpu_base, timer);
+	cpu_base->expires_next = expires;
 
 	/*
+	 * If hres is not active, hardware does not have to be
+	 * programmed yet.
+	 *
 	 * If a hang was detected in the last timer interrupt then we
 	 * do not schedule a timer which is earlier than the expiry
 	 * which we enforced in the hang detection. We want the system
 	 * to make progress.
 	 */
-	if (cpu_base->hang_detected)
+	if (!__hrtimer_hres_active(cpu_base) || cpu_base->hang_detected)
 		return;
 
 	/*
 	 * Program the timer hardware. We enforce the expiry for
 	 * events which are already in the past.
 	 */
-	cpu_base->expires_next = expires;
 	tick_program_event(expires, 1);
 }
 
@@ -943,16 +944,8 @@ void hrtimer_start_range_ns(struct hrtimer *timer, ktime_t tim,
 	if (!leftmost)
 		goto unlock;
 
-	if (!hrtimer_is_hres_active(timer)) {
-		/*
-		 * Kick to reschedule the next tick to handle the new timer
-		 * on dynticks target.
-		 */
-		if (new_base->cpu_base->nohz_active)
-			wake_up_nohz_cpu(new_base->cpu_base->cpu);
-	} else {
-		hrtimer_reprogram(timer, new_base);
-	}
+	hrtimer_reprogram(timer, new_base);
+
 unlock:
 	unlock_hrtimer_base(timer, &flags);
 }

@@ -630,7 +630,7 @@ static void hrtimer_reprogram(struct hrtimer *timer,
 		return;
 
 	/* Update the pointer to the next expiring timer */
-	cpu_base->next_timer = timer;
+	hrtimer_update_next_timer(cpu_base, timer);
 
 	/*
 	 * If a hang was detected in the last timer interrupt then we

@@ -23,6 +23,17 @@
 #include <linux/timer.h>
 #include <linux/timerqueue.h>
 
+/*
+ * Clock ids for hrtimers which expire in softirq context. These clock ids
+ * are kernel internal and never exported to user space.
+ */
+#define HRTIMER_BASE_SOFT_MASK	MAX_CLOCKS
+
+#define CLOCK_REALTIME_SOFT	(CLOCK_REALTIME	 | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_MONOTONIC_SOFT	(CLOCK_MONOTONIC | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_BOOTTIME_SOFT	(CLOCK_BOOTTIME	 | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_TAI_SOFT		(CLOCK_TAI	 | HRTIMER_BASE_SOFT_MASK)
+
 struct hrtimer_clock_base;
 struct hrtimer_cpu_base;
 

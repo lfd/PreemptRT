@@ -72,6 +72,14 @@
 #define CLOCK_TAI_SOFT		(CLOCK_TAI	 | HRTIMER_BASE_SOFT_MASK)
 
 /*
+ * Masks for selecting the soft and hard context timers from
+ * cpu_base->active
+ */
+#define MASK_SHIFT		(HRTIMER_BASE_MONOTONIC_SOFT)
+#define HRTIMER_ACTIVE_HARD	((1U << MASK_SHIFT) - 1)
+#define HRTIMER_ACTIVE_SOFT	(HRTIMER_ACTIVE_HARD << MASK_SHIFT)
+
+/*
  * The timer bases:
  *
  * There are more clockids than hrtimer bases. Thus, we index
@@ -527,11 +535,12 @@ static ktime_t __hrtimer_next_event_base(struct hrtimer_cpu_base *cpu_base,
 
 static ktime_t __hrtimer_get_next_event(struct hrtimer_cpu_base *cpu_base)
 {
-	unsigned int active = cpu_base->active_bases;
+	unsigned int active;
 	ktime_t expires_next = KTIME_MAX;
 
 	hrtimer_update_next_timer(cpu_base, NULL);
 
+	active = cpu_base->active_bases & HRTIMER_ACTIVE_HARD;
 	expires_next = __hrtimer_next_event_base(cpu_base, active, expires_next);
 
 	return expires_next;
@@ -1264,9 +1273,10 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 	base->running = NULL;
 }
 
-static void __hrtimer_run_queues(struct hrtimer_cpu_base *cpu_base, ktime_t now)
+static void __hrtimer_run_queues(struct hrtimer_cpu_base *cpu_base, ktime_t now,
+				 unsigned int active_mask)
 {
-	unsigned int active = cpu_base->active_bases;
+	unsigned int active = cpu_base->active_bases & active_mask;
 
 	while (active) {
 		unsigned int id = __ffs(active);
@@ -1333,7 +1343,7 @@ retry:
 	 */
 	cpu_base->expires_next = KTIME_MAX;
 
-	__hrtimer_run_queues(cpu_base, now);
+	__hrtimer_run_queues(cpu_base, now, HRTIMER_ACTIVE_HARD);
 
 	/* Reevaluate the clock bases for the next expiry */
 	expires_next = __hrtimer_get_next_event(cpu_base);
@@ -1438,7 +1448,7 @@ void hrtimer_run_queues(void)
 
 	raw_spin_lock(&cpu_base->lock);
 	now = hrtimer_update_base(cpu_base);
-	__hrtimer_run_queues(cpu_base, now);
+	__hrtimer_run_queues(cpu_base, now, HRTIMER_ACTIVE_HARD);
 	raw_spin_unlock(&cpu_base->lock);
 }
 

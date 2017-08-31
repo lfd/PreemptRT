@@ -161,6 +161,8 @@ enum  hrtimer_base_type {
  * @clock_was_set_seq:	Sequence counter of clock was set events
  * @migration_enabled:	The migration of hrtimers to other cpus is enabled
  * @nohz_active:	The nohz functionality is enabled
+ * @softirq_activated:	displays, if the softirq is raised - update of softirq
+ *			related settings is not required then.
  * @in_hrtirq:		hrtimer_interrupt() is currently executing
  * @hres_active:	State of high resolution mode
  * @hang_detected:	The last hrtimer interrupt detected a hang
@@ -169,8 +171,10 @@ enum  hrtimer_base_type {
  * @nr_hangs:		Total number of hrtimer interrupt hangs
  * @max_hang_time:	Maximum time spent in hrtimer_interrupt
  * @expires_next:	absolute time of the next event, is required for remote
- *			hrtimer enqueue
+ *			hrtimer enqueue; it is the total first expiry time (hard
+ *			and soft hrtimer are taken into account)
  * @next_timer:		Pointer to the first expiring timer
+ * @softirq_expires_next: Time to check, if soft queues needs also to be expired
  * @clock_base:		array of clock bases for this cpu
  *
  * Note: next_timer is just an optimization for __remove_hrtimer().
@@ -184,6 +188,7 @@ struct hrtimer_cpu_base {
 	unsigned int			clock_was_set_seq;
 	bool				migration_enabled;
 	bool				nohz_active;
+	bool				softirq_activated;
 	unsigned int			hres_active	: 1,
 					in_hrtirq	: 1,
 					hang_detected	: 1;
@@ -195,6 +200,7 @@ struct hrtimer_cpu_base {
 #endif
 	ktime_t				expires_next;
 	struct hrtimer			*next_timer;
+	ktime_t				softirq_expires_next;
 	struct hrtimer_clock_base	clock_base[HRTIMER_MAX_CLOCK_BASES];
 } ____cacheline_aligned;
 

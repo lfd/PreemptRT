@@ -465,17 +465,18 @@ static inline void hrtimer_update_next_timer(struct hrtimer_cpu_base *cpu_base,
 
 static ktime_t __hrtimer_get_next_event(struct hrtimer_cpu_base *cpu_base)
 {
-	struct hrtimer_clock_base *base = cpu_base->clock_base;
 	unsigned int active = cpu_base->active_bases;
 	ktime_t expires, expires_next = KTIME_MAX;
 
 	hrtimer_update_next_timer(cpu_base, NULL);
-	for (; active; base++, active >>= 1) {
+	while (active) {
+		unsigned int id = __ffs(active);
+		struct hrtimer_clock_base *base;
 		struct timerqueue_node *next;
 		struct hrtimer *timer;
 
-		if (!(active & 0x01))
-			continue;
+		active &= ~(1U << id);
+		base = cpu_base->clock_base + id;
 
 		next = timerqueue_getnext(&base->active);
 		timer = container_of(next, struct hrtimer, node);
@@ -1242,15 +1243,16 @@ static void __run_hrtimer(struct hrtimer_cpu_base *cpu_base,
 
 static void __hrtimer_run_queues(struct hrtimer_cpu_base *cpu_base, ktime_t now)
 {
-	struct hrtimer_clock_base *base = cpu_base->clock_base;
 	unsigned int active = cpu_base->active_bases;
 
-	for (; active; base++, active >>= 1) {
+	while (active) {
+		unsigned int id = __ffs(active);
+		struct hrtimer_clock_base *base;
 		struct timerqueue_node *node;
 		ktime_t basenow;
 
-		if (!(active & 0x01))
-			continue;
+		active &= ~(1U << id);
+		base = cpu_base->clock_base + id;
 
 		basenow = ktime_add(now, base->offset);
 

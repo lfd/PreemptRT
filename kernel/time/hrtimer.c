@@ -60,18 +60,6 @@
 #include "tick-internal.h"
 
 /*
- * Clock ids for timers which expire in softirq context. These clock ids
- * are kernel internal and never exported to user space. Kept internal
- * until the rest of the functionality is in place.
- */
-#define HRTIMER_BASE_SOFT_MASK	MAX_CLOCKS
-
-#define CLOCK_REALTIME_SOFT	(CLOCK_REALTIME	 | HRTIMER_BASE_SOFT_MASK)
-#define CLOCK_MONOTONIC_SOFT	(CLOCK_MONOTONIC | HRTIMER_BASE_SOFT_MASK)
-#define CLOCK_BOOTTIME_SOFT	(CLOCK_BOOTTIME	 | HRTIMER_BASE_SOFT_MASK)
-#define CLOCK_TAI_SOFT		(CLOCK_TAI	 | HRTIMER_BASE_SOFT_MASK)
-
-/*
  * Masks for selecting the soft and hard context timers from
  * cpu_base->active
  */
@@ -1173,7 +1161,7 @@ u64 hrtimer_get_next_event(void)
 
 static inline int hrtimer_clockid_to_base(clockid_t clock_id)
 {
-	if (likely(clock_id < MAX_CLOCKS)) {
+	if (likely(clock_id < MAX_CLOCKS_HRT)) {
 		int base = hrtimer_clock_to_base_table[clock_id];
 
 		if (likely(base != HRTIMER_MAX_CLOCK_BASES))
@@ -1193,8 +1181,12 @@ static void __hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
 
 	cpu_base = raw_cpu_ptr(&hrtimer_bases);
 
-	if (clock_id == CLOCK_REALTIME && mode != HRTIMER_MODE_ABS)
-		clock_id = CLOCK_MONOTONIC;
+	if (mode != HRTIMER_MODE_ABS) {
+		if (clock_id == CLOCK_REALTIME)
+			clock_id = CLOCK_MONOTONIC;
+		else if (clock_id == CLOCK_REALTIME_SOFT)
+			clock_id = CLOCK_MONOTONIC_SOFT;
+	}
 
 	base = hrtimer_clockid_to_base(clock_id);
 	timer->base = &cpu_base->clock_base[base];

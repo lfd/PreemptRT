@@ -180,10 +180,10 @@ struct hrtimer_cpu_base {
 	unsigned int			clock_was_set_seq;
 	bool				migration_enabled;
 	bool				nohz_active;
-	unsigned int			hres_active	: 1;
-#ifdef CONFIG_HIGH_RES_TIMERS
-	unsigned int			in_hrtirq	: 1,
+	unsigned int			hres_active	: 1,
+					in_hrtirq	: 1,
 					hang_detected	: 1;
+#ifdef CONFIG_HIGH_RES_TIMERS
 	unsigned int			nr_events;
 	unsigned int			nr_retries;
 	unsigned int			nr_hangs;

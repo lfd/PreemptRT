@@ -154,16 +154,16 @@ struct hrtimer_clock_base *lock_hrtimer_base(const struct hrtimer *timer,
 }
 
 /*
- * With HIGHRES=y we do not migrate the timer when it is expiring
- * before the next event on the target cpu because we cannot reprogram
- * the target cpu hardware and we would cause it to fire late.
+ * With high resolution timers enabled we do not migrate the timer
+ * when it is expiring before the next event on the target cpu because
+ * we cannot reprogram the target cpu hardware and we would cause it
+ * to fire late.
  *
  * Called with cpu_base->lock of target cpu held.
  */
 static int
 hrtimer_check_target(struct hrtimer *timer, struct hrtimer_clock_base *new_base)
 {
-#ifdef CONFIG_HIGH_RES_TIMERS
 	ktime_t expires;
 
 	if (!new_base->cpu_base->hres_active)
@@ -171,9 +171,6 @@ hrtimer_check_target(struct hrtimer *timer, struct hrtimer_clock_base *new_base)
 
 	expires = ktime_sub(hrtimer_get_expires(timer), new_base->offset);
 	return expires <= new_base->cpu_base->expires_next;
-#else
-	return 0;
-#endif
 }
 
 #ifdef CONFIG_NO_HZ_COMMON
@@ -456,9 +453,7 @@ static inline void debug_deactivate(struct hrtimer *timer)
 static inline void hrtimer_update_next_timer(struct hrtimer_cpu_base *cpu_base,
 					     struct hrtimer *timer)
 {
-#ifdef CONFIG_HIGH_RES_TIMERS
 	cpu_base->next_timer = timer;
-#endif
 }
 
 static ktime_t __hrtimer_get_next_event(struct hrtimer_cpu_base *cpu_base)
@@ -649,14 +644,6 @@ static void hrtimer_reprogram(struct hrtimer *timer,
 }
 
 /*
- * Initialize the high resolution related parts of cpu_base
- */
-static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base)
-{
-	base->expires_next = KTIME_MAX;
-}
-
-/*
  * Retrigger next event is called after clock was set
  *
  * Called with interrupts disabled via on_each_cpu()
@@ -721,7 +708,6 @@ static inline int hrtimer_reprogram(struct hrtimer *timer,
 {
 	return 0;
 }
-static inline void hrtimer_init_hres(struct hrtimer_cpu_base *base) { }
 static inline void retrigger_next_event(void *arg) { }
 
 #endif /* CONFIG_HIGH_RES_TIMERS */
@@ -1590,7 +1576,7 @@ int hrtimers_prepare_cpu(unsigned int cpu)
 
 	cpu_base->cpu = cpu;
 	cpu_base->hres_active = 0;
-	hrtimer_init_hres(cpu_base);
+	cpu_base->expires_next = KTIME_MAX;
 	return 0;
 }
 

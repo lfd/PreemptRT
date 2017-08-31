@@ -60,6 +60,18 @@
 #include "tick-internal.h"
 
 /*
+ * Clock ids for timers which expire in softirq context. These clock ids
+ * are kernel internal and never exported to user space. Kept internal
+ * until the rest of the functionality is in place.
+ */
+#define HRTIMER_BASE_SOFT_MASK	MAX_CLOCKS
+
+#define CLOCK_REALTIME_SOFT	(CLOCK_REALTIME	 | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_MONOTONIC_SOFT	(CLOCK_MONOTONIC | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_BOOTTIME_SOFT	(CLOCK_BOOTTIME	 | HRTIMER_BASE_SOFT_MASK)
+#define CLOCK_TAI_SOFT		(CLOCK_TAI	 | HRTIMER_BASE_SOFT_MASK)
+
+/*
  * The timer bases:
  *
  * There are more clockids than hrtimer bases. Thus, we index
@@ -92,17 +104,43 @@ DEFINE_PER_CPU(struct hrtimer_cpu_base, hrtimer_bases) =
 			.clockid = CLOCK_TAI,
 			.get_time = &ktime_get_clocktai,
 		},
+		{
+			.index = HRTIMER_BASE_MONOTONIC_SOFT,
+			.clockid = CLOCK_MONOTONIC_SOFT,
+			.get_time = &ktime_get,
+		},
+		{
+			.index = HRTIMER_BASE_REALTIME_SOFT,
+			.clockid = CLOCK_REALTIME_SOFT,
+			.get_time = &ktime_get_real,
+		},
+		{
+			.index = HRTIMER_BASE_BOOTTIME_SOFT,
+			.clockid = CLOCK_BOOTTIME_SOFT,
+			.get_time = &ktime_get_boottime,
+		},
+		{
+			.index = HRTIMER_BASE_TAI_SOFT,
+			.clockid = CLOCK_TAI_SOFT,
+			.get_time = &ktime_get_clocktai,
+		},
 	}
 };
 
-static const int hrtimer_clock_to_base_table[MAX_CLOCKS] = {
-	/* Make sure we catch unsupported clockids */
-	[0 ... MAX_CLOCKS - 1]	= HRTIMER_MAX_CLOCK_BASES,
+#define MAX_CLOCKS_HRT		(MAX_CLOCKS * 2)
 
-	[CLOCK_REALTIME]	= HRTIMER_BASE_REALTIME,
-	[CLOCK_MONOTONIC]	= HRTIMER_BASE_MONOTONIC,
-	[CLOCK_BOOTTIME]	= HRTIMER_BASE_BOOTTIME,
-	[CLOCK_TAI]		= HRTIMER_BASE_TAI,
+static const int hrtimer_clock_to_base_table[MAX_CLOCKS_HRT] = {
+	/* Make sure we catch unsupported clockids */
+	[0 ... MAX_CLOCKS_HRT - 1]	= HRTIMER_MAX_CLOCK_BASES,
+
+	[CLOCK_REALTIME]		= HRTIMER_BASE_REALTIME,
+	[CLOCK_MONOTONIC]		= HRTIMER_BASE_MONOTONIC,
+	[CLOCK_BOOTTIME]		= HRTIMER_BASE_BOOTTIME,
+	[CLOCK_TAI]			= HRTIMER_BASE_TAI,
+	[CLOCK_REALTIME_SOFT]		= HRTIMER_BASE_REALTIME_SOFT,
+	[CLOCK_MONOTONIC_SOFT]		= HRTIMER_BASE_MONOTONIC_SOFT,
+	[CLOCK_BOOTTIME_SOFT]		= HRTIMER_BASE_BOOTTIME_SOFT,
+	[CLOCK_TAI_SOFT]		= HRTIMER_BASE_TAI_SOFT,
 };
 
 /*
@@ -1652,6 +1690,12 @@ int hrtimers_dead_cpu(unsigned int scpu)
 
 void __init hrtimers_init(void)
 {
+	/*
+	 * It is necessary, that the soft base mask is a single
+	 * bit.
+	 */
+	BUILD_BUG_ON_NOT_POWER_OF_2(HRTIMER_BASE_SOFT_MASK);
+
 	hrtimers_prepare_cpu(smp_processor_id());
 }
 

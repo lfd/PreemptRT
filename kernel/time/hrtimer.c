@@ -1560,17 +1560,46 @@ static enum hrtimer_restart hrtimer_wakeup(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
-void hrtimer_init_sleeper(struct hrtimer_sleeper *sl, struct task_struct *task)
+static void __hrtimer_init_sleeper(struct hrtimer_sleeper *sl,
+				   clockid_t clock_id,
+				   enum hrtimer_mode mode,
+				   struct task_struct *task)
 {
+	__hrtimer_init(&sl->timer, clock_id, mode);
 	sl->timer.function = hrtimer_wakeup;
 	sl->task = task;
 }
+
+/**
+ * hrtimer_init - initialize a timer to the given clock
+ * @timer:	the timer to be initialized
+ * @clock_id:	the clock to be used
+ * @mode:	timer mode abs/rel
+ */
+void hrtimer_init_sleeper(struct hrtimer_sleeper *sl, clockid_t clock_id,
+			  enum hrtimer_mode mode, struct task_struct *task)
+{
+	debug_init(&sl->timer, clock_id, mode);
+	__hrtimer_init_sleeper(sl, clock_id, mode, task);
+
+}
 EXPORT_SYMBOL_GPL(hrtimer_init_sleeper);
+
+#ifdef CONFIG_DEBUG_OBJECTS_TIMERS
+void hrtimer_init_sleeper_on_stack(struct hrtimer_sleeper *sl,
+				   clockid_t clock_id,
+				   enum hrtimer_mode mode,
+				   struct task_struct *task)
+{
+	debug_object_init_on_stack(&sl->timer, &hrtimer_debug_descr);
+	__hrtimer_init_sleeper(sl, clock_id, mode, task);
+}
+EXPORT_SYMBOL_GPL(hrtimer_init_sleeper_on_stack);
+#endif
+
 
 static int __sched do_nanosleep(struct hrtimer_sleeper *t, enum hrtimer_mode mode)
 {
-	hrtimer_init_sleeper(t, current);
-
 	do {
 		set_current_state(TASK_INTERRUPTIBLE);
 		hrtimer_start_expires(&t->timer, mode);
@@ -1610,8 +1639,8 @@ long __sched hrtimer_nanosleep_restart(struct restart_block *restart)
 	struct timespec __user  *rmtp;
 	int ret = 0;
 
-	hrtimer_init_on_stack(&t.timer, restart->nanosleep.clockid,
-				HRTIMER_MODE_ABS);
+	hrtimer_init_sleeper_on_stack(&t, restart->nanosleep.clockid,
+				      HRTIMER_MODE_ABS, current);
 	hrtimer_set_expires_tv64(&t.timer, restart->nanosleep.expires);
 
 	if (do_nanosleep(&t, HRTIMER_MODE_ABS))
@@ -1643,8 +1672,9 @@ long hrtimer_nanosleep(struct timespec *rqtp, struct timespec __user *rmtp,
 	if (dl_task(current) || rt_task(current))
 		slack = 0;
 
-	hrtimer_init_on_stack(&t.timer, clockid, mode);
+	hrtimer_init_sleeper_on_stack(&t, clockid, mode, current);
 	hrtimer_set_expires_range_ns(&t.timer, timespec_to_ktime(*rqtp), slack);
+
 	if (do_nanosleep(&t, mode))
 		goto out;
 
@@ -1822,10 +1852,9 @@ schedule_hrtimeout_range_clock(ktime_t *expires, u64 delta,
 		return -EINTR;
 	}
 
-	hrtimer_init_on_stack(&t.timer, clock_id, mode);
-	hrtimer_set_expires_range_ns(&t.timer, *expires, delta);
+	hrtimer_init_sleeper_on_stack(&t, clock_id, mode, current);
 
-	hrtimer_init_sleeper(&t, current);
+	hrtimer_set_expires_range_ns(&t.timer, *expires, delta);
 
 	hrtimer_start_expires(&t.timer, mode);
 

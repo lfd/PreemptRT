@@ -5903,7 +5903,7 @@ static int tracing_set_clock(struct trace_array *tr, const char *clockstr)
 	tracing_reset_online_cpus(&tr->trace_buffer);
 
 #ifdef CONFIG_TRACER_MAX_TRACE
-	if (tr->flags & TRACE_ARRAY_FL_GLOBAL && tr->max_buffer.buffer)
+	if (tr->max_buffer.buffer)
 		ring_buffer_set_clock(tr->max_buffer.buffer, trace_clocks[i].func);
 	tracing_reset_online_cpus(&tr->max_buffer);
 #endif
@@ -5987,7 +5987,7 @@ int tracing_set_time_stamp_abs(struct trace_array *tr, bool abs)
 	tracing_reset_online_cpus(&tr->trace_buffer);
 
 #ifdef CONFIG_TRACER_MAX_TRACE
-	if (tr->flags & TRACE_ARRAY_FL_GLOBAL && tr->max_buffer.buffer)
+	if (tr->max_buffer.buffer)
 		ring_buffer_set_time_stamp_abs(tr->max_buffer.buffer, abs);
 	tracing_reset_online_cpus(&tr->max_buffer);
 #endif

@@ -1909,7 +1909,7 @@ static void queue_add(struct dma_ops_domain *dom,
 	pages     = __roundup_pow_of_two(pages);
 	address >>= PAGE_SHIFT;
 
-	queue = get_cpu_ptr(dom->flush_queue);
+	queue = raw_cpu_ptr(dom->flush_queue);
 	spin_lock_irqsave(&queue->lock, flags);
 
 	/*
@@ -1938,8 +1938,6 @@ static void queue_add(struct dma_ops_domain *dom,
 
 	if (atomic_cmpxchg(&dom->flush_timer_on, 0, 1) == 0)
 		mod_timer(&dom->flush_timer, jiffies + msecs_to_jiffies(10));
-
-	put_cpu_ptr(dom->flush_queue);
 }
 
 static void queue_flush_timeout(unsigned long data)

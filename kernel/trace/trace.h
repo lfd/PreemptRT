@@ -265,6 +265,7 @@ struct trace_array {
 	/* function tracing enabled */
 	int			function_enabled;
 #endif
+	int			time_stamp_abs_ref;
 };
 
 enum {
@@ -277,6 +278,8 @@ extern struct mutex trace_types_lock;
 
 extern int trace_array_get(struct trace_array *tr);
 extern void trace_array_put(struct trace_array *tr);
+
+extern int tracing_set_time_stamp_abs(struct trace_array *tr, bool abs);
 
 /*
  * The global tracer (top) should be the first trace array added,

@@ -1606,14 +1606,31 @@ static enum hrtimer_restart hrtimer_wakeup(struct hrtimer *timer)
 	return HRTIMER_NORESTART;
 }
 
+#ifdef CONFIG_PREEMPT_RT_FULL
+static bool task_is_elevated(struct task_struct *tsk)
+{
+	int policy = tsk->policy;
+
+	if (policy == SCHED_FIFO || policy == SCHED_RR)
+		return true;
+	if (policy == SCHED_DEADLINE)
+		return true;
+	return false;
+}
+#endif
+
 static void __hrtimer_init_sleeper(struct hrtimer_sleeper *sl,
 				   clockid_t clock_id,
 				   enum hrtimer_mode mode,
 				   struct task_struct *task)
 {
 #ifdef CONFIG_PREEMPT_RT_FULL
-	if (!(clock_id & HRTIMER_BASE_SOFT_MASK))
-		clock_id |= HRTIMER_BASE_HARD_MASK;
+	if (!(clock_id & (HRTIMER_BASE_HARD_MASK | HRTIMER_BASE_SOFT_MASK))) {
+		if (task_is_elevated(current) || system_state != SYSTEM_RUNNING)
+			clock_id |= HRTIMER_BASE_HARD_MASK;
+		else
+			clock_id |= HRTIMER_BASE_SOFT_MASK;
+	}
 #endif
 	__hrtimer_init(&sl->timer, clock_id, mode);
 	sl->timer.function = hrtimer_wakeup;

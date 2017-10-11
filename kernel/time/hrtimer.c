@@ -1234,6 +1234,8 @@ static void __hrtimer_init(struct hrtimer *timer, clockid_t clock_id,
 			clock_id = CLOCK_MONOTONIC;
 		else if (clock_id == CLOCK_REALTIME_SOFT)
 			clock_id = CLOCK_MONOTONIC_SOFT;
+		else if (clock_id == CLOCK_REALTIME_HARD)
+			clock_id = CLOCK_MONOTONIC_HARD;
 	}
 
 	base = hrtimer_clockid_to_base(clock_id);

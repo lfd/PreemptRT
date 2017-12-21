@@ -351,6 +351,65 @@ struct action_data {
 	};
 };
 
+
+static char last_hist_cmd[MAX_FILTER_STR_VAL];
+static char hist_err_str[MAX_FILTER_STR_VAL];
+
+static void last_cmd_set(char *str)
+{
+	if (!str)
+		return;
+
+	strncpy(last_hist_cmd, str, MAX_FILTER_STR_VAL - 1);
+}
+
+static void hist_err(char *str, char *var)
+{
+	int maxlen = MAX_FILTER_STR_VAL - 1;
+
+	if (!str)
+		return;
+
+	if (strlen(hist_err_str))
+		return;
+
+	if (!var)
+		var = "";
+
+	if (strlen(hist_err_str) + strlen(str) + strlen(var) > maxlen)
+		return;
+
+	strcat(hist_err_str, str);
+	strcat(hist_err_str, var);
+}
+
+static void hist_err_event(char *str, char *system, char *event, char *var)
+{
+	char err[MAX_FILTER_STR_VAL];
+
+	if (system && var)
+		snprintf(err, MAX_FILTER_STR_VAL, "%s.%s.%s", system, event, var);
+	else if (system)
+		snprintf(err, MAX_FILTER_STR_VAL, "%s.%s", system, event);
+	else
+		strncpy(err, var, MAX_FILTER_STR_VAL);
+
+	hist_err(str, err);
+}
+
+static void hist_err_clear(void)
+{
+	hist_err_str[0] = '\0';
+}
+
+static bool have_hist_err(void)
+{
+	if (strlen(hist_err_str))
+		return true;
+
+	return false;
+}
+
 static LIST_HEAD(synth_event_list);
 static DEFINE_MUTEX(synth_event_mutex);
 
@@ -1452,8 +1511,10 @@ static struct trace_event_file *find_var_file(struct trace_array *tr,
 			continue;
 
 		if (find_var_field(var_hist_data, var_name)) {
-			if (found)
+			if (found) {
+				hist_err_event("Variable name not unique, need to use fully qualified name (subsys.event.var) for variable: ", system, event_name, var_name);
 				return NULL;
+			}
 
 			found = file;
 		}
@@ -1502,6 +1563,7 @@ find_match_var(struct hist_trigger_data *hist_data, char *var_name)
 			hist_field = find_file_var(file, var_name);
 			if (hist_field) {
 				if (found) {
+					hist_err_event("Variable name not unique, need to use fully qualified name (subsys.event.var) for variable: ", system, event_name, var_name);
 					return ERR_PTR(-EINVAL);
 				}
 
@@ -1785,6 +1847,7 @@ static int parse_assignment(char *str, struct hist_trigger_attrs *attrs)
 		char *assignment;
 
 		if (attrs->n_assignments == TRACING_MAP_VARS_MAX) {
+			hist_err("Too many variables defined: ", str);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -2327,6 +2390,10 @@ static struct hist_field *parse_var_ref(struct hist_trigger_data *hist_data,
 	if (var_field)
 		ref_field = create_var_ref(var_field, system, event_name);
 
+	if (!ref_field)
+		hist_err_event("Couldn't find variable: $",
+			       system, event_name, var_name);
+
 	return ref_field;
 }
 
@@ -2571,8 +2638,10 @@ static int check_expr_operands(struct hist_field *operand1,
 	}
 
 	if ((operand1_flags & HIST_FIELD_FL_TIMESTAMP_USECS) !=
-	    (operand2_flags & HIST_FIELD_FL_TIMESTAMP_USECS))
+	    (operand2_flags & HIST_FIELD_FL_TIMESTAMP_USECS)) {
+		hist_err("Timestamp units in expression don't match", NULL);
 		return -EINVAL;
+	}
 
 	return 0;
 }
@@ -2818,12 +2887,17 @@ create_field_var_hist(struct hist_trigger_data *target_hist_data,
 	char *cmd;
 	int ret;
 
-	if (target_hist_data->n_field_var_hists >= SYNTH_FIELDS_MAX)
+	if (target_hist_data->n_field_var_hists >= SYNTH_FIELDS_MAX) {
+		hist_err_event("onmatch: Too many field variables defined: ",
+			       subsys_name, event_name, field_name);
 		return ERR_PTR(-EINVAL);
+	}
 
 	file = event_file(tr, subsys_name, event_name);
 
 	if (IS_ERR(file)) {
+		hist_err_event("onmatch: Event file not found: ",
+			       subsys_name, event_name, field_name);
 		ret = PTR_ERR(file);
 		return ERR_PTR(ret);
 	}
@@ -2835,8 +2909,11 @@ create_field_var_hist(struct hist_trigger_data *target_hist_data,
 	 * yet a registered histogram so we can't use that.
 	 */
 	hist_data = find_compatible_hist(target_hist_data, file);
-	if (!hist_data)
+	if (!hist_data) {
+		hist_err_event("onmatch: Matching event histogram not found: ",
+			       subsys_name, event_name, field_name);
 		return ERR_PTR(-EINVAL);
+	}
 
 	/* See if a synthetic field variable has already been created */
 	event_var = find_synthetic_field_var(target_hist_data, subsys_name,
@@ -2895,6 +2972,8 @@ create_field_var_hist(struct hist_trigger_data *target_hist_data,
 		kfree(cmd);
 		kfree(var_hist->cmd);
 		kfree(var_hist);
+		hist_err_event("onmatch: Couldn't create histogram for field: ",
+			       subsys_name, event_name, field_name);
 		return ERR_PTR(ret);
 	}
 
@@ -2906,6 +2985,8 @@ create_field_var_hist(struct hist_trigger_data *target_hist_data,
 	if (IS_ERR_OR_NULL(event_var)) {
 		kfree(var_hist->cmd);
 		kfree(var_hist);
+		hist_err_event("onmatch: Couldn't find synthetic variable: ",
+			       subsys_name, event_name, field_name);
 		return ERR_PTR(-EINVAL);
 	}
 
@@ -3042,18 +3123,21 @@ static struct field_var *create_field_var(struct hist_trigger_data *hist_data,
 	int ret = 0;
 
 	if (hist_data->n_field_vars >= SYNTH_FIELDS_MAX) {
+		hist_err("Too many field variables defined: ", field_name);
 		ret = -EINVAL;
 		goto err;
 	}
 
 	val = parse_atom(hist_data, file, field_name, &flags, NULL);
 	if (IS_ERR(val)) {
+		hist_err("Couldn't parse field variable: ", field_name);
 		ret = PTR_ERR(val);
 		goto err;
 	}
 
 	var = create_var(hist_data, file, field_name, val->size, val->type);
 	if (IS_ERR(var)) {
+		hist_err("Couldn't create or find variable: ", field_name);
 		kfree(val);
 		ret = PTR_ERR(var);
 		goto err;
@@ -3196,13 +3280,17 @@ static int onmax_create(struct hist_trigger_data *hist_data,
 	int ret = 0;
 
 	onmax_var_str = data->onmax.var_str;
-	if (onmax_var_str[0] != '$')
+	if (onmax_var_str[0] != '$') {
+		hist_err("onmax: For onmax(x), x must be a variable: ", onmax_var_str);
 		return -EINVAL;
+	}
 	onmax_var_str++;
 
 	var_field = find_target_event_var(hist_data, NULL, NULL, onmax_var_str);
-	if (!var_field)
+	if (!var_field) {
+		hist_err("onmax: Couldn't find onmax variable: ", onmax_var_str);
 		return -EINVAL;
+	}
 
 	flags = HIST_FIELD_FL_VAR_REF;
 	ref_field = create_hist_field(hist_data, NULL, flags, NULL);
@@ -3222,6 +3310,7 @@ static int onmax_create(struct hist_trigger_data *hist_data,
 	data->onmax.max_var_ref_idx = var_ref_idx;
 	max_var = create_var(hist_data, file, "max", sizeof(u64), "u64");
 	if (IS_ERR(max_var)) {
+		hist_err("onmax: Couldn't create onmax variable: ", "max");
 		ret = PTR_ERR(max_var);
 		goto out;
 	}
@@ -3236,6 +3325,7 @@ static int onmax_create(struct hist_trigger_data *hist_data,
 
 		field_var = create_target_field_var(hist_data, NULL, NULL, param);
 		if (IS_ERR(field_var)) {
+			hist_err("onmax: Couldn't create field variable: ", param);
 			ret = PTR_ERR(field_var);
 			kfree(param);
 			goto out;
@@ -3268,6 +3358,7 @@ static int parse_action_params(char *params, struct action_data *data)
 
 		param = strstrip(param);
 		if (strlen(param) < 2) {
+			hist_err("Invalid action param: ", param);
 			ret = -EINVAL;
 			goto out;
 		}
@@ -3443,6 +3534,9 @@ onmatch_find_var(struct hist_trigger_data *hist_data, struct action_data *data,
 		hist_field = find_event_var(hist_data, system, event, var);
 	}
 
+	if (!hist_field)
+		hist_err_event("onmatch: Couldn't find onmatch param: $", system, event, var);
+
 	return hist_field;
 }
 
@@ -3510,6 +3604,7 @@ static int onmatch_create(struct hist_trigger_data *hist_data,
 	mutex_lock(&synth_event_mutex);
 	event = find_synth_event(data->onmatch.synth_event_name);
 	if (!event) {
+		hist_err("onmatch: Couldn't find synthetic event: ", data->onmatch.synth_event_name);
 		mutex_unlock(&synth_event_mutex);
 		return -EINVAL;
 	}
@@ -3569,12 +3664,15 @@ static int onmatch_create(struct hist_trigger_data *hist_data,
 			continue;
 		}
 
+		hist_err_event("onmatch: Param type doesn't match synthetic event field type: ",
+			       system, event_name, param);
 		kfree(p);
 		ret = -EINVAL;
 		goto err;
 	}
 
 	if (field_pos != event->n_fields) {
+		hist_err("onmatch: Param count doesn't match synthetic event field count: ", event->name);
 		ret = -EINVAL;
 		goto err;
 	}
@@ -3604,15 +3702,22 @@ static struct action_data *onmatch_parse(struct trace_array *tr, char *str)
 		return ERR_PTR(-ENOMEM);
 
 	match_event = strsep(&str, ")");
-	if (!match_event || !str)
+	if (!match_event || !str) {
+		hist_err("onmatch: Missing closing paren: ", match_event);
 		goto free;
+	}
 
 	match_event_system = strsep(&match_event, ".");
-	if (!match_event)
+	if (!match_event) {
+		hist_err("onmatch: Missing subsystem for match event: ", match_event_system);
 		goto free;
+	}
 
-	if (IS_ERR(event_file(tr, match_event_system, match_event)))
+	if (IS_ERR(event_file(tr, match_event_system, match_event))) {
+		hist_err_event("onmatch: Invalid subsystem or event name: ",
+			       match_event_system, match_event, NULL);
 		goto free;
+	}
 
 	data->onmatch.match_event = kstrdup(match_event, GFP_KERNEL);
 	if (!data->onmatch.match_event) {
@@ -3627,12 +3732,16 @@ static struct action_data *onmatch_parse(struct trace_array *tr, char *str)
 	}
 
 	strsep(&str, ".");
-	if (!str)
+	if (!str) {
+		hist_err("onmatch: Missing . after onmatch(): ", str);
 		goto free;
+	}
 
 	synth_event_name = strsep(&str, "(");
-	if (!synth_event_name || !str)
+	if (!synth_event_name || !str) {
+		hist_err("onmatch: Missing opening paramlist paren: ", synth_event_name);
 		goto free;
+	}
 
 	data->onmatch.synth_event_name = kstrdup(synth_event_name, GFP_KERNEL);
 	if (!data->onmatch.synth_event_name) {
@@ -3641,8 +3750,10 @@ static struct action_data *onmatch_parse(struct trace_array *tr, char *str)
 	}
 
 	params = strsep(&str, ")");
-	if (!params || !str || (str && strlen(str)))
+	if (!params || !str || (str && strlen(str))) {
+		hist_err("onmatch: Missing closing paramlist paren: ", params);
 		goto free;
+	}
 
 	ret = parse_action_params(params, data);
 	if (ret)
@@ -3717,7 +3828,9 @@ static int create_var_field(struct hist_trigger_data *hist_data,
 
 	if (WARN_ON(val_idx >= TRACING_MAP_VALS_MAX + TRACING_MAP_VARS_MAX))
 		return -EINVAL;
+
 	if (find_var(hist_data, file, var_name) && !hist_data->remove) {
+		hist_err("Variable already defined: ", var_name);
 		return -EINVAL;
 	}
 
@@ -3798,6 +3911,7 @@ static int create_key_field(struct hist_trigger_data *hist_data,
 		}
 
 		if (hist_field->flags & HIST_FIELD_FL_VAR_REF) {
+			hist_err("Using variable references as keys not supported: ", field_str);
 			destroy_hist_field(hist_field, 0);
 			ret = -EINVAL;
 			goto out;
@@ -3911,11 +4025,13 @@ static int parse_var_defs(struct hist_trigger_data *hist_data)
 
 			var_name = strsep(&field_str, "=");
 			if (!var_name || !field_str) {
+				hist_err("Malformed assignment: ", var_name);
 				ret = -EINVAL;
 				goto free;
 			}
 
 			if (n_vars == TRACING_MAP_VARS_MAX) {
+				hist_err("Too many variables defined: ", var_name);
 				ret = -EINVAL;
 				goto free;
 			}
@@ -4669,6 +4785,11 @@ static int hist_show(struct seq_file *m, void *v)
 			hist_trigger_show(m, data, n++);
 	}
 
+	if (have_hist_err()) {
+		seq_printf(m, "\nERROR: %s\n", hist_err_str);
+		seq_printf(m, "  Last command: %s\n", last_hist_cmd);
+	}
+
  out_unlock:
 	mutex_unlock(&event_mutex);
 
@@ -5033,6 +5154,7 @@ static int hist_register_trigger(char *glob, struct event_trigger_ops *ops,
 		if (named_data) {
 			if (!hist_trigger_match(data, named_data, named_data,
 						true)) {
+				hist_err("Named hist trigger doesn't match existing named trigger (includes variables): ", hist_data->attrs->name);
 				ret = -EINVAL;
 				goto out;
 			}
@@ -5052,13 +5174,16 @@ static int hist_register_trigger(char *glob, struct event_trigger_ops *ops,
 				test->paused = false;
 			else if (hist_data->attrs->clear)
 				hist_clear(test);
-			else
+			else {
+				hist_err("Hist trigger already exists", NULL);
 				ret = -EEXIST;
+			}
 			goto out;
 		}
 	}
  new:
 	if (hist_data->attrs->cont || hist_data->attrs->clear) {
+		hist_err("Can't clear or continue a nonexistent hist trigger", NULL);
 		ret = -ENOENT;
 		goto out;
 	}
@@ -5245,6 +5370,11 @@ static int event_hist_trigger_func(struct event_command *cmd_ops,
 	char *trigger, *p;
 	int ret = 0;
 
+	if (glob && strlen(glob)) {
+		last_cmd_set(param);
+		hist_err_clear();
+	}
+
 	if (!param)
 		return -EINVAL;
 
@@ -5383,6 +5513,9 @@ enable:
 	/* Just return zero, not the number of registered triggers */
 	ret = 0;
  out:
+	if (ret == 0)
+		hist_err_clear();
+
 	return ret;
  out_unreg:
 	cmd_ops->unreg(glob+1, trigger_ops, trigger_data, file);

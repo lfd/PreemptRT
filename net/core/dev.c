@@ -4720,6 +4720,9 @@ static int netif_receive_skb_internal(struct sk_buff *skb)
  */
 int netif_receive_skb(struct sk_buff *skb)
 {
+	lockdep_assert_irqs_enabled();
+	lockdep_assert_in_softirq();
+
 	trace_netif_receive_skb_entry(skb);
 
 	return netif_receive_skb_internal(skb);

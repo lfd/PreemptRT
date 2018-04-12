@@ -2272,7 +2272,6 @@ _vortex_interrupt(int irq, struct net_device *dev)
 	unsigned int bytes_compl = 0, pkts_compl = 0;
 
 	ioaddr = vp->ioaddr;
-	spin_lock(&vp->lock);
 
 	status = ioread16(ioaddr + EL3_STATUS);
 
@@ -2370,7 +2369,6 @@ _vortex_interrupt(int irq, struct net_device *dev)
 		pr_debug("%s: exiting interrupt, status %4.4x.\n",
 			   dev->name, status);
 handler_exit:
-	spin_unlock(&vp->lock);
 	return IRQ_RETVAL(handled);
 }
 
@@ -2391,12 +2389,6 @@ _boomerang_interrupt(int irq, struct net_device *dev)
 
 	ioaddr = vp->ioaddr;
 
-
-	/*
-	 * It seems dopey to put the spinlock this early, but we could race against vortex_tx_timeout
-	 * and boomerang_start_xmit
-	 */
-	spin_lock(&vp->lock);
 	vp->handling_irq = 1;
 
 	status = ioread16(ioaddr + EL3_STATUS);
@@ -2515,7 +2507,6 @@ _boomerang_interrupt(int irq, struct net_device *dev)
 			   dev->name, status);
 handler_exit:
 	vp->handling_irq = 0;
-	spin_unlock(&vp->lock);
 	return IRQ_RETVAL(handled);
 }
 
@@ -2524,11 +2515,18 @@ vortex_boomerang_interrupt(int irq, void *dev_id)
 {
 	struct net_device *dev = dev_id;
 	struct vortex_private *vp = netdev_priv(dev);
+	irqreturn_t ret;
+
+	spin_lock(&vp->lock);
 
 	if (vp->full_bus_master_rx)
-		return _boomerang_interrupt(dev->irq, dev);
+		ret = _boomerang_interrupt(dev->irq, dev);
 	else
-		return _vortex_interrupt(dev->irq, dev);
+		ret = _vortex_interrupt(dev->irq, dev);
+
+	spin_unlock(&vp->lock);
+
+	return ret;
 }
 
 static int vortex_rx(struct net_device *dev)

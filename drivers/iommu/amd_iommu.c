@@ -1876,8 +1876,11 @@ static void clear_dte_entry(u16 devid)
 	amd_iommu_apply_erratum_63(devid);
 }
 
-static void do_attach(struct iommu_dev_data *dev_data,
-		      struct protection_domain *domain)
+/*
+ * This function does assigns the device visible for the hardware
+ */
+static void __attach_device(struct iommu_dev_data *dev_data,
+			    struct protection_domain *domain)
 {
 	struct amd_iommu *iommu;
 	u16 alias;
@@ -1929,23 +1932,6 @@ static void __detach_device(struct iommu_dev_data *dev_data)
 	/* Flush the DTE entry */
 	device_flush_dte(dev_data);
 }
-
-/*
- * If a device is not yet associated with a domain, this function does
- * assigns it visible for the hardware
- */
-static int __attach_device(struct iommu_dev_data *dev_data,
-			   struct protection_domain *domain)
-{
-	if (dev_data->domain != NULL)
-		return -EBUSY;
-
-	/* Attach alias group root */
-	do_attach(dev_data, domain);
-
-	return 0;
-}
-
 
 static void pdev_iommuv2_disable(struct pci_dev *pdev)
 {
@@ -2043,7 +2029,6 @@ static int attach_device(struct device *dev,
 	struct pci_dev *pdev;
 	struct iommu_dev_data *dev_data;
 	unsigned long flags;
-	int ret;
 
 	dev_data = get_dev_data(dev);
 
@@ -2071,8 +2056,11 @@ static int attach_device(struct device *dev,
 
 skip_ats_check:
 
+	if (dev_data->domain != NULL)
+		return -EBUSY;
+
 	spin_lock_irqsave(&domain->lock, flags);
-	ret = __attach_device(dev_data, domain);
+	__attach_device(dev_data, domain);
 	spin_unlock_irqrestore(&domain->lock, flags);
 
 	/*
@@ -2082,7 +2070,7 @@ skip_ats_check:
 	 */
 	domain_flush_tlb_pde(domain);
 
-	return ret;
+	return 0;
 }
 
 /*

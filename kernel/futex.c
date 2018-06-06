@@ -2465,9 +2465,9 @@ static void unqueue_me_pi(struct futex_q *q)
 static int __fixup_pi_state_owner(u32 __user *uaddr, struct futex_q *q,
 				  struct task_struct *argowner)
 {
+	u32 uval, uninitialized_var(curval), newval, newtid;
 	struct futex_pi_state *pi_state = q->pi_state;
 	struct task_struct *oldowner, *newowner;
-	u32 uval, curval, newval, newtid;
 	int err = 0;
 
 	oldowner = pi_state->owner;

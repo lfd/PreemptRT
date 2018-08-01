@@ -134,16 +134,7 @@ struct task_group;
 	} while (0)
 
 #define __set_current_state_no_track(state_value)		\
-	do {							\
-		WARN_ON_ONCE(is_special_task_state(state_value));\
-		current->state = (state_value);			\
-	} while (0)
-
-#define set_current_state_no_track(state_value)			\
-	do {							\
-		WARN_ON_ONCE(is_special_task_state(state_value));\
-		smp_store_mb(current->state, (state_value));	\
-	} while (0)
+		current->state = (state_value);
 
 #define set_special_state(state_value)					\
 	do {								\
@@ -199,7 +190,6 @@ struct task_group;
 	smp_store_mb(current->state, (state_value))
 
 #define __set_current_state_no_track(state_value)	__set_current_state(state_value)
-#define set_current_state_no_track(state_value)		set_current_state(state_value)
 
 /*
  * set_special_state() should be used for those states when the blocking task

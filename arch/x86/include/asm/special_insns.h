@@ -121,6 +121,12 @@ static inline void __write_pkru_ins(u32 pkru)
 
 static inline void __write_pkru(u32 pkru)
 {
+	/*
+	 * WRPKRU is relatively expensive compared to RDPKRU.
+	 * Avoid WRPKRU when it would not change the value.
+	 */
+	if (pkru == __read_pkru_ins())
+		return;
 	__write_pkru_ins(pkru);
 }
 

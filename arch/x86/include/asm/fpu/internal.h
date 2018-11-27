@@ -120,6 +120,21 @@ extern void fpstate_sanitize_xstate(struct fpu *fpu);
 	err;								\
 })
 
+#define kernel_insn_norestore(insn, output, input...)			\
+({									\
+	int err;							\
+	asm volatile("1:" #insn "\n\t"					\
+		     "2:\n"						\
+		     ".section .fixup,\"ax\"\n"				\
+		     "3:  movl $-1,%[err]\n"				\
+		     "    jmp  2b\n"					\
+		     ".previous\n"					\
+		     _ASM_EXTABLE(1b, 3b)				\
+		     : [err] "=r" (err), output				\
+		     : "0"(0), input);					\
+	err;								\
+})
+
 #define kernel_insn(insn, output, input...)				\
 	asm volatile("1:" #insn "\n\t"					\
 		     "2:\n"						\
@@ -140,15 +155,15 @@ static inline void copy_kernel_to_fxregs(struct fxregs_state *fx)
 	}
 }
 
-static inline int copy_user_to_fxregs(struct fxregs_state __user *fx)
+static inline int copy_users_to_fxregs(struct fxregs_state *fx)
 {
 	if (IS_ENABLED(CONFIG_X86_32))
-		return user_insn(fxrstor %[fx], "=m" (*fx), [fx] "m" (*fx));
+		return kernel_insn_norestore(fxrstor %[fx], "=m" (*fx), [fx] "m" (*fx));
 	else if (IS_ENABLED(CONFIG_AS_FXSAVEQ))
-		return user_insn(fxrstorq %[fx], "=m" (*fx), [fx] "m" (*fx));
+		return kernel_insn_norestore(fxrstorq %[fx], "=m" (*fx), [fx] "m" (*fx));
 
 	/* See comment in copy_fxregs_to_kernel() below. */
-	return user_insn(rex64/fxrstor (%[fx]), "=m" (*fx), [fx] "R" (fx),
+	return kernel_insn_norestore(rex64/fxrstor (%[fx]), "=m" (*fx), [fx] "R" (fx),
 			  "m" (*fx));
 }
 
@@ -157,9 +172,9 @@ static inline void copy_kernel_to_fregs(struct fregs_state *fx)
 	kernel_insn(frstor %[fx], "=m" (*fx), [fx] "m" (*fx));
 }
 
-static inline int copy_user_to_fregs(struct fregs_state __user *fx)
+static inline int copy_users_to_fregs(struct fregs_state *fx)
 {
-	return user_insn(frstor %[fx], "=m" (*fx), [fx] "m" (*fx));
+	return kernel_insn_norestore(frstor %[fx], "=m" (*fx), [fx] "m" (*fx));
 }
 
 static inline void copy_fxregs_to_kernel(struct fpu *fpu)
@@ -337,18 +352,16 @@ static inline void copy_kernel_to_xregs(struct xregs_state *xstate, u64 mask)
 }
 
 /*
- * Restore xstate from user space xsave area.
+ * Restore xstate from kernel space xsave area, return an error code instead an
+ * exception.
  */
-static inline int copy_user_to_xregs(struct xregs_state __user *buf, u64 mask)
+static inline int copy_users_to_xregs(struct xregs_state *xstate, u64 mask)
 {
-	struct xregs_state *xstate = ((__force struct xregs_state *)buf);
 	u32 lmask = mask;
 	u32 hmask = mask >> 32;
 	int err;
 
-	stac();
 	XSTATE_OP(XRSTOR, xstate, lmask, hmask, err);
-	clac();
 
 	return err;
 }

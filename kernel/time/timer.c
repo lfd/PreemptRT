@@ -1384,10 +1384,16 @@ static void expire_timers(struct timer_base *base, struct hlist_head *head)
 		if (timer->flags & TIMER_IRQSAFE) {
 			raw_spin_unlock(&base->lock);
 			call_timer_fn(timer, fn, baseclk);
+			base->running_timer = NULL;
+			spin_unlock(&base->expiry_lock);
+			spin_lock(&base->expiry_lock);
 			raw_spin_lock(&base->lock);
 		} else {
 			raw_spin_unlock_irq(&base->lock);
 			call_timer_fn(timer, fn, baseclk);
+			base->running_timer = NULL;
+			spin_unlock(&base->expiry_lock);
+			spin_lock(&base->expiry_lock);
 			raw_spin_lock_irq(&base->lock);
 		}
 	}
@@ -1709,7 +1715,6 @@ static inline void __run_timers(struct timer_base *base)
 		while (levels--)
 			expire_timers(base, heads + levels);
 	}
-	base->running_timer = NULL;
 	raw_spin_unlock_irq(&base->lock);
 	spin_unlock(&base->expiry_lock);
 }

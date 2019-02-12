@@ -1649,8 +1649,6 @@ static void call_console_drivers(u64 seq, const char *ext_text, size_t ext_len,
 	}
 }
 
-/* FIXME: no support for LOG_CONT */
-#if 0
 /*
  * Continuation lines are buffered, and not committed to the record buffer
  * until the line is complete, or a race forces it. The line fragments
@@ -1660,52 +1658,57 @@ static void call_console_drivers(u64 seq, const char *ext_text, size_t ext_len,
 static struct cont {
 	char buf[LOG_LINE_MAX];
 	size_t len;			/* length == 0 means unused buffer */
-	struct task_struct *owner;	/* task of first print*/
+	int cpu_owner;			/* cpu of first print*/
 	u64 ts_nsec;			/* time of first print */
 	u8 level;			/* log level of first message */
 	u8 facility;			/* log facility of first message */
 	enum log_flags flags;		/* prefix, newline flags */
-} cont;
+} cont[2];
 
-static void cont_flush(void)
+static void cont_flush(int ctx)
 {
-	if (cont.len == 0)
+	struct cont *c = &cont[ctx];
+
+	if (c->len == 0)
 		return;
 
-	log_store(cont.facility, cont.level, cont.flags, cont.ts_nsec,
-		  NULL, 0, cont.buf, cont.len);
-	cont.len = 0;
+	log_store(c->facility, c->level, c->flags, c->ts_nsec, c->cpu_owner,
+		  NULL, 0, c->buf, c->len);
+	c->len = 0;
 }
 
-static bool cont_add(int facility, int level, enum log_flags flags, const char *text, size_t len)
+static void cont_add(int ctx, int cpu, int facility, int level,
+		     enum log_flags flags, const char *text, size_t len)
 {
+	struct cont *c = &cont[ctx];
+
+	if (cpu != c->cpu_owner || !(flags & LOG_CONT))
+		cont_flush(ctx);
+
 	/* If the line gets too long, split it up in separate records. */
-	if (cont.len + len > sizeof(cont.buf)) {
-		cont_flush();
-		return false;
+	while (c->len + len > sizeof(c->buf))
+		cont_flush(ctx);
+
+	if (!c->len) {
+		c->facility = facility;
+		c->level = level;
+		c->cpu_owner = cpu;
+		c->ts_nsec = local_clock();
+		c->flags = flags;
 	}
 
-	if (!cont.len) {
-		cont.facility = facility;
-		cont.level = level;
-		cont.owner = current;
-		cont.ts_nsec = local_clock();
-		cont.flags = flags;
-	}
+	memcpy(c->buf + c->len, text, len);
+	c->len += len;
 
-	memcpy(cont.buf + cont.len, text, len);
-	cont.len += len;
-
-	// The original flags come from the first line,
-	// but later continuations can add a newline.
+	/*
+	 * The original flags come from the first line,
+	 * but later continuations can add a newline.
+	 */
 	if (flags & LOG_NEWLINE) {
-		cont.flags |= LOG_NEWLINE;
-		cont_flush();
+		c->flags |= LOG_NEWLINE;
+		cont_flush(ctx);
 	}
-
-	return true;
 }
-#endif /* 0 */
 
 /* ring buffer used as memory allocator for temporary sprint buffers */
 DECLARE_STATIC_PRINTKRB(sprint_rb,
@@ -1717,6 +1720,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 			    const char *fmt, va_list args)
 {
 	enum log_flags lflags = 0;
+	int ctx = !!in_nmi();
 	int printed_len = 0;
 	struct prb_handle h;
 	size_t text_len;
@@ -1784,8 +1788,15 @@ asmlinkage int vprintk_emit(int facility, int level,
 	 */
 	printk_emergency(rbuf, level, ts_nsec, cpu, text, text_len);
 
-	printed_len = log_store(facility, level, lflags, ts_nsec, cpu,
-				dict, dictlen, text, text_len);
+	if ((lflags & LOG_CONT) || !(lflags & LOG_NEWLINE)) {
+		cont_add(ctx, cpu, facility, level, lflags, text, text_len);
+		printed_len = text_len;
+	} else {
+		if (cpu == cont[ctx].cpu_owner)
+			cont_flush(ctx);
+		printed_len = log_store(facility, level, lflags, ts_nsec, cpu,
+					dict, dictlen, text, text_len);
+	}
 
 	prb_commit(&h);
 	return printed_len;

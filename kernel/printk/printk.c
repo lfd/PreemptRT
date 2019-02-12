@@ -331,6 +331,7 @@ enum log_flags {
 
 struct printk_log {
 	u64 ts_nsec;		/* timestamp in nanoseconds */
+	u16 cpu;		/* cpu that generated record */
 	u16 len;		/* length of entire record */
 	u16 text_len;		/* length of text buffer */
 	u16 dict_len;		/* length of dictionary buffer */
@@ -475,7 +476,7 @@ static u32 log_next(u32 idx)
 
 /* insert record into the buffer, discard old ones, update heads */
 static int log_store(int facility, int level,
-		     enum log_flags flags, u64 ts_nsec,
+		     enum log_flags flags, u64 ts_nsec, u16 cpu,
 		     const char *dict, u16 dict_len,
 		     const char *text, u16 text_len)
 {
@@ -506,6 +507,7 @@ static int log_store(int facility, int level,
 	msg->level = level & 7;
 	msg->flags = flags & 0x1f;
 	msg->ts_nsec = ts_nsec;
+	msg->cpu = cpu;
 	msg->len = size;
 
 	/* insert message */
@@ -570,9 +572,9 @@ static ssize_t msg_print_ext_header(char *buf, size_t size,
 
 	do_div(ts_usec, 1000);
 
-	return scnprintf(buf, size, "%u,%llu,%llu,%c;",
+	return scnprintf(buf, size, "%u,%llu,%llu,%c,%hu;",
 		       (msg->facility << 3) | msg->level, seq, ts_usec,
-		       msg->flags & LOG_CONT ? 'c' : '-');
+		       msg->flags & LOG_CONT ? 'c' : '-', msg->cpu);
 }
 
 static ssize_t msg_print_ext_body(char *buf, size_t size,
@@ -1110,6 +1112,11 @@ static inline void boot_delay_msec(int level)
 static bool printk_time = IS_ENABLED(CONFIG_PRINTK_TIME);
 module_param_named(time, printk_time, bool, S_IRUGO | S_IWUSR);
 
+static size_t print_cpu(u16 cpu, char *buf)
+{
+	return sprintf(buf, "%03hu: ", cpu);
+}
+
 static size_t print_syslog(unsigned int level, char *buf)
 {
 	return sprintf(buf, "<%u>", level);
@@ -1132,6 +1139,7 @@ static size_t print_prefix(const struct printk_log *msg, bool syslog,
 		len = print_syslog((msg->facility << 3) | msg->level, buf);
 	if (time)
 		len += print_time(msg->ts_nsec, buf + len);
+	len += print_cpu(msg->cpu, buf + len);
 	return len;
 }
 
@@ -1698,6 +1706,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	u64 ts_nsec;
 	char *text;
 	char *rbuf;
+	int cpu;
 
 	ts_nsec = local_clock();
 
@@ -1706,6 +1715,8 @@ asmlinkage int vprintk_emit(int facility, int level,
 		prb_inc_lost(&printk_rb);
 		return printed_len;
 	}
+
+	cpu = raw_smp_processor_id();
 
 	text = rbuf;
 	text_len = vscnprintf(text, PRINTK_SPRINT_MAX, fmt, args);
@@ -1744,7 +1755,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 	if (dict)
 		lflags |= LOG_PREFIX|LOG_NEWLINE;
 
-	printed_len = log_store(facility, level, lflags, ts_nsec,
+	printed_len = log_store(facility, level, lflags, ts_nsec, cpu,
 				dict, dictlen, text, text_len);
 
 	prb_commit(&h);

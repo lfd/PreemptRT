@@ -396,7 +396,7 @@ static int __init tcb_clksrc_init(struct device_node *node)
 
 	/* How fast will we be counting?  Pick something over 5 MHz.  */
 	rate = (u32) clk_get_rate(t0_clk);
-	for (i = 0; i < 5; i++) {
+	for (i = 0; i < ARRAY_SIZE(atmel_tc_divisors); i++) {
 		unsigned divisor = atmel_tc_divisors[i];
 		unsigned tmp;
 

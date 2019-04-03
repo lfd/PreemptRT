@@ -17,17 +17,9 @@
  * share individual timers between different drivers.
  */
 
-#if defined(CONFIG_AVR32)
-/* AVR32 has these divide PBB */
-const u8 atmel_tc_divisors[5] = { 0, 4, 8, 16, 32, };
-EXPORT_SYMBOL(atmel_tc_divisors);
-
-#elif defined(CONFIG_ARCH_AT91)
 /* AT91 has these divide MCK */
 const u8 atmel_tc_divisors[5] = { 2, 8, 32, 128, 0, };
 EXPORT_SYMBOL(atmel_tc_divisors);
-
-#endif
 
 static DEFINE_SPINLOCK(tc_list_lock);
 static LIST_HEAD(tc_list);

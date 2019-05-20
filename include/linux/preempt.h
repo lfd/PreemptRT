@@ -78,9 +78,15 @@
 #include <asm/preempt.h>
 
 #define hardirq_count()	(preempt_count() & HARDIRQ_MASK)
-#define softirq_count()	(preempt_count() & SOFTIRQ_MASK)
 #define irq_count()	(preempt_count() & (HARDIRQ_MASK | SOFTIRQ_MASK \
 				 | NMI_MASK))
+#ifdef CONFIG_PREEMPT_RT_FULL
+
+long softirq_count(void);
+
+#else
+#define softirq_count()	(preempt_count() & SOFTIRQ_MASK)
+#endif
 
 /*
  * Are we doing bottom half or hardware interrupt processing?

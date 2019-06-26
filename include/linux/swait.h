@@ -61,11 +61,13 @@ struct swait_queue_head {
 struct swait_queue {
 	struct task_struct	*task;
 	struct list_head	task_list;
+	unsigned int		remove;
 };
 
 #define __SWAITQUEUE_INITIALIZER(name) {				\
 	.task		= current,					\
 	.task_list	= LIST_HEAD_INIT((name).task_list),		\
+	.remove		= 1,						\
 }
 
 #define DECLARE_SWAITQUEUE(name)					\

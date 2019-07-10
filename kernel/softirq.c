@@ -78,7 +78,6 @@ static void wakeup_softirqd(void)
 		wake_up_process(tsk);
 }
 
-#ifndef CONFIG_PREEMPT_RT_FULL
 /*
  * If ksoftirqd is scheduled, we do not want to process pending softirqs
  * right now. Let ksoftirqd handle this at its own rate, to get fairness,
@@ -93,7 +92,6 @@ static bool ksoftirqd_running(unsigned long pending)
 		return false;
 	return tsk && (tsk->state == TASK_RUNNING);
 }
-#endif
 
 /*
  * preempt_count and SOFTIRQ_OFFSET usage:
@@ -173,7 +171,7 @@ void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
 
 	if (unlikely(count == 1)) {
 		pending = local_softirq_pending();
-		if (pending) {
+		if (pending && !ksoftirqd_running(pending)) {
 			if (!in_atomic())
 				__do_softirq();
 			else

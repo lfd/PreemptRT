@@ -680,7 +680,8 @@ alternative_if ARM64_HAS_IRQ_PRIO_MASKING
 	orr	x24, x24, x0
 alternative_else_nop_endif
 
-	cbnz	x24, 2f					// preempt count != 0
+	cbz	x24, 1f					// (need_resched + count) == 0
+	cbnz	w24, 2f					// count != 0
 
 	ldr	w24, [tsk, #TSK_TI_PREEMPT_LAZY]	// get preempt lazy count
 	cbnz	w24, 2f					// preempt lazy count != 0

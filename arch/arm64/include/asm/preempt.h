@@ -73,6 +73,8 @@ static inline bool __preempt_count_dec_and_test(void)
 	if (!pc || !READ_ONCE(ti->preempt_count))
 		return true;
 #ifdef CONFIG_PREEMPT_LAZY
+	if ((pc & ~PREEMPT_NEED_RESCHED))
+		return false;
 	if (current_thread_info()->preempt_lazy_count)
 		return false;
 	return test_thread_flag(TIF_NEED_RESCHED_LAZY);

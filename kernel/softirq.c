@@ -115,8 +115,10 @@ void __local_bh_disable_ip(unsigned long ip, unsigned int cnt)
 	long soft_cnt;
 
 	WARN_ON_ONCE(in_irq());
-	if (!in_atomic())
+	if (!in_atomic()) {
 		local_lock(bh_lock);
+		rcu_read_lock();
+	}
 	soft_cnt = this_cpu_inc_return(softirq_counter);
 	WARN_ON_ONCE(soft_cnt == 0);
 	current->softirq_count += SOFTIRQ_DISABLE_OFFSET;
@@ -151,8 +153,10 @@ void _local_bh_enable(void)
 #endif
 
 	current->softirq_count -= SOFTIRQ_DISABLE_OFFSET;
-	if (!in_atomic())
+	if (!in_atomic()) {
+		rcu_read_unlock();
 		local_unlock(bh_lock);
+	}
 }
 
 void _local_bh_enable_rt(void)
@@ -185,8 +189,10 @@ void __local_bh_enable_ip(unsigned long ip, unsigned int cnt)
 	WARN_ON_ONCE(count < 0);
 	local_irq_enable();
 
-	if (!in_atomic())
+	if (!in_atomic()) {
+		rcu_read_unlock();
 		local_unlock(bh_lock);
+	}
 
 	current->softirq_count -= SOFTIRQ_DISABLE_OFFSET;
 	preempt_check_resched();

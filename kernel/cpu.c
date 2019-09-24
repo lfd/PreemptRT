@@ -307,7 +307,9 @@ again:
 	cpu = smp_processor_id();
 	preempt_enable();
 
+	sleeping_lock_inc();
 	__read_rt_lock(cpuhp_pin);
+	sleeping_lock_dec();
 
 	preempt_disable();
 	if (cpu != smp_processor_id()) {

@@ -893,10 +893,10 @@ resume_kernel:
 	bne	restore_kuap
 	andi.	r8,r8,_TIF_NEED_RESCHED
 	bne+	1f
-	lwz	r0,TI_PREEMPT_LAZY(r9)
+	lwz	r0,TI_PREEMPT_LAZY(r2)
 	cmpwi	0,r0,0          /* if non-zero, just restore regs and return */
 	bne	restore_kuap
-	lwz	r0,TI_FLAGS(r9)
+	lwz	r0,TI_FLAGS(r2)
 	andi.	r0,r0,_TIF_NEED_RESCHED_LAZY
 	beq+	restore_kuap
 1:

@@ -1458,10 +1458,8 @@ static int syslog_print_all(char __user *buf, int size, bool clear)
 	if (clear && !seq)
 		syslog_clear();
 
-	if (text)
-		kfree(text);
-	if (msgbuf)
-		kfree(msgbuf);
+	kfree(text);
+	kfree(msgbuf);
 	return len;
 }
 
@@ -1614,10 +1612,8 @@ int do_syslog(int type, char __user *buf, int len, int source)
 		break;
 	}
 out:
-	if (msgbuf)
-		kfree(msgbuf);
-	if (text)
-		kfree(text);
+	kfree(msgbuf);
+	kfree(text);
 	return error;
 }
 

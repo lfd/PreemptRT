@@ -3105,6 +3105,12 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 			sync_mode = true;
 			pr_info("enabled sync mode\n");
 		}
+
+		/*
+		 * Give the printing threads time to flush, allowing up to 1
+		 * second of no printing forward progress before giving up.
+		 */
+		pr_flush(false, 100, true);
 	}
 
 	rcu_read_lock();

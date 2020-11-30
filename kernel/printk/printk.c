@@ -3436,3 +3436,75 @@ void console_atomic_unlock(unsigned int flags)
 	prb_unlock(&printk_cpulock, flags);
 }
 EXPORT_SYMBOL(console_atomic_unlock);
+
+static void pr_msleep(bool may_sleep, int ms)
+{
+	if (may_sleep) {
+		msleep(ms);
+	} else {
+		while (ms--)
+			udelay(1000);
+	}
+}
+
+/**
+ * pr_flush() - Wait for printing threads to catch up.
+ *
+ * @may_sleep:         Context allows msleep() calls.
+ * @timeout_ms:        The maximum time (in ms) to wait.
+ * @reset_on_progress: Reset the timeout if forward progress is seen.
+ *
+ * A value of 0 for @timeout_ms means no waiting will occur. A value of -1
+ * represents infinite waiting.
+ *
+ * If @reset_on_progress is true, the timeout will be reset whenever any
+ * printer has been seen to make some forward progress.
+ *
+ * Context: Any context if @timeout_ms is 0 or @may_sleep is false. Otherwise
+ * process context.
+ * Return: true if all enabled printers are caught up.
+ */
+bool pr_flush(bool may_sleep, int timeout_ms, bool reset_on_progress)
+{
+	int remaining = timeout_ms;
+	struct console *con;
+	u64 last_diff = 0;
+	u64 printk_seq;
+	u64 diff;
+	u64 seq;
+
+	seq = prb_next_seq(prb);
+
+	for (;;) {
+		diff = 0;
+
+		for_each_console(con) {
+			if (!(con->flags & CON_ENABLED))
+				continue;
+			printk_seq = atomic64_read(&con->printk_seq);
+			if (printk_seq < seq)
+				diff += seq - printk_seq;
+		}
+
+		if (diff != last_diff && reset_on_progress)
+			remaining = timeout_ms;
+
+		if (!diff || remaining == 0)
+			break;
+
+		if (remaining < 0) {
+			pr_msleep(may_sleep, 100);
+		} else if (remaining < 100) {
+			pr_msleep(may_sleep, remaining);
+			remaining = 0;
+		} else {
+			pr_msleep(may_sleep, 100);
+			remaining -= 100;
+		}
+
+		last_diff = diff;
+	}
+
+	return (diff == 0);
+}
+EXPORT_SYMBOL(pr_flush);

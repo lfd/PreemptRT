@@ -283,7 +283,7 @@ static void create_worker_cb(struct callback_head *cb)
 
 	worker = container_of(cb, struct io_worker, create_work);
 	wqe = worker->wqe;
-	wq = worker->wq;
+	wq = worker->wqe->wq;
 	acct = &wqe->acct[worker->create_index];
 	raw_spin_lock_irq(&wqe->lock);
 	if (acct->nr_workers < acct->max_workers)
@@ -401,7 +401,7 @@ static void io_wait_on_hash(struct io_wqe *wqe, unsigned int hash)
 {
 	struct io_wq *wq = wqe->wq;
 
-	spin_lock(&wq->hash->wait.lock);
+	spin_lock_irq(&wq->hash->wait.lock);
 	if (list_empty(&wqe->wait.entry)) {
 		__add_wait_queue(&wq->hash->wait, &wqe->wait);
 		if (!test_bit(hash, &wq->hash->map)) {
@@ -409,7 +409,7 @@ static void io_wait_on_hash(struct io_wqe *wqe, unsigned int hash)
 			list_del_init(&wqe->wait.entry);
 		}
 	}
-	spin_unlock(&wq->hash->wait.lock);
+	spin_unlock_irq(&wq->hash->wait.lock);
 }
 
 static struct io_wq_work *io_get_next_work(struct io_wqe *wqe)
@@ -447,9 +447,9 @@ static struct io_wq_work *io_get_next_work(struct io_wqe *wqe)
 	}
 
 	if (stall_hash != -1U) {
-		raw_spin_unlock(&wqe->lock);
+		raw_spin_unlock_irq(&wqe->lock);
 		io_wait_on_hash(wqe, stall_hash);
-		raw_spin_lock(&wqe->lock);
+		raw_spin_lock_irq(&wqe->lock);
 	}
 
 	return NULL;
